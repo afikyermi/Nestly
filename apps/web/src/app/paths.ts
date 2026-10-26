@@ -23,9 +23,10 @@ export const PATHS = {
   register: '/register',
   googleEntry: '/auth/google',
   recovery: '/recovery',
-  // Placeholders until I9 (the consent documents); registration step 2 links to them (F1.4).
+  // The public documents (BR-078, NFR-A11Y-001; PG-061): registration step 2 links to the first two (F1.4).
   terms: '/terms',
   privacy: '/privacy',
+  accessibility: '/accessibility',
   home: '/home',
   feed: '/feed',
   profile: '/profile',
@@ -123,6 +124,7 @@ export const GUEST_PATHS: readonly string[] = [
   PATHS.recovery,
   PATHS.terms,
   PATHS.privacy,
+  PATHS.accessibility,
   PATHS.joinTeam,
 ];
 

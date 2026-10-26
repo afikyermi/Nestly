@@ -352,6 +352,12 @@ describe('F1.4 criterion 9 [AC-084] consent version constants', () => {
       expect(v).toBe(v.trim());
     }
   });
+  it('[AC-186 BR-078] each is the day its document last changed (YYYY-MM-DD, a real date), which the page shows as updated', () => {
+    for (const v of [CONSENT_TERMS_VERSION, CONSENT_PRIVACY_VERSION]) {
+      expect(v).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10)).toBe(v);
+    }
+  });
   it('the registration schemas accept no consent version from the client (criterion 2): neither as a key nor inside a credentials object', () => {
     expect(step1.safeParse({ ...body(), termsVersion: CONSENT_TERMS_VERSION }).success).toBe(false);
     expect(step1.safeParse({ ...body(), privacyVersion: CONSENT_PRIVACY_VERSION }).success).toBe(false);

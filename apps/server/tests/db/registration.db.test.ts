@@ -217,7 +217,7 @@ describe('[F1.4-b c8 c10] a registration is written whole, under the new user\'s
 
 // ---------------------------------------------------------------------------------------------------------------------
 describe('[F1.4-b c9] the consent versions come from the shared constants, not from the caller', () => {
-  it('[F1.4-b c9] the stored versions equal CONSENT_TERMS_VERSION and CONSENT_PRIVACY_VERSION', T, async () => {
+  it('[F1.4-b c9 AC-186] the stored versions equal CONSENT_TERMS_VERSION and CONSENT_PRIVACY_VERSION', T, async () => {
     const id = await freshUser();
     await createRegistration(database, { userId: id }, step1());
     expect(await consentVersions(id)).toBe(`${CONSENT_TERMS_VERSION}/${CONSENT_PRIVACY_VERSION}/true`);

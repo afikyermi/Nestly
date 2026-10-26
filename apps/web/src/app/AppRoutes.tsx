@@ -16,8 +16,9 @@ import { GroupPage } from '@/pages/groups/GroupPage';
 import { GroupsPage } from '@/pages/groups/GroupsPage';
 import { HomePage } from '@/pages/home/HomePage';
 import { GoogleReturnPage } from '@/pages/google-return/GoogleReturnPage';
-import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
+import { AccessibilityPage } from '@/pages/accessibility/AccessibilityPage';
 import { PrivacyPage } from '@/pages/privacy/PrivacyPage';
+import { TermsPage } from '@/pages/terms/TermsPage';
 import { LoginPage } from '@/pages/login/LoginPage';
 import { MedicalHotlinesPage } from '@/pages/medical-hotlines/MedicalHotlinesPage';
 import { NotificationsPage } from '@/pages/notifications/NotificationsPage';
@@ -59,8 +60,9 @@ export function AppRoutes() {
           <Route path={PATHS.register} element={<RegisterPage />} />
           <Route path={PATHS.googleEntry} element={<GoogleReturnPage />} />
           <Route path={PATHS.recovery} element={<RecoveryPage />} />
-          <Route path={PATHS.terms} element={<GuestPlaceholderPage title="תנאי השימוש" />} />
+          <Route path={PATHS.terms} element={<TermsPage />} />
           <Route path={PATHS.privacy} element={<PrivacyPage />} />
+          <Route path={PATHS.accessibility} element={<AccessibilityPage />} />
           <Route path={PATHS.joinTeam} element={<JoinTeamPage />} />
           <Route path={PATHS.deletionScheduled} element={<ScheduledDeletionPage />} />
           <Route element={<ProtectedLayout />}>
