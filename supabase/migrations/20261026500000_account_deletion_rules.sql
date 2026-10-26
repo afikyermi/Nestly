@@ -30,6 +30,8 @@
 --    account_deletion_events gains auth_removed_at (an execute row only): NULL until the job has removed the Auth user. The job claims one
 --    execute row at a time (FOR UPDATE SKIP LOCKED, so two runs never call Auth for the same account), calls Auth once, and stamps the row
 --    (account_deletion_events_update_jobs: execute rows not yet stamped; only auth_removed_at, only to a time). Nobody else writes it.
+--    The 90-day purge (purge_deleted_accounts() and account_deletion_events_delete_jobs, replaced) keeps an execute row until it is
+--    stamped, so an Auth removal that keeps failing is retried every day and the identity still cannot register again meanwhile.
 --
 -- No new table, no new SECURITY DEFINER (one new INVOKER trigger function). Applied by the Supabase CLI as app_owner, in one transaction with its history row.
 -- Down script: supabase/rollback/20261026500000_account_deletion_rules.down.sql (refuses once an Auth user was stamped as removed).
@@ -191,6 +193,9 @@ create policy account_deletion_events_insert_enforcement on nestly.account_delet
 -- 2. §22.5: the text copy in reports on the account's content is emptied at the execution ----------------------------------------
 -- (a) content deleted with the account: the FK's SET NULL of the report's target runs this; it empties the copy only in a transaction that
 --     has just written an execute row (only the deletion job can), so a delete anywhere else keeps the copy for staff as before.
+--     It reads no author (an anonymous post's author stays unread, rule 20): every target deleted in that transaction is the account's or
+--     goes with it, so the job runs nothing else in the transaction of execute_account_deletions() (apps/server/src/jobs/account-deletion.ts:
+--     the execution is its own transaction). pgTAP 114 proves it fires through the FK actions (listing, anonymous post, comments).
 create function nestly.reports_text_gone_with_account()
 returns trigger
 language plpgsql
@@ -225,7 +230,9 @@ create policy reports_update_deletion_text_jobs on nestly.reports
   for update to app_jobs
   using (comment_id in (select c.id from nestly.comments c join nestly.users u on u.id = c.author_id
                          where u.status = 'deletion_scheduled' and u.deletion_due_at <= now()))
-  with check (target_text is null);
+  with check (target_text is null
+    and comment_id in (select c.id from nestly.comments c join nestly.users u on u.id = c.author_id
+                        where u.status = 'deletion_scheduled' and u.deletion_due_at <= now()));
 
 grant update (target_text) on table nestly.reports to app_jobs;
 
@@ -314,6 +321,52 @@ create policy account_deletion_events_update_jobs on nestly.account_deletion_eve
 
 grant update (auth_removed_at) on table nestly.account_deletion_events to app_jobs;
 
+-- the 90-day purge keeps an execute row until its Auth user is removed (a failing removal is retried, never forgotten)
+drop policy account_deletion_events_delete_jobs on nestly.account_deletion_events;
+create policy account_deletion_events_delete_jobs on nestly.account_deletion_events
+  for delete to app_jobs
+  using ((account_id in (select e.account_id from nestly.account_deletion_events e
+                          where e.kind = 'execute' and e.created_at <= now() - interval '90 days')
+          and not (kind = 'execute' and auth_removed_at is null))
+    or (kind in ('request', 'cancel') and created_at <= now() - interval '12 months'
+        and not exists (select 1 from nestly.users u where u.id = account_deletion_events.account_id and u.status = 'deletion_scheduled')));
+
+create or replace function nestly.purge_deleted_accounts()
+returns integer
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_gone uuid[];
+  n integer := 0;
+  k integer;
+begin
+  select coalesce(array_agg(e.account_id), '{}') into v_gone from nestly.account_deletion_events e
+   where e.kind = 'execute' and e.created_at <= pg_catalog.now() - interval '90 days';
+  delete from nestly.security_events where user_id = any (v_gone);
+  get diagnostics k = row_count; n := n + k;
+  delete from nestly.recovery_events where user_id = any (v_gone);
+  get diagnostics k = row_count; n := n + k;
+  delete from nestly.reports where reporter_id = any (v_gone);
+  get diagnostics k = row_count; n := n + k;
+  delete from nestly.enforcement_records where user_id = any (v_gone);
+  get diagnostics k = row_count; n := n + k;
+  delete from nestly.user_enforcements where user_id = any (v_gone);
+  get diagnostics k = row_count; n := n + k;
+  delete from nestly.audit_log where target_kind = 'user' and target_id = any (v_gone);
+  get diagnostics k = row_count; n := n + k;
+  -- §22.6: an execute row whose Auth user is not yet removed stays (the job still needs it; it also keeps the identity from registering)
+  delete from nestly.account_deletion_events
+   where (account_id = any (v_gone) and not (kind = 'execute' and auth_removed_at is null))
+      or (kind in ('request', 'cancel') and created_at <= pg_catalog.now() - interval '12 months'
+          and not exists (select 1 from nestly.users u where u.id = account_deletion_events.account_id and u.status = 'deletion_scheduled'));
+  get diagnostics k = row_count; n := n + k;
+  return n;
+end
+$$;
+
+
 -- 4. comments ----------------------------------------------------------------------------------------------------------------------
 comment on function nestly.users_status_guard() is 'SECURITY INVOKER. Before a status change on users: staff by Permission Key and target type, always with an enforcement row (BR-074); an account itself only ends an expired suspension, schedules its own deletion (Regular / Professional, a valid session, not a Group Owner: ERR-026, NS030; due = now() + 30 days) or cancels it before the due date (FR-SET-002). Staff never schedule or cancel a deletion; a suspension or ban of a scheduled account cancels it (BR-085, §22.4).';
 comment on function nestly.user_enforcements_apply() is 'SECURITY INVOKER. After insert: applies the status change (NS013 when it does not apply); a suspension or ban also applies to a scheduled account and cancels its deletion (BR-085). The Audit entry is audit_trigger()''s.';
@@ -321,9 +374,11 @@ comment on function nestly.account_deletion_record() is 'SECURITY INVOKER. After
 comment on policy account_deletion_events_insert_enforcement on nestly.account_deletion_events is 'BR-085, §22.4: the cancel row of a deletion that a suspension or ban cancelled — only inside the trigger, for an account the caller has just suspended or banned out of deletion_scheduled (its enforcement row of this transaction).';
 comment on function nestly.reports_text_gone_with_account() is 'SECURITY INVOKER. §22.5: when a report''s target (post, comment, listing, review, article) is deleted in the deletion job''s transaction (an execute row of this transaction), the copy of its text goes with it; any other deletion keeps the copy.';
 comment on policy reports_select_deletion_text_jobs on nestly.reports is 'Rule 6, §22.5: the deletion job reads the reports on the comments of an account whose deletion is due.';
-comment on policy reports_update_deletion_text_jobs on nestly.reports is 'Rule 6, §22.5: and empties their copy of the reported text (target_text); nothing else (column grant).';
+comment on policy reports_update_deletion_text_jobs on nestly.reports is 'Rule 6, §22.5: and empties their copy of the reported text (target_text); the new row must still be a report on such a comment with no copy.';
 comment on function nestly.execute_account_deletions() is 'SECURITY INVOKER, EXECUTE app_jobs (the daily job). BR-073 at the due date: per account (unless an open report holds its content, BR-080: it waits) the execute row, its open account reports expired, the text copy of its content in reports emptied (§22.5), its conversations detached, its replied comments kept as "deleted user", the users row deleted (CASCADE does the rest). Returns executed, waiting, failed.';
 comment on column nestly.account_deletion_events.auth_removed_at is '§22.6: when the deletion job removed the account''s Auth user (an execute row only); NULL until then. Written once, by the job.';
 comment on constraint account_deletion_events_auth_removed_check on nestly.account_deletion_events is 'Only an execution has an Auth removal.';
+comment on policy account_deletion_events_delete_jobs on nestly.account_deletion_events is 'Rule 6, §16.4: 90 days after the execution every row of that account but an execute row whose Auth user is not yet removed (§22.6); a request/cancel of an account that is not scheduled now, 12 months after.';
+comment on function nestly.purge_deleted_accounts() is 'SECURITY INVOKER, EXECUTE app_jobs (the daily job). BR-073, §16.4: 90 days after an execution the account''s security events, recovery events, reports, enforcement records and history, Audit entries about it and its deletion rows (the execute row only once its Auth user was removed, §22.6); a request/cancel of a live account 12 months after. Returns the rows deleted.';
 comment on policy account_deletion_events_update_jobs on nestly.account_deletion_events is 'Rule 6, §22.6: the deletion job stamps an execute row once it removed the Auth user (only auth_removed_at, once).';
 comment on column nestly.reports.target_text is 'The reported text as it was when reported (post or comment body, listing title, review, article title and text); NULL for a user report, a Private Group report, and once its author''s account deletion was executed (§22.5).';

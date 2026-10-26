@@ -164,7 +164,10 @@ select is(pg_temp.text_of('t.r_lb'), 'B''s listing title', '[I9 §22.5] a deleti
 select is(pg_temp.request('e'), 'OK:1', 'fixture: E schedules its deletion');
 select is(tests.jobs_dml(format($q$ update nestly.reports set target_text = null where id = %L $q$, current_setting('t.r_ce'))), 'OK:0',
   '[I9 §22.5 rule 6] before the due date the job cannot touch the copy');
+select set_config('t.r_ue', tests.fx_rp_add(pg_temp.id('a'), 'user', pg_temp.id('e'))::text, true);
 select tests.fx_dl_due(pg_temp.id('e'), interval '31 days');
+select is(tests.jobs_dml(format($q$ update nestly.reports set status = 'handled', closed_at = now() where id = %L $q$, current_setting('t.r_ue'))), 'ERR:42501',
+  '[I9 §22.5 rule 6] the job''s new report policy opens no other change: an open report on the account itself can still only expire');
 select is(tests.jobs_dml(format($q$ update nestly.reports set target_text = null where id = %L $q$, current_setting('t.r_cb'))), 'OK:0',
   '[I9 §22.5 rule 6] the job cannot empty the copy of another account''s content');
 select is(tests.jobs_dml(format($q$ update nestly.reports set target_text = 'x' where id = %L $q$, current_setting('t.r_ce'))), 'ERR:42501',
@@ -187,6 +190,12 @@ select is(pg_temp.text_of('t.r_cb'), 'null', '[I9 §22.5 ⭐ OP-079] B''s commen
 -- =====================================================================================================================
 select is(pg_temp.pg(format($q$ select coalesce(auth_removed_at::text, 'null') from nestly.account_deletion_events where account_id = %L and kind = 'execute' $q$, pg_temp.id('e'))),
   'null', '[I9 §22.6] after the execution the Auth user is still to be removed');
+-- the 90-day purge keeps the execute row until the Auth user is removed (a failing removal is never forgotten)
+select tests.fx_dl_age(pg_temp.id('e'), interval '91 days');
+select is(tests.jobs_as('select nestly.purge_deleted_accounts()::text') <> '0', true, 'fixture: the 90-day purge runs for E');
+select is(pg_temp.events('e'), 'execute', '[I9 §22.6 AC-191] the purge keeps E''s execute row while its Auth user is not removed (request and cancel rows went)');
+select is(tests.jobs_dml(format($q$ delete from nestly.account_deletion_events where account_id = %L and kind = 'execute' $q$, pg_temp.id('e'))), 'OK:0',
+  '[I9 §22.6 rule 6] nor can the job delete it directly');
 select is(tests.jobs_as($q$ select count(*)::text from (select id from nestly.account_deletion_events where kind = 'execute' and auth_removed_at is null for update skip locked) s $q$),
   '1', '[I9 §22.6 rule 6] the job claims the execute row waiting for the Auth removal (FOR UPDATE SKIP LOCKED)');
 select is(pg_temp.staff('adm', format($q$ update nestly.account_deletion_events set auth_removed_at = now() where account_id = %L $q$, pg_temp.id('e'))), 'ERR:42501',
@@ -203,6 +212,8 @@ select is(tests.jobs_dml(format($q$ update nestly.account_deletion_events set au
   '[I9 §22.6 AC-191] once: a stamped row is never claimed or stamped again (one Auth call per account)');
 select is(tests.jobs_as($q$ select count(*)::text from nestly.account_deletion_events where kind = 'execute' and auth_removed_at is null $q$), '0',
   '[I9 §22.6 AC-191] nothing is left for the job to remove');
+select is(tests.jobs_as('select nestly.purge_deleted_accounts()::text'), '1', '[I9 §22.6 BR-084] once stamped, the next purge removes the execute row');
+select is(pg_temp.events('e'), '-', '[I9 BR-073 AC-182] and nothing of E is left');
 
 select * from finish();
 rollback;

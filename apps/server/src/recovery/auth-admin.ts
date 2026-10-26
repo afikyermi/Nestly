@@ -303,8 +303,8 @@ export type AuthUserRemoval = 'removed' | 'failed';
 /**
  * The account deletion's last step (§22.6): one DELETE of one Auth user, after the deletion job has executed that account's deletion
  * (the Nestly row is already gone: the anchor FK is RESTRICT, so Auth refuses an earlier call). Called by the deletion job only
- * (src/jobs/account-deletion.ts; tests/credentials.static.test.ts fences it), once per account per run. A 404 means the user is already
- * gone, which is the goal. Never throws; nothing of Auth's answer is kept.
+ * (src/jobs/account-deletion.ts; tests/credentials.static.test.ts fences it), once per account per run. Auth's user_not_found means the
+ * user is already gone, which is the goal. Never throws; nothing of Auth's answer is kept but that code.
  */
 export async function deleteAuthUser(input: { readonly userId: string }, env: Env = process.env): Promise<AuthUserRemoval> {
   const target = readTarget(env, NEEDS.admin);
@@ -312,8 +312,12 @@ export async function deleteAuthUser(input: { readonly userId: string }, env: En
   try {
     const total = AbortSignal.timeout(CALL_TIMEOUT_MS);
     const removal = await call(target, total, `/admin/users/${input.userId}`, { key: 'secret', method: 'DELETE' });
-    await removal.body?.cancel();
-    return removal.ok || removal.status === 404 ? 'removed' : 'failed';
+    if (removal.ok) {
+      await removal.body?.cancel();
+      return 'removed';
+    }
+    // only Auth's own "no such user" is the goal reached; any other 404 (a wrong address) is a failure, tried again next run
+    return removal.status === 404 && (await errorCodeOf(removal)) === 'user_not_found' ? 'removed' : 'failed';
   } catch {
     return 'failed';
   }

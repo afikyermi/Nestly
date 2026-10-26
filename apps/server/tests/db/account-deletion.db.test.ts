@@ -155,20 +155,23 @@ describe('[I9 §22.4 BR-085] a suspension or ban wins over a scheduled deletion'
     expect(await counts()).toEqual({ pending: before.pending + 1, overdue: before.overdue });
     const outcome = await enforce(database, id(admin), { userId: suspended, kind: 'suspension', reason: 'harassment', durationHours: 24 });
     expect(outcome.kind).toBe('ok');
-    expect(await readAccountState(database, id(suspended))).toMatchObject({ state: 'suspended' });
+    // a suspended account is unavailable to itself (FR-AUTH-002), with no deletion pending
+    expect(await readAccountState(database, id(suspended))).toEqual({ state: 'unavailable' });
+    expect(await fixture((tx) => tx`select tests.fx_user(${suspended}::uuid) as v`)).toBe('regular/suspended');
     expect(await readDeletionStatus(database, id(suspended))).toEqual({ status: 'none' });
     // §16.4: the cancel closes the request in the Admin's counter
     expect(await counts()).toEqual(before);
     expect(await cancelDeletion(database, id(suspended))).toEqual({ kind: 'not_scheduled' });
     expect(await requestDeletion(database, id(suspended), fresh(), new Date())).toEqual({ kind: 'not_allowed' });
-    expect(await readAccountState(database, id(suspended))).toMatchObject({ state: 'suspended' });
+    expect(await fixture((tx) => tx`select tests.fx_user(${suspended}::uuid) as v`)).toBe('regular/suspended');
   });
 
   it('[BR-085 AC-189] the Admin bans a scheduled account past its date: no deletion runs, cancel and a new request are refused', T, async () => {
     expect((await requestDeletion(database, id(banned), fresh(), new Date())).kind).toBe('scheduled');
     await fixture((tx) => tx`select tests.fx_dl_due(${banned}::uuid, interval '31 days')::text as v`);
     expect((await enforce(database, id(admin), { userId: banned, kind: 'ban', reason: 'harassment' })).kind).toBe('ok');
-    expect(await readAccountState(database, id(banned))).toMatchObject({ state: 'banned' });
+    expect(await readAccountState(database, id(banned))).toEqual({ state: 'unavailable' });
+    expect(await fixture((tx) => tx`select tests.fx_user(${banned}::uuid) as v`)).toBe('regular/banned');
     expect(await cancelDeletion(database, id(banned))).toEqual({ kind: 'not_scheduled' });
     expect(await requestDeletion(database, id(banned), fresh(), new Date())).toEqual({ kind: 'not_allowed' });
     const stillThere = `select count(*)::text from nestly.users where id = '${banned}'`;

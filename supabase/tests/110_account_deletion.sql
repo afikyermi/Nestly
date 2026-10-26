@@ -266,6 +266,8 @@ select is(pg_temp.dml('adm', format($q$ delete from nestly.audit_log where targe
 select tests.fx_rp_set(current_setting('t.rp_by_d')::uuid, 'handled');
 select tests.fx_dl_age(pg_temp.id('d'), interval '91 days');
 select is(pg_temp.x(format($q$ delete from nestly.audit_log where target_id = %L $q$, pg_temp.id('d'))), 'ERR:42501', '[I9 NFR-AUDIT-001] and for the owner role, past 90 days too');
+select is(tests.jobs_dml(format($q$ update nestly.account_deletion_events set auth_removed_at = now() where account_id = %L and kind = 'execute' $q$, pg_temp.id('d'))), 'OK:1',
+  'fixture: the job removed D''s Auth user (§22.6; until then the purge keeps the execute row: file 114)');
 select is(pg_temp.purge(), '11', '[I9 BR-073 AC-182] 90 days after the execution the kept records and the deletion rows go (5 records, a handled report D made among them, 6 deletion rows)');
 select is(pg_temp.pg(format($q$ select (select count(*) from nestly.security_events where user_id = %L) + (select count(*) from nestly.recovery_events where user_id = %L)
                                 + (select count(*) from nestly.reports where reporter_id = %L) + (select count(*) from nestly.user_enforcements where user_id = %L)

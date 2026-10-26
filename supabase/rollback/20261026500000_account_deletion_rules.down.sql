@@ -2,7 +2,8 @@
 -- Down script for supabase/migrations/20261026500000_account_deletion_rules.sql: restores, verbatim as 20261020300000_safety_admin_core.sql
 -- and 20261025200000_account_deletion.sql left them, users_status_guard(), user_enforcements_apply(), account_deletion_record() and
 -- execute_account_deletions() with their comments; drops account_deletion_events_insert_enforcement, reports_text_gone_with_account (trigger and function),
--- reports_select_deletion_text_jobs, reports_update_deletion_text_jobs, account_deletion_events_update_jobs and the column auth_removed_at; revokes the grants it added.
+-- reports_select_deletion_text_jobs, reports_update_deletion_text_jobs, account_deletion_events_update_jobs and the column auth_removed_at; restores
+-- account_deletion_events_delete_jobs and purge_deleted_accounts() as 20261025200000 left them; revokes the grants it added.
 -- Outside supabase/migrations on purpose: the CLI never applies it.
 --
 -- Run as:   app_owner, in one transaction. CI runs it once per build (up -> down -> up) against the disposable database.
@@ -32,6 +33,52 @@ $$;
 alter table nestly.account_deletion_events force row level security;
 
 drop policy account_deletion_events_update_jobs on nestly.account_deletion_events;
+drop policy account_deletion_events_delete_jobs on nestly.account_deletion_events;
+create policy account_deletion_events_delete_jobs on nestly.account_deletion_events
+  for delete to app_jobs
+  using (account_id in (select e.account_id from nestly.account_deletion_events e
+                         where e.kind = 'execute' and e.created_at <= now() - interval '90 days')
+    or (kind in ('request', 'cancel') and created_at <= now() - interval '12 months'
+        and not exists (select 1 from nestly.users u where u.id = account_deletion_events.account_id and u.status = 'deletion_scheduled')));
+
+create or replace function nestly.purge_deleted_accounts()
+returns integer
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_gone uuid[];
+  n integer := 0;
+  k integer;
+begin
+  select coalesce(array_agg(e.account_id), '{}') into v_gone from nestly.account_deletion_events e
+   where e.kind = 'execute' and e.created_at <= pg_catalog.now() - interval '90 days';
+  delete from nestly.security_events where user_id = any (v_gone);
+  get diagnostics k = row_count; n := n + k;
+  delete from nestly.recovery_events where user_id = any (v_gone);
+  get diagnostics k = row_count; n := n + k;
+  delete from nestly.reports where reporter_id = any (v_gone);
+  get diagnostics k = row_count; n := n + k;
+  delete from nestly.enforcement_records where user_id = any (v_gone);
+  get diagnostics k = row_count; n := n + k;
+  delete from nestly.user_enforcements where user_id = any (v_gone);
+  get diagnostics k = row_count; n := n + k;
+  delete from nestly.audit_log where target_kind = 'user' and target_id = any (v_gone);
+  get diagnostics k = row_count; n := n + k;
+  delete from nestly.account_deletion_events
+   where account_id = any (v_gone)
+      or (kind in ('request', 'cancel') and created_at <= pg_catalog.now() - interval '12 months'
+          and not exists (select 1 from nestly.users u where u.id = account_deletion_events.account_id and u.status = 'deletion_scheduled'));
+  get diagnostics k = row_count; n := n + k;
+  return n;
+end
+$$;
+
+
+comment on policy account_deletion_events_delete_jobs on nestly.account_deletion_events is 'Rule 6, §16.4: 90 days after the execution every row of that account; a request/cancel of an account that is not scheduled now, 12 months after.';
+comment on function nestly.purge_deleted_accounts() is 'SECURITY INVOKER, EXECUTE app_jobs (the daily job). BR-073, §16.4: 90 days after an execution the account''s security events, recovery events, reports, enforcement records and history, Audit entries about it and its deletion rows; a request/cancel of a live account 12 months after. Returns the rows deleted.';
+
 revoke update (auth_removed_at) on table nestly.account_deletion_events from app_jobs;
 alter table nestly.account_deletion_events drop constraint account_deletion_events_auth_removed_check;
 alter table nestly.account_deletion_events drop column auth_removed_at;

@@ -828,5 +828,5 @@ suspended or banned out of deletion_scheduled). At the execution the report text
 writes one), and for the kept "deleted user" comments by the job itself (`reports_select_ / reports_update_deletion_text_jobs`, TO app_jobs, update
 of `target_text` to NULL only). `account_deletion_events.auth_removed_at` (execute rows only): the job (`apps/server/src/jobs/account-deletion.ts`)
 claims one execute row FOR UPDATE SKIP LOCKED, calls the Auth admin DELETE once (`deleteAuthUser`, recovery/auth-admin.ts) and stamps it under
-`account_deletion_events_update_jobs` (TO app_jobs). The job runs as app_jobs via `set local role`: bootstrap 01 must grant app_jobs to
+`account_deletion_events_update_jobs` (TO app_jobs). The 90-day purge (`purge_deleted_accounts()`, `account_deletion_events_delete_jobs`, replaced) keeps an unstamped execute row. The job runs as app_jobs via `set local role`: bootstrap 01 must grant app_jobs to
 app_media_jobs (SET only) — Afik.
