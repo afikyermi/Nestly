@@ -1,9 +1,10 @@
 // F2.1 c1 c5 c7 on the real Preview: sign up, save the recovery questions, open the profile (the name given at sign-up, no gender
 // given), edit the name and the parent gender, save, reload: the new values are shown. Derived from .work/profile-view-edit/spec.md.
 // It makes its own fresh user (same email pattern as the fixture's, so the cleanup sweep covers it). No recovery attempts are made.
-import type { Page } from '@playwright/test';
+import type { Page, Response } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
-import { AFTER_ANSWERS_MS, createAccount, timedResponse, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
+import { keepSession, resumeSession } from './support/session.ts';
+import { AFTER_ANSWERS_MS, createAccount, timedResponse } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -15,6 +16,10 @@ const editButton = (page: Page) => page.getByRole('button', { name: 'עריכה'
 const nameInput = (page: Page) => page.getByRole('textbox', { name: /^שם מלא/ });
 const genderSelect = (page: Page) => page.getByRole('combobox', { name: /מין ההורה/ });
 const viewText = async (page: Page) => ((await page.getByRole('main').innerText()).replace(/\s+/g, ' '));
+
+// The later tests continue with the session the sign-up made (T4); none of them checks the sign-in itself.
+const session = (project: string) => `profile:${project}`;
+const isProfileGet = (r: Response) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/profile';
 
 const users = new Map<string, TestUser>();
 function userOf(project: string): TestUser {
@@ -49,16 +54,11 @@ test.describe.serial('F2.1 own profile on the Preview [c1 c5 c7]', () => {
     await expect(editButton(page)).toBeVisible();
     expect(await viewText(page)).toMatch(/שם מלא[:\s]+דנה כהן/);
     expect(await viewText(page)).toMatch(/מין ההורה[:\s]+לא צוין/);
+    await keepSession(page, session(info.project.name));
   });
 
   test('[c5 c7] edit the name and the parent gender, save, reload: the new values are shown', async ({ page }, info) => {
-    const u = userOf(info.project.name);
-    await page.goto('/login');
-    await emailField(page).fill(u.email);
-    await passwordField(page).fill(u.password);
-    await submitSignIn(page);
-    await expect(page).toHaveURL(/\/feed$/, { timeout: SIGN_IN_MS });
-    await timedResponse(page, 'GET /api/profile', (r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/profile', () => page.goto('/profile'));
+    await timedResponse(page, 'GET /api/profile', isProfileGet, () => resumeSession(page, session(info.project.name), '/profile'));
     await editButton(page).click();
     await expect(nameInput(page)).toHaveValue('דנה כהן');
     await nameInput(page).fill('  רון לוי  ');
@@ -75,16 +75,11 @@ test.describe.serial('F2.1 own profile on the Preview [c1 c5 c7]', () => {
     await expect(editButton(page)).toBeVisible();
     expect(await viewText(page)).toMatch(/שם מלא[:\s]+רון לוי/);
     expect(await viewText(page)).toMatch(/מין ההורה[:\s]+גבר/);
+    await keepSession(page, session(info.project.name));
   });
 
   test('[c7] clearing the gender is saved as "not answered" and survives a reload', async ({ page }, info) => {
-    const u = userOf(info.project.name);
-    await page.goto('/login');
-    await emailField(page).fill(u.email);
-    await passwordField(page).fill(u.password);
-    await submitSignIn(page);
-    await expect(page).toHaveURL(/\/feed$/, { timeout: SIGN_IN_MS });
-    await timedResponse(page, 'GET /api/profile', (r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/profile', () => page.goto('/profile'));
+    await timedResponse(page, 'GET /api/profile', isProfileGet, () => resumeSession(page, session(info.project.name), '/profile'));
     await editButton(page).click();
     await genderSelect(page).selectOption({ value: '' });
     await saveButton(page).click();
