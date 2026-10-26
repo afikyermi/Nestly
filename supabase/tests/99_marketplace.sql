@@ -69,7 +69,7 @@ select is((select count(*) from pg_class c join pg_namespace n on n.oid = c.reln
   '[F12.1-a c1] the two new tables have RLS enabled and forced');
 select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd::text, ', ' order by c.relname, pl.polname)
              from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
-              and c.relname in ('marketplace_listings', 'sponsored_products') and pl.polname !~ '_(auto_hide|delete_staff|deletion_jobs)$'),
+              and c.relname in ('marketplace_listings', 'sponsored_products') and pl.polname !~ '_(auto_hide|delete_staff|deletion_jobs|expiry_jobs)$'),
   'marketplace_listings.marketplace_listings_delete_owner:d, marketplace_listings.marketplace_listings_insert_owner:a, marketplace_listings.marketplace_listings_select_analytics:r, '
   || 'marketplace_listings.marketplace_listings_select_staff:r, marketplace_listings.marketplace_listings_select_viewer:r, '
   || 'marketplace_listings.marketplace_listings_update_owner:w, marketplace_listings.marketplace_listings_update_staff:w, '
@@ -77,7 +77,7 @@ select is((select string_agg(c.relname || '.' || pl.polname || ':' || pl.polcmd:
   || 'sponsored_products.sponsored_products_select_viewer:r, sponsored_products.sponsored_products_update_manager:w',
   '[F12.1-a c1] exactly these policies: staff never delete a listing outside a justified decision (completion B, file 103), nobody deletes a Sponsored Product (removed is a status); the SRS-audit fixes add the analytics read (file 102) (I9: the deletion job''s *_deletion_jobs reads TO app_jobs, file 110)');
 select is((select count(*) from pg_policy pl join pg_class c on c.oid = pl.polrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
-            and c.relname in ('marketplace_listings', 'sponsored_products') and pl.polname !~ '_auto_hide$' and pl.polname !~ '_deletion_jobs$' -- I9: the deletion job''s reads TO app_jobs (rule 6, file 110)
+            and c.relname in ('marketplace_listings', 'sponsored_products') and pl.polname !~ '_auto_hide$' and pl.polname !~ '_(deletion|expiry)_jobs$' -- I9 and I12-B (file 120): the deletion job''s reads TO app_jobs (rule 6, file 110)
             and (pl.polroles <> array[(select oid from pg_roles where rolname = 'authenticated')]::oid[] or not pl.polpermissive
                  or (coalesce(pg_get_expr(pl.polqual, pl.polrelid), '') || coalesce(pg_get_expr(pl.polwithcheck, pl.polrelid), '')) !~ 'is_active_account\(\)')),
   0::bigint, '[F12.1-a c1 platform r15] every policy of the new tables is permissive, TO authenticated and gated by is_active_account()');
@@ -85,14 +85,14 @@ select is((select string_agg(c.relname || '.' || a.attname, ', ' order by c.reln
              from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
               and c.relname in ('marketplace_listings', 'sponsored_products') and a.attnum > 0 and not a.attisdropped
               and has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT')),
-  'marketplace_listings.category, marketplace_listings.city, marketplace_listings.item_condition, marketplace_listings.price, marketplace_listings.title, '
+  'marketplace_listings.category, marketplace_listings.city, marketplace_listings.description, marketplace_listings.item_condition, marketplace_listings.price, marketplace_listings.title, '
   || 'sponsored_products.category, sponsored_products.description, sponsored_products.link_url, sponsored_products.sponsor_name, sponsored_products.title',
   '[F12.1-a c1 conventions] INSERT per column: never an owner, a status, a hide, an expiry or a clock');
 select is((select string_agg(c.relname || '.' || a.attname, ', ' order by c.relname, a.attname)
              from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'nestly'
               and c.relname in ('marketplace_listings', 'sponsored_products') and a.attnum > 0 and not a.attisdropped
               and has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')),
-  'marketplace_listings.category, marketplace_listings.city, marketplace_listings.is_hidden, marketplace_listings.item_condition, marketplace_listings.price, '
+  'marketplace_listings.category, marketplace_listings.city, marketplace_listings.description, marketplace_listings.is_hidden, marketplace_listings.item_condition, marketplace_listings.price, '
   || 'marketplace_listings.status, marketplace_listings.title, '
   || 'sponsored_products.category, sponsored_products.description, sponsored_products.link_url, sponsored_products.sponsor_name, sponsored_products.status, '
   || 'sponsored_products.title',
