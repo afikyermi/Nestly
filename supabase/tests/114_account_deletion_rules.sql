@@ -10,7 +10,7 @@ begin;
 
 select * from no_plan();
 
-select is(session_user::text, 'app_server'::text, '[I9 §22] session_user is app_server');
+select is(session_user::text, 'app_server'::text, '[F9.1-a c1 · I9 §22] session_user is app_server');
 
 select tests.fx_fr_build();
 select set_config('t.s', tests.fx_dl_person('regular')::text, true);
