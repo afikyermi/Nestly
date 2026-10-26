@@ -9,9 +9,9 @@
 --    on it reaches the threshold; each person counts once. BR-059 (a change is a new version): configuration v3, the same numbers
 --    (5%, 3, 20), counted by people; v2 stays as history, inactive. Highlights already recorded stay (OP-068). notify_group() is replaced
 --    (the approved definer, rule 17) with only the count changed; to tie a like to its person it reads reaction_owners under the new
---    reaction_owners_select_notify (TO app_owner, scope `group`, the pattern of group_bans_select_notify) — it counts them, nothing leaves.
+--    reaction_owners_select_notify (TO app_owner, scope `group`, likes on group posts only, the pattern of group_bans_select_notify) — it counts them, nothing leaves.
 -- 2. A muted Group manager manages nothing while muted (⭐ OP-070, FR-GRP-003: a muted member only reads). nestly.my_group_rank() — the
---    caller's rank behind every Group management policy — answers 1 (a member) for a Group Moderator or Admin with an unexpired warn_mute
+--    caller's rank behind every Group management policy — answers 1 (a member) for a Group Moderator or Admin (rank 2-3; a muted Owner, e.g. one who received ownership while muted, keeps 4) with an unexpired warn_mute
 --    in that Group, so join requests, invitations, approvals, Pin, edits, content removal, enforcement, blocks and the blocked list are all
 --    closed to them until the mute ends; membership and reading are unchanged (rank > 0). The Owner is never muted (no higher Role).
 --    group_member_enforcements_select_party and the enforcement-history branch of regular_names_select_group_manager read the caller's
@@ -35,10 +35,11 @@ values (3, null, 5, 3, 20, true,
   'OP-077 (built per the recommended default): the same threshold as v2 (5% of the active members, rounded up, 3 to 20), counted by the different people other than the author who liked or commented, each once');
 alter table nestly.group_highlight_configurations force row level security;
 
--- notify_group: whose like it is (a count of different people only; scope group, TO app_owner).
+-- notify_group: whose like on a group post it is (a count of different people only; scope group, TO app_owner).
 create policy reaction_owners_select_notify on nestly.reaction_owners
   for select to app_owner
-  using ((select nestly.notify_scope()) = 'group');
+  using ((select nestly.notify_scope()) = 'group'
+    and exists (select 1 from nestly.posts p where p.id = reaction_owners.target_id and p.group_id is not null));
 
 -- notify_group(), replaced (rule 17, the approved definer): only the Highlight count changes.
 create or replace function nestly.notify_group()
@@ -129,20 +130,24 @@ begin
     -- liked or commented on it reaches the threshold of the active version for the Group's active members now (5% rounded up, 3 to 20;
     -- §11.17; one person counts once however many likes and comments they leave, ⭐ OP-077). Recorded once (group_highlights); each
     -- member is told once, never the author nor the actor. A like is tied to its person through reaction_owners (read here only,
-    -- reaction_owners_select_notify); a comment by an account that is gone counts as one person.
+    -- reaction_owners_select_notify).
     select count(*)::integer into v_members from nestly.group_members m where m.group_id = v_group and m.member_status = 'active';
     select c.version into v_version from nestly.group_highlight_configurations c where c.is_active;
     v_threshold := nestly.group_highlight_threshold(v_members);
     if v_threshold is not null and v_version is not null
        and not exists (select 1 from nestly.group_highlights h where h.post_id = v_post) then
+      -- The like being inserted has no reaction_owners row yet (notify_group_reaction sorts, and so fires, before
+      -- reactions_insert_owner), so its person is the caller (reaction_owners.user_id is auth.uid() by default); any other like
+      -- without an owner row, and a comment with no author (an account that is gone), names no one and does not count.
       v_count := (select count(distinct who) from (
-                    select coalesce(o.user_id::text, 'r:' || x.id::text) as who
+                    select coalesce(o.user_id, case when tg_table_name = 'reactions' and x.id = new.id then v_me end) as who
                       from nestly.reactions x left join nestly.reaction_owners o on o.reaction_id = x.id
                      where x.post_id = v_post and not x.is_by_author
                     union all
-                    select coalesce(c.author_id::text, 'c:' || c.id::text)
+                    select c.author_id
                       from nestly.comments c
-                     where c.post_id = v_post and c.status = 'active' and not c.is_by_post_author) people);
+                     where c.post_id = v_post and c.status = 'active' and not c.is_by_post_author) people
+                   where who is not null);
       if v_count >= v_threshold then
         insert into nestly.group_highlights (post_id, group_id, threshold, member_count, configuration_version)
         values (v_post, v_group, v_threshold, v_members, v_version)
@@ -172,7 +177,7 @@ $$;
 comment on table nestly.group_highlight_configurations is
   'SRS FR-ALG-010, BR-059, BR-060: the versioned Highlights threshold. v1: a fixed count (5, inactive since I10 completion C). v2: member_percent of the Group''s active members, rounded up, within minimum_threshold..maximum_threshold (5%, 3, 20; Afik 21.10.2026), compared to likes plus comments (inactive since the follow-up). v3: the same numbers, compared to the different people other than the author who liked or commented (⭐ OP-077). Exactly one version is active; a change is a new version by migration (no write policy).';
 comment on column nestly.group_highlights.threshold is 'The threshold the post reached (v2: likes and comments by others; v3: different people other than the author who liked or commented).';
-comment on policy reaction_owners_select_notify on nestly.reaction_owners is 'notify_group() only (TO app_owner, scope group): counts the different people who liked a group post for its Highlight threshold (⭐ OP-077); nothing is returned to a client.';
+comment on policy reaction_owners_select_notify on nestly.reaction_owners is 'notify_group() only (TO app_owner, scope group), and only likes on a group post: counts the different people who liked it for its Highlight threshold (⭐ OP-077); nothing is returned to a client.';
 comment on function nestly.notify_group() is
   'SECURITY DEFINER (approved exception, rule 17; I10, extended in I10 completion C and its follow-up). After a Group recommendation (to the Friend), an invitation (pending: to the invitee; awaiting approval: to the Owner and Group Admins), its approval (to the invitee and the inviter) or rejection (to the inviter), a mute notice (to the member, critical), a Join Request (to the Owner and Group Admins) or its approval (to the requester); a new group post (members whose mode is all); a pinned post, or a post whose different people other than its author who liked or commented reached the threshold of the active version for the Group''s active members (members on all or highlights; FR-ALG-010, BR-060: deterministic; ⭐ OP-077), recorded once in group_highlights. Never to the actor, never across a block (notify_deliver), and every category switch is honoured but for the mute notice. Declares nestly.notify_scope = group and clears it. No EXECUTE for any runtime role.';
 
@@ -185,7 +190,7 @@ security invoker
 set search_path = ''
 as $$
   select case
-           when r.rank >= 2 and exists (select 1 from nestly.group_member_enforcements e
+           when r.rank in (2, 3) and exists (select 1 from nestly.group_member_enforcements e
                                          where e.group_id = p_group and e.user_id = auth.uid() and e.kind = 'warn_mute'
                                            and e.mute_until > pg_catalog.now())
              then 1
