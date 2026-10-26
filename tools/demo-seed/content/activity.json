@@ -1,0 +1,307 @@
+{
+  "chats": [
+    {
+      "from": "michal",
+      "to": "tamar",
+      "messages": [
+        {
+          "from": "michal",
+          "ageHours": 300,
+          "text": "תמר! ראית את השאלה של יעל בקבוצה? גם אני הייתי ככה בשבוע 10 😅"
+        },
+        {
+          "from": "tamar",
+          "ageHours": 299,
+          "text": "ראיתי! כתבתי לה. איך את מרגישה השבוע?"
+        },
+        {
+          "from": "michal",
+          "ageHours": 297,
+          "text": "כבדה 😂 אבל טוב. בא לך קפה ביום שישי?"
+        },
+        {
+          "from": "tamar",
+          "ageHours": 296,
+          "text": "בשמחה! בבית הקפה ליד הפארק?"
+        },
+        {
+          "from": "michal",
+          "ageHours": 20,
+          "text": "קבעתי את העגלה מאורית! תודה על הטיפ עם הבגאז' 🙏"
+        }
+      ]
+    },
+    {
+      "from": "dana",
+      "to": "avi",
+      "messages": [
+        {
+          "from": "dana",
+          "ageHours": 140,
+          "text": "אבי, איך הלך עם החדר החשוך לתנומות?"
+        },
+        {
+          "from": "avi",
+          "ageHours": 139,
+          "text": "עובד! הגענו לתנומה של 50 דקות 🎉"
+        },
+        {
+          "from": "dana",
+          "ageHours": 138,
+          "text": "יש!! ליאת מלכה"
+        }
+      ]
+    },
+    {
+      "from": "yossi",
+      "to": "alon",
+      "acceptAgeHours": 244,
+      "messages": [
+        {
+          "from": "yossi",
+          "ageHours": 246,
+          "text": "היי אלון, ראיתי את התגובה שלך לפוסט שלי. אשמח להתייעץ על חיסכון לילדים — יש לנו שניים, בני 6 ו-2."
+        },
+        {
+          "from": "alon",
+          "ageHours": 242,
+          "text": "היי יוסי, בשמחה. כדי שאוכל לכוון: אתם רוצים שהכסף יהיה זמין לפני גיל 18, או שזה לטווח ארוך?"
+        },
+        {
+          "from": "yossi",
+          "ageHours": 240,
+          "text": "בעיקר לטווח ארוך. אולי לעזור להם בדירה או בלימודים."
+        },
+        {
+          "from": "alon",
+          "ageHours": 236,
+          "text": "אז כדאי להתחיל מבדיקת המסלול ודמי הניהול של החיסכון הקיים. אחר כך נראה אם להוסיף הפקדה ובאיזה סכום שלא מכביד על התקציב. נקבע פגישה של חצי שעה?"
+        },
+        {
+          "from": "yossi",
+          "ageHours": 235,
+          "text": "מעולה, תודה!"
+        }
+      ],
+      "review": {
+        "ageHours": 96,
+        "rating": 5,
+        "text": "אלון הסביר בסבלנות ובשפה פשוטה, בלי לנסות למכור לי שום מוצר. יצאתי עם תוכנית ברורה."
+      }
+    },
+    {
+      "from": "hila",
+      "to": "roni",
+      "pending": true,
+      "messages": [
+        {
+          "from": "hila",
+          "ageHours": 14,
+          "text": "היי רוני, ראיתי את סדר היום שפרסמת בקבוצת השינה. אפשר לשאול אותך כמה שאלות על המעבר לתנומה אחת?"
+        }
+      ]
+    }
+  ],
+  "trackers": [
+    {
+      "persona": "dana",
+      "child": "אורי",
+      "events": [
+        {
+          "kind": "breastfeeding",
+          "hoursAgo": 2,
+          "minutes": 18,
+          "choice": "left"
+        },
+        {
+          "kind": "diaper",
+          "hoursAgo": 3,
+          "choice": "wet"
+        },
+        {
+          "kind": "breastfeeding",
+          "hoursAgo": 5,
+          "minutes": 22,
+          "choice": "right"
+        },
+        {
+          "kind": "sleep",
+          "hoursAgo": 7,
+          "minutes": 95
+        },
+        {
+          "kind": "breastfeeding",
+          "hoursAgo": 8,
+          "minutes": 15,
+          "choice": "left"
+        },
+        {
+          "kind": "diaper",
+          "hoursAgo": 9,
+          "choice": "dirty"
+        },
+        {
+          "kind": "breastfeeding",
+          "hoursAgo": 11,
+          "minutes": 20,
+          "choice": "right"
+        },
+        {
+          "kind": "breastfeeding",
+          "hoursAgo": 26,
+          "minutes": 17,
+          "choice": "left"
+        },
+        {
+          "kind": "sleep",
+          "hoursAgo": 30,
+          "minutes": 240
+        },
+        {
+          "kind": "breastfeeding",
+          "hoursAgo": 50,
+          "minutes": 21,
+          "choice": "right"
+        },
+        {
+          "kind": "growth",
+          "hoursAgo": 170,
+          "weightKg": 5.6,
+          "heightCm": 60
+        },
+        {
+          "kind": "growth",
+          "hoursAgo": 510,
+          "weightKg": 5.1,
+          "heightCm": 58
+        },
+        {
+          "kind": "vaccine",
+          "hoursAgo": 380,
+          "name": "חיסוני גיל חודשיים"
+        }
+      ]
+    },
+    {
+      "persona": "avi",
+      "child": "תמר",
+      "events": [
+        {
+          "kind": "bottle",
+          "hoursAgo": 1,
+          "amountMl": 150
+        },
+        {
+          "kind": "sleep",
+          "hoursAgo": 4,
+          "minutes": 50
+        },
+        {
+          "kind": "bottle",
+          "hoursAgo": 5,
+          "amountMl": 140
+        },
+        {
+          "kind": "bath",
+          "hoursAgo": 20
+        },
+        {
+          "kind": "bottle",
+          "hoursAgo": 25,
+          "amountMl": 160
+        },
+        {
+          "kind": "growth",
+          "hoursAgo": 240,
+          "weightKg": 6.9,
+          "heightCm": 65
+        }
+      ]
+    },
+    {
+      "persona": "roni",
+      "child": "איתמר",
+      "events": [
+        {
+          "kind": "sleep",
+          "hoursAgo": 22,
+          "minutes": 120
+        },
+        {
+          "kind": "growth",
+          "hoursAgo": 700,
+          "weightKg": 10.8,
+          "heightCm": 80
+        },
+        {
+          "kind": "vaccine",
+          "hoursAgo": 1000,
+          "name": "חיסון גיל שנה וחצי"
+        }
+      ]
+    }
+  ],
+  "cycles": [
+    {
+      "persona": "shira",
+      "startDaysAgo": 40,
+      "cycleLengthDays": 29
+    },
+    {
+      "persona": "shira",
+      "startDaysAgo": 11,
+      "cycleLengthDays": 29
+    }
+  ],
+  "support": [
+    {
+      "persona": "michal",
+      "topic": "usage",
+      "text": "שלום, איך אני מעדכנת את תאריך הלידה המשוער? הרופאה הזיזה אותו בשבוע."
+    },
+    {
+      "persona": "hila",
+      "topic": "suggestion",
+      "text": "הצעה: היה נחמד לקבל תזכורת לפני חיסונים לפי הגיל של הילד."
+    },
+    {
+      "persona": "avi",
+      "topic": "privacy_safety",
+      "text": "קיבלתי הודעה מחשבון שנראה כמו ספאם. איך מדווחים עליו?"
+    }
+  ],
+  "userReports": [
+    {
+      "by": "dana",
+      "target": "ron",
+      "reason": "spam",
+      "details": "החשבון מפרסם מבצעים ושולח קופונים"
+    }
+  ],
+  "stories": [
+    {
+      "author": "michal",
+      "audience": "everyone",
+      "caption": "תיק הלידה ארוז ומוכן 🎒",
+      "image": "bag"
+    },
+    {
+      "author": "dana",
+      "audience": "everyone",
+      "caption": "בוקר טוב מאיתנו ☀️",
+      "image": "sun"
+    },
+    {
+      "author": "roni",
+      "audience": "friends",
+      "caption": "יום בפארק 🌳",
+      "image": "tree"
+    },
+    {
+      "author": "avi",
+      "audience": "everyone",
+      "caption": "קפה של אבא בחופשת לידה ☕",
+      "image": "cup"
+    }
+  ]
+}

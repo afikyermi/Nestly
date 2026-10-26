@@ -1,0 +1,263 @@
+{
+  "posts": [
+    {
+      "key": "michal-sleep-question", "author": "michal", "ageHours": 118, "audience": "everyone", "stageTag": "pregnant",
+      "body": "שבוע 34 ואני כבר חושבת על הלילות שאחרי 🙈\nמי שכבר עברה את זה — איך מתחילים להרגיל תינוק לשינה? שמעתי על כל כך הרבה שיטות שאני לא יודעת מאיפה להתחיל. האם באמת צריך 'שגרת שינה' כבר מהחודש הראשון, או שזה סתם לחץ?",
+      "likes": ["tamar", "yael", "dana", "roni", "avi", "maya", "liat", "orit"],
+      "comments": [
+        { "key": "c-ms-1", "author": "roni", "ageHours": 116, "body": "בחודש הראשון לא הייתה לנו שום שגרה, ובסדר גמור. מה שעזר לי זה להבדיל בין יום ללילה: ביום אור ורעש רגיל, בלילה חושך ושקט." },
+        { "key": "c-ms-2", "author": "liat", "ageHours": 114, "body": "שאלה מצוינת, ודווקא עכשיו זה הזמן הכי טוב לחשוב על זה. בחודשים הראשונים אין צורך בשיטה — רק להכיר את סימני העייפות של התינוק ולתת לו להירדם בלי לחץ. כתבתי על זה מאמר בעמוד שלי, ואשמח לעזור גם באופן אישי." },
+        { "key": "c-ms-3", "author": "michal", "ageHours": 113, "body": "תודה ליאת! אקרא את המאמר 🙏", "replyTo": "c-ms-2" },
+        { "key": "c-ms-4", "author": "dana", "ageHours": 100, "body": "אני בחודש השלישי ועדיין לומדת. טיפ אחד: לא להעיר תינוק ישן כדי להחליף חיתול אם הוא לא מלוכלך 😅" },
+        { "key": "c-ms-5", "author": "avi", "ageHours": 96, "body": "ממליץ על חיתול עוטף בשבועות הראשונים, אצלנו זה עשה פלאים.", "likes": ["michal", "dana"] },
+        { "key": "c-ms-6", "author": "tamar", "ageHours": 90, "body": "שומרת את הפוסט הזה לעצמי, אני עוד מעט שם 😊" }
+      ],
+      "shares": [{ "by": "tamar", "ageHours": 89, "audience": "friends", "text": "שווה לקרוא את התגובות כאן" }]
+    },
+    {
+      "key": "dana-three-months", "author": "dana", "ageHours": 610, "audience": "everyone", "stageTag": "has_child",
+      "body": "אורי בת חודש היום ❤️\nאף אחד לא הכין אותי לכמה אהבה וכמה עייפות אפשר להרגיש באותו רגע. תודה לכל מי שעזרה לי כאן בשבועות האחרונים.",
+      "likes": ["roni", "orit", "avi", "hila", "michal", "tamar", "maya", "yossi", "inbal"],
+      "comments": [
+        { "key": "c-d3-1", "author": "orit", "ageHours": 605, "body": "מזל טוב! השבועות הראשונים הכי קשים, זה רק משתפר." },
+        { "key": "c-d3-2", "author": "roni", "ageHours": 600, "body": "מתוקה! איך את מרגישה?" },
+        { "key": "c-d3-3", "author": "dana", "ageHours": 598, "body": "עייפה אבל מאושרת 😴", "replyTo": "c-d3-2" }
+      ]
+    },
+    {
+      "key": "anon-postpartum", "author": "dana", "ageHours": 340, "audience": "everyone", "anonymous": true,
+      "body": "קשה לי לכתוב את זה בשמי. כבר כמה שבועות אחרי הלידה אני בוכה כמעט כל יום, לא נהנית מכלום ומרגישה שאני לא אמא מספיק טובה. כולם אומרים שזה 'הורמונים' ויעבור. מתי זה כבר לא נורמלי?",
+      "likes": ["orit", "maya", "roni", "hila"],
+      "comments": [
+        { "key": "c-ap-1", "author": "merav", "ageHours": 336, "body": "תודה שכתבת, זה אמיץ. בכי ועצב בשבועיים הראשונים שכיחים מאוד, אבל כשזה נמשך כמה שבועות ופוגע בהנאה ובתפקוד — זה בדיוק הזמן לפנות לעזרה, ולא לחכות שיעבור. אפשר לפנות לרופאת המשפחה, לאחות בטיפת חלב או לאיש מקצוע בתחום הנפש. את לא לבד, וזה לא אומר שום דבר על כמה את אמא טובה." },
+        { "key": "c-ap-2", "author": "orit", "ageHours": 330, "body": "עברתי את זה אחרי הלידה השנייה. מה שעזר לי היה לדבר על זה בקול ולקבל טיפול. מחבקת אותך חזק ❤️" },
+        { "key": "c-ap-3", "author": "dana", "ageHours": 320, "body": "תודה רבה לשתיכן. קבעתי שיחה עם האחות בטיפת חלב.", "replyTo": "c-ap-1" },
+        { "key": "c-ap-4", "author": "maya", "ageHours": 300, "body": "גם אני הרגשתי ככה. רק לדעת שזה קורה לעוד אמהות עזר לי המון." }
+      ]
+    },
+    {
+      "key": "yossi-savings", "author": "yossi", "ageHours": 260, "audience": "everyone", "stageTag": "has_child",
+      "body": "שאלה לאבות ולאמהות כאן: מישהו פתח חיסכון נוסף לילדים מעבר למה שהמדינה מפקידה? מתלבט אם להוסיף הפקדה חודשית קטנה או לשים את הכסף בצד בדרך אחרת.",
+      "likes": ["avi", "hila", "orit", "alon"],
+      "comments": [
+        { "key": "c-ys-1", "author": "hila", "ageHours": 255, "body": "אנחנו מוסיפים סכום קטן כל חודש. זה לא הרבה, אבל בגיל 18 זה מצטבר." },
+        { "key": "c-ys-2", "author": "alon", "ageHours": 250, "body": "שאלה חשובה. לפני שמחליטים כדאי לבדוק שלוש נקודות: דמי הניהול, מסלול ההשקעה שמתאים לטווח הזמן, ומה הנזילות שאתם צריכים. אין תשובה אחת לכולם — אם תרצה, אפשר לעבור על זה יחד בצ'אט." },
+        { "key": "c-ys-3", "author": "yossi", "ageHours": 248, "body": "תודה אלון, אשלח לך הודעה.", "replyTo": "c-ys-2" }
+      ]
+    },
+    {
+      "key": "tamar-birth-plan", "author": "tamar", "ageHours": 210, "audience": "everyone", "stageTag": "pregnant",
+      "body": "שבוע 22 והתחלתי לחשוב על תוכנית לידה. מישהי עבדה עם דולה? מה ההבדל בפועל לעומת ליווי של בן הזוג בלבד? מתלבטת אם זה שווה את ההשקעה.",
+      "likes": ["michal", "maya", "yael", "sigal"],
+      "comments": [
+        { "key": "c-tb-1", "author": "maya", "ageHours": 205, "body": "בלידה הראשונה הייתה לי דולה וזה שינה לי את כל החוויה. בן הזוג שלי אמר שגם לו זה עזר — הוא ידע מה לעשות." },
+        { "key": "c-tb-2", "author": "sigal", "ageHours": 200, "body": "דולה לא מחליפה את בן הזוג, היא מחזקת את שניכם: ידע, ביטחון ומישהי שמכירה את חדר הלידה. כדאי להיפגש עם שתיים-שלוש ולבחור את מי שמרגישה לך נכון." },
+        { "key": "c-tb-3", "author": "tamar", "ageHours": 199, "body": "תודה סיגל, זה עושה לי סדר.", "replyTo": "c-tb-2" }
+      ]
+    },
+    {
+      "key": "yael-nausea", "author": "yael", "ageHours": 150, "audience": "everyone", "stageTag": "pregnant",
+      "body": "שבוע 10 והבחילות לא עוזבות אותי גם בערב 😩 מה עזר לכן? כבר ניסיתי קרקרים ליד המיטה.",
+      "likes": ["michal", "shira", "tamar", "keren"],
+      "comments": [
+        { "key": "c-yn-1", "author": "michal", "ageHours": 148, "body": "ארוחות קטנות כל שעתיים-שלוש, וג'ינג'ר. ובעיקר סבלנות, אצלי זה עבר בשבוע 14." },
+        { "key": "c-yn-2", "author": "keren", "ageHours": 140, "body": "מזון קר ויבש נסבל לרוב יותר מאוכל חם עם ריח חזק. חשוב לשתות לאורך היום בלגימות קטנות. אם את לא מצליחה לשמור על נוזלים — פני לרופאה." },
+        { "key": "c-yn-3", "author": "tamar", "ageHours": 130, "body": "מחבקת! זה עובר, מבטיחה." },
+        { "key": "c-yn-4", "author": "yael", "ageHours": 128, "body": "תודה לכולן, אנסה את הארוחות הקטנות.", "replyTo": "c-yn-2" }
+      ]
+    },
+    {
+      "key": "shira-folic", "author": "shira", "ageHours": 400, "audience": "friends", "stageTag": "planning",
+      "body": "התחלנו לנסות 🤞 התחלתי חומצה פולית ועשיתי בדיקות דם אצל רופאת המשפחה. יש עוד משהו שכדאי לעשות לפני?",
+      "likes": ["yael"],
+      "comments": [
+        { "key": "c-sf-1", "author": "yael", "ageHours": 395, "body": "בדיקת שיניים! אף אחד לא אמר לי ובהריון זה הרבה פחות נוח 😅" }
+      ]
+    },
+    {
+      "key": "liat-tip-overtired", "author": "liat", "ageHours": 330, "audience": "everyone",
+      "body": "טיפ שינה לשבוע: תינוק עייף מדי נרדם קשה יותר, לא קל יותר. כשמחכים ש'יתעייף מספיק' לרוב מקבלים בכי ולא שינה.\nסימנים מוקדמים לעייפות: מבט מזוגג, שפשוף עיניים, משיכה באוזן, ירידה בעניין במשחק. זה הרגע להתחיל להרגיע.",
+      "likes": ["roni", "dana", "avi", "michal", "orit", "yossi", "maya"],
+      "comments": [
+        { "key": "c-lt-1", "author": "roni", "ageHours": 320, "body": "כל כך נכון. אצלנו פספוס של רבע שעה = שעה של בכי." },
+        { "key": "c-lt-2", "author": "avi", "ageHours": 310, "body": "המשיכה באוזן! חשבתי שזה משהו אחר לגמרי 😂" }
+      ]
+    },
+    {
+      "key": "hila-first-grade", "author": "hila", "ageHours": 175, "audience": "everyone", "stageTag": "has_child",
+      "body": "נגה עולה לכיתה א' בשנה הבאה ואני כבר בלחץ (היא לא 😄). איך הכנתם את הילדים? קראתם ספרים, ביקרתם בבית הספר?",
+      "likes": ["orit", "yossi"],
+      "comments": [
+        { "key": "c-hf-1", "author": "orit", "ageHours": 170, "body": "עם הגדולה ביקרנו בחצר בית הספר כמה פעמים בקיץ, שתכיר את המקום. זה הוריד הרבה חשש." },
+        { "key": "c-hf-2", "author": "yossi", "ageHours": 160, "body": "עומר עלה השנה. מה שהכי עזר — חבר מהגן שעלה איתו לאותה כיתה." }
+      ]
+    },
+    {
+      "key": "avi-dad-leave", "author": "avi", "ageHours": 520, "audience": "everyone", "stageTag": "has_child",
+      "body": "שבוע שני בחופשת לידה של אבא 💪 גיליתי שאני מחליף חיתול מהר יותר מאשתי, אבל היא עדיין מנצחת בהרדמות. מומלץ לכל אבא שיכול.",
+      "likes": ["dana", "yossi", "roni", "hila", "orit", "michal", "alon"],
+      "comments": [
+        { "key": "c-ad-1", "author": "yossi", "ageHours": 515, "body": "הזמן הכי טוב שהיה לי. תהנה מכל רגע!" },
+        { "key": "c-ad-2", "author": "dana", "ageHours": 510, "body": "כל הכבוד! 👏" },
+        { "key": "c-ad-3", "author": "roni", "ageHours": 500, "body": "חכה לנסיגת השינה של ארבעה חודשים 😉" },
+        { "key": "c-ad-4", "author": "avi", "ageHours": 498, "body": "אל תפחידי אותי 😅", "replyTo": "c-ad-3" }
+      ]
+    },
+    {
+      "key": "maya-sibling", "author": "maya", "ageHours": 230, "audience": "everyone",
+      "body": "יונתן בן שנתיים וחצי, ואח קטן בדרך בעוד שלושה חודשים. איך הכנתם את הגדולים? קנינו ספר על 'אח חדש' אבל הוא בעיקר מתעניין בציורים של המשאית 😄",
+      "likes": ["orit", "tamar", "hila", "merav"],
+      "comments": [
+        { "key": "c-mi-1", "author": "orit", "ageHours": 225, "body": "אצלנו עבדה מתנה 'מהתינוק' לגדולה ביום שהגענו הביתה. ולשמור לה זמן איתי לבד, אפילו עשר דקות ביום." },
+        { "key": "c-mi-2", "author": "merav", "ageHours": 220, "body": "בגיל הזה מספיק להסביר במילים פשוטות ולא הרבה זמן מראש. ואחרי הלידה, נסיגה קטנה (בקבוק, מוצץ, בכי בלילה) היא תגובה נורמלית ומעידה שהוא מעבד את השינוי." },
+        { "key": "c-mi-3", "author": "maya", "ageHours": 218, "body": "זה מרגיע לשמוע, תודה!", "replyTo": "c-mi-2" }
+      ]
+    },
+    {
+      "key": "orit-three-kids", "author": "orit", "ageHours": 640, "audience": "everyone", "stageTag": "has_child",
+      "body": "בוקר רגיל אצלנו: שלושה ילדים, שני תיקי בית ספר, תיק גן, בקבוק אחד שנעלם, ואבא שגילה שהמכונית בלי דלק. הגענו בזמן! 🏆 שתפו את ההישג הכי קטן והכי גדול שלכם היום.",
+      "likes": ["hila", "dana", "maya", "yossi", "roni", "avi", "tamar", "michal", "shira", "yael"],
+      "comments": [
+        { "key": "c-ot-1", "author": "hila", "ageHours": 635, "body": "נגה הסכימה ללבוש מעיל בלי ויכוח. היסטוריה." },
+        { "key": "c-ot-2", "author": "dana", "ageHours": 630, "body": "התקלחתי! 🎉" },
+        { "key": "c-ot-3", "author": "yossi", "ageHours": 620, "body": "שתי הסעות לשני מקומות שונים בעשר דקות. אני בעצם נהג מירוצים." },
+        { "key": "c-ot-4", "author": "maya", "ageHours": 600, "body": "יונתן אכל ירק. ירוק. מרצונו." },
+        { "key": "c-ot-5", "author": "orit", "ageHours": 598, "body": "מאיה זה ניצחון ענק 😂", "replyTo": "c-ot-4" }
+      ]
+    },
+    {
+      "key": "keren-iron", "author": "keren", "ageHours": 450, "audience": "everyone",
+      "body": "ברזל בהריון — מה כדאי לדעת?\nהצורך בברזל עולה בהריון. מקורות טובים: בשר אדום, עוף, קטניות, טופו ועלים ירוקים. ויטמין C באותה ארוחה (פלפל אדום, הדרים) משפר את הספיגה, ותה או קפה צמוד לארוחה מפחיתים אותה.\nאם קיבלתן תוסף מהרופאה — כדאי לקחת אותו כפי שהומלץ לכן.",
+      "likes": ["yael", "shira", "tamar", "michal", "maya"],
+      "comments": [
+        { "key": "c-ki-1", "author": "tamar", "ageHours": 440, "body": "לא ידעתי על התה! אני שותה כוס עם כל ארוחה..." },
+        { "key": "c-ki-2", "author": "keren", "ageHours": 435, "body": "מספיק להרחיק בשעה בערך מהארוחה 🙂", "replyTo": "c-ki-1" }
+      ]
+    },
+    {
+      "key": "amit-fever", "author": "amit", "ageHours": 380, "audience": "everyone",
+      "body": "עונת החורף מתחילה, ואיתה הרבה שאלות על חום. כמה עקרונות כלליים:\n• חום הוא סימן שהגוף נלחם, לא מחלה בפני עצמה.\n• מסתכלים קודם כל על הילד: שותה? משחק כשהחום יורד?\n• תינוק מתחת לגיל שלושה חודשים עם חום — פונים לרופא מיד.\n• קושי בנשימה, ישנוניות חריגה או פריחה שלא נעלמת בלחיצה — פונים מיד לבדיקה.\nהמידע כללי ואינו מחליף בדיקה של רופא.",
+      "likes": ["orit", "hila", "dana", "avi", "roni", "yossi", "maya"],
+      "comments": [
+        { "key": "c-af-1", "author": "orit", "ageHours": 370, "body": "תודה! שומרת לעצמי." },
+        { "key": "c-af-2", "author": "avi", "ageHours": 360, "body": "הנקודה על מתחת לשלושה חודשים חשובה מאוד, לא ידעתי." }
+      ]
+    },
+    {
+      "key": "alon-maternity-budget", "author": "alon", "ageHours": 290, "audience": "everyone",
+      "body": "תקציב לחופשת לידה בשלושה צעדים:\n1. לבדוק מראש את הסכום הצפוי של דמי הלידה ומתי הוא אמור להגיע, ולתכנן חודש של 'אוויר' בצד.\n2. לעבור על ההוצאות הקבועות — חלק נעלמות בחופשה (נסיעות, אוכל בחוץ), חלק נוספות (חיתולים, מטרנה).\n3. לבדוק מול מקום העבודה ומול ביטוח לאומי אילו זכויות מגיעות לכם — זה משתנה ממשפחה למשפחה.",
+      "likes": ["yossi", "avi", "hila", "michal", "tamar"],
+      "comments": [
+        { "key": "c-am-1", "author": "michal", "ageHours": 285, "body": "בדיוק בשבילי, תודה!" },
+        { "key": "c-am-2", "author": "yossi", "ageHours": 280, "body": "נקודה 2 — החיתולים זה חור שחור 😅" }
+      ]
+    },
+    {
+      "key": "roni-regression", "author": "roni", "ageHours": 95, "audience": "everyone", "stageTag": "has_child",
+      "body": "איתמר בן שנה וחצי ופתאום מתעורר שלוש פעמים בלילה, אחרי חצי שנה של לילות שלמים. שיניים? קפיצה התפתחותית? מישהו מכיר?",
+      "likes": ["dana", "avi", "liat"],
+      "comments": [
+        { "key": "c-rr-1", "author": "liat", "ageHours": 90, "body": "בגיל הזה זה שכיח מאוד: שיניים, הליכה, דיבור ופחד נטישה — הכול קורה בבת אחת. בדרך כלל זה עובר תוך שבועיים-שלושה אם שומרים על אותה שגרה ולא מוסיפים הרגלים חדשים." },
+        { "key": "c-rr-2", "author": "dana", "ageHours": 85, "body": "מחזקת אותך, מקווה שזה יעבור מהר." }
+      ]
+    },
+    {
+      "key": "michal-stroller", "author": "michal", "ageHours": 70, "audience": "everyone", "stageTag": "pregnant",
+      "body": "עגלה! אני טובעת באפשרויות. מה הכי חשוב לכן ביום-יום: משקל? סל גדול? קיפול ביד אחת? ומה עדיף — חדשה או יד שנייה במצב טוב?",
+      "likes": ["tamar", "yael", "orit"],
+      "comments": [
+        { "key": "c-mst-1", "author": "orit", "ageHours": 68, "body": "קיפול ביד אחת! תאמיני לי. ויד שנייה לגמרי בסדר — אני בדיוק מוכרת אחת במרקטפלייס 😉" },
+        { "key": "c-mst-2", "author": "tamar", "ageHours": 66, "body": "תבדקי שהיא נכנסת לבגאז' שלכם לפני שקונים, למדתי בדרך הקשה." },
+        { "key": "c-mst-3", "author": "michal", "ageHours": 60, "body": "אורית, שלחתי לך הודעה!", "replyTo": "c-mst-1" }
+      ]
+    },
+    {
+      "key": "ron-spam", "author": "ron", "ageHours": 40, "audience": "everyone",
+      "body": "🔥🔥 מבצע מטורף רק היום!!! עגלות מותגים ב-90% הנחה!!! שלחו הודעה עכשיו ותקבלו קופון סודי!!! מספר המקומות מוגבל!!! 🔥🔥",
+      "likes": [],
+      "comments": [],
+      "reports": [
+        { "by": "dana", "reason": "spam", "ageHours": 38 },
+        { "by": "hila", "reason": "spam", "ageHours": 36 },
+        { "by": "roni", "reason": "spam", "ageHours": 30 }
+      ]
+    },
+    {
+      "key": "hila-screen-time", "author": "hila", "ageHours": 55, "audience": "everyone", "stageTag": "has_child",
+      "body": "כמה זמן מסך אצלכם בגיל הגן? אני מרגישה שכל הורה עושה משהו אחר ואין לי מושג מה סביר.",
+      "likes": ["orit", "yossi", "maya"],
+      "comments": [
+        { "key": "c-hs-1", "author": "yossi", "ageHours": 50, "body": "אצלנו חצי שעה אחרי הגן, ותמיד משהו שאנחנו בוחרים יחד." },
+        { "key": "c-hs-2", "author": "ron", "ageHours": 45, "body": "מי שמושיבה ילד מול מסך לא צריכה להיות אמא בכלל.", "reports": [{ "by": "hila", "reason": "harassment", "details": "תגובה פוגענית כלפי הורה", "ageHours": 44 }, { "by": "orit", "reason": "harassment", "ageHours": 42 }] },
+        { "key": "c-hs-3", "author": "orit", "ageHours": 43, "body": "הילה, את עושה עבודה מעולה. כל משפחה מוצאת את האיזון שלה." }
+      ]
+    },
+    {
+      "key": "tamar-anatomy", "author": "tamar", "ageHours": 380, "audience": "friends", "stageTag": "pregnant",
+      "body": "סקירת מערכות מאחורינו, הכול תקין 🥹 ואנחנו יודעים מה יהיה (אבל לא מספרים עדיין 🤐)",
+      "likes": ["michal", "maya"],
+      "comments": [
+        { "key": "c-ta-1", "author": "michal", "ageHours": 376, "body": "איזה כיף!! מחכה לשמוע 💕" },
+        { "key": "c-ta-2", "author": "maya", "ageHours": 370, "body": "מזל טוב! הקלה גדולה." }
+      ]
+    },
+    {
+      "key": "sigal-hospital-bag", "author": "sigal", "ageHours": 170, "audience": "everyone",
+      "body": "תיק ללידה — מה באמת צריך? הרשימה הקצרה שלי: מסמכים ותעודת זהות, מטען ארוך, שפתון לחות, נעלי בית, חטיפים ומים לבן הזוג, בגדים נוחים ליציאה, וערכה ראשונה לתינוק. כל השאר — בונוס. מה אתן הייתן מוסיפות?",
+      "likes": ["tamar", "michal", "maya", "yael"],
+      "comments": [
+        { "key": "c-sh-1", "author": "maya", "ageHours": 165, "body": "כרית מהבית! שינתה לי את החוויה." },
+        { "key": "c-sh-2", "author": "michal", "ageHours": 160, "body": "מתחילה לארוז השבוע, תודה!" }
+      ]
+    },
+    {
+      "key": "merav-sleep-deprivation", "author": "merav", "ageHours": 480, "audience": "everyone",
+      "body": "חוסר שינה משפיע על מצב הרוח יותר משנדמה לנו. אם אתם מרגישים עצבנות, בכי או ריחוק מבן או בת הזוג בחודשים הראשונים — זה לא כישלון. נסו לחלק לילות, לבקש עזרה מהמשפחה, ולדבר. ואם זה לא עובר — לפנות לאיש מקצוע.",
+      "likes": ["dana", "avi", "maya", "orit"],
+      "comments": [
+        { "key": "c-mr-1", "author": "avi", "ageHours": 470, "body": "חלוקת הלילות הצילה אותנו." }
+      ]
+    },
+    {
+      "key": "yossi-first-tooth", "author": "yossi", "ageHours": 480, "audience": "friends", "stageTag": "has_child",
+      "body": "ליה איבדה... לא, סליחה, עומר איבד את השן הראשונה! הפיה השאירה עשרה שקלים. האינפלציה מגיעה לכל מקום 😄",
+      "likes": ["avi", "hila"],
+      "comments": [
+        { "key": "c-yt-1", "author": "hila", "ageHours": 475, "body": "חחח אצלנו הפיה נותנת חמישה, אני צריכה לעדכן את המחירון" }
+      ]
+    },
+    {
+      "key": "inbal-pumping", "author": "inbal", "ageHours": 560, "audience": "everyone",
+      "body": "חוזרות לעבודה ורוצות להמשיך להניק? כדאי להתחיל לשאוב ולאגור כשבועיים-שלושה לפני החזרה, ולהכניס בקבוק אחד ביום כדי שהתינוק יתרגל. חלב אם נשמר במקרר עד ארבעה ימים ובמקפיא כמה חודשים. ובעיקר — כל כמות שתצליחו לתת היא מתנה.",
+      "likes": ["dana", "orit", "maya"],
+      "comments": [
+        { "key": "c-ip-1", "author": "dana", "ageHours": 550, "body": "בדיוק מה שהייתי צריכה לקרוא החודש." }
+      ]
+    },
+    {
+      "key": "shira-cycle-app", "author": "shira", "ageHours": 210, "audience": "everyone", "stageTag": "planning",
+      "body": "מתחילה לעקוב אחרי המחזור באפליקציה. מישהי יודעת עד כמה חלון הביוץ המשוער באמת מדויק? או שעדיף לא להתבסס עליו?",
+      "likes": ["yael", "keren"],
+      "comments": [
+        { "key": "c-sc-1", "author": "yael", "ageHours": 205, "body": "אצלי זה היה בערך, אבל לא מדויק. עזר לי בעיקר להבין את הדפוס של עצמי." }
+      ]
+    },
+    {
+      "key": "avi-white-noise", "author": "avi", "ageHours": 130, "audience": "everyone",
+      "body": "רעש לבן — כן או לא? אצלנו זה מרדים את תמר תוך דקות, אבל אשתי חוששת שהיא תתרגל ולא תוכל לישון בלי.",
+      "likes": ["roni", "dana", "liat"],
+      "comments": [
+        { "key": "c-aw-1", "author": "liat", "ageHours": 126, "body": "רעש לבן בעוצמה נמוכה ובמרחק מהמיטה יכול לעזור. גם אם היא תתרגל אליו — זה הרגל שקל להיגמל ממנו בהמשך." },
+        { "key": "c-aw-2", "author": "roni", "ageHours": 120, "body": "אנחנו עם רעש לבן שנה וחצי ואין חרטות 😅" }
+      ]
+    },
+    {
+      "key": "orit-hand-me-downs", "author": "orit", "ageHours": 90, "audience": "everyone",
+      "body": "סוף סוף סידרתי את המחסן! העליתי למרקטפלייס כמה דברים במצב מעולה — חלק למסירה. אם מישהו צריך, תכתבו לי 🙂",
+      "likes": ["michal", "dana", "hila"],
+      "comments": [
+        { "key": "c-oh-1", "author": "dana", "ageHours": 85, "body": "אוי, אני צריכה את המנשא! כותבת לך." }
+      ]
+    }
+  ]
+}
