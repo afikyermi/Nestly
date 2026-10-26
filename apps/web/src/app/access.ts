@@ -12,8 +12,9 @@ import { GUEST_LANDING, GUEST_PATHS, normalizePath, PATHS, PROTECTED_PATHS, SIGN
 /** `returnTo`: the profile or post link a Guest opened; the redirect to Login carries it so the sign-in can lead back to it (F2.4c2 c27, F3.6 c8). */
 export type AccessDecision = { kind: 'loading' } | { kind: 'render' } | { kind: 'redirect'; to: string; returnTo?: string };
 
-// The two consent documents (placeholders until I9): open to a Guest, and to a signed-in user too (F2.5 c6, Settings links to them).
-const DOCUMENT_PATHS: readonly string[] = [PATHS.terms, PATHS.privacy];
+// The public documents (BR-078, NFR-A11Y-001; PG-061): the two consent documents and the accessibility statement, open to a Guest, to a
+// signed-in user (F2.5 c6, Settings links to them) and in every hold.
+const DOCUMENT_PATHS: readonly string[] = [PATHS.terms, PATHS.privacy, PATHS.accessibility];
 // I14: the team invitation page too: the invited person signs up there and redeems the code with that session.
 const COMPLETION_PATHS: readonly string[] = [PATHS.register, PATHS.joinTeam, ...DOCUMENT_PATHS];
 const QUESTIONS_HELD_PATHS: readonly string[] = [PATHS.recoveryQuestions, ...DOCUMENT_PATHS];

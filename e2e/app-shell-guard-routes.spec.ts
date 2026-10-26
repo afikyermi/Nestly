@@ -105,13 +105,13 @@ test.describe('Welcome', () => {
     for (const a of [create, google, login]) await expect(a).toHaveCount(1);
     expect(await inDomOrder([logoOf(page), h1Of(page), lead, create, google, login])).toBe(true);
 
-    // Exactly three actions on the page besides the Logo, in this order.
+    // Exactly three actions on the page besides the Logo, in this order; the public documents' links (PG-061, BR-078) follow them.
     const actions = await page.locator('main a[href], main button').evaluateAll((els) =>
       els
         .map((el) => (el.getAttribute('aria-label') ?? el.textContent ?? '').replace(/\s+/g, ' ').trim())
         .filter((n) => n !== 'Nestly'),
     );
-    expect(actions).toEqual([CREATE, GOOGLE, HAVE_ACCOUNT]);
+    expect(actions).toEqual([CREATE, GOOGLE, HAVE_ACCOUNT, 'תנאי השימוש', 'מדיניות הפרטיות', 'הצהרת נגישות']);
 
     // The illustration: a large, decorative (aria-hidden) element before the h1, with no running animation.
     const illustration = await page.evaluate(() => {

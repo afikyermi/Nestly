@@ -18,6 +18,7 @@ import {
 } from '@/lib/account-deletion-texts';
 import { GENERIC_ERROR_TEXT } from '@/lib/auth-texts';
 import { documentTitle } from '@/lib/document-title';
+import { LegalLinks } from '@/pages/legal/LegalLinks';
 import { cancelAccountDeletion, fetchDeletionStatus } from '@/services/api/account-deletion';
 
 // PG-050 (FR-SET-002, AC-108): the session of an account scheduled for deletion is held here, outside the shell, until it cancels or signs
@@ -107,6 +108,8 @@ export function ScheduledDeletionScreen() {
           {scheduledText(date)}
         </p>
         <p className="mt-3 text-body text-muted-foreground">{SCHEDULED_HIDDEN}</p>
+        {/* PG-050: the documents open during the hold too, so what is deleted and kept can be read before deciding. */}
+        <LegalLinks className="mt-4" />
       </AuthLayout>
     </main>
   );

@@ -47,9 +47,10 @@ export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 256;
 
 /**
- * Versions of the consent documents a registration records (FR-REG-004, BR-068, AC-084). Placeholders until I9
- * supplies the documents. The server reads these and the client never sends a version; each must fit the
- * legal_consents version check (1-64 characters).
+ * Versions of the consent documents a registration records (FR-REG-004, BR-068, AC-084): the day the text of each document last
+ * changed (YYYY-MM-DD), which its page also shows as "עודכן לאחרונה" (BR-078, AC-186). A change of a document's text changes its
+ * version here. The server reads these and the client never sends a version; each must fit the legal_consents version check
+ * (1-64 characters). Accounts registered before I9 part 2 hold `placeholder-0` (OP-078).
  */
-export const CONSENT_TERMS_VERSION = 'placeholder-0';
-export const CONSENT_PRIVACY_VERSION = 'placeholder-0';
+export const CONSENT_TERMS_VERSION = '2026-10-26';
+export const CONSENT_PRIVACY_VERSION = '2026-10-26';

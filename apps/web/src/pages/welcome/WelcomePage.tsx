@@ -7,9 +7,10 @@ import { GoogleButton } from '@/components/shared/google-button';
 import { Button } from '@/components/ui/button';
 import { useGoogleSignIn } from '@/hooks/use-google-sign-in';
 import { documentTitle } from '@/lib/document-title';
+import { LegalLinks } from '@/pages/legal/LegalLinks';
 
 // Welcome (PG-001, FR-AUTH-001): what a Guest sees on opening the site. One primary action. The Google
-// action is a text button, without the provider's logo (FR-AUTH-005, F1.8).
+// action is a text button, without the provider's logo (FR-AUTH-005, F1.8). Under the actions, the public documents (BR-078, PG-061).
 export function WelcomePage() {
   const toRegister = useLinkClickHandler(PATHS.register);
   const google = useGoogleSignIn();
@@ -27,6 +28,7 @@ export function WelcomePage() {
             <Button variant="soft" size="lg" block href={PATHS.login} onClick={toLogin}>
               כבר יש לי חשבון
             </Button>
+            <LegalLinks className="mt-2" />
           </>
         }
       >
