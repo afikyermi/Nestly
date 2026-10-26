@@ -1,0 +1,147 @@
+# demo-seed - the lecturer demo's content (docs/lecturer-demo-plan-HE.md v2, §2 stage ד and §3). One-off, by hand only, from main.
+#
+# The content is created THROUGH THE PRODUCT: tools/demo-seed signs in as each demo user (Supabase Auth, the publishable key) and calls
+# the public API with that user's own permissions. The product has no demo-aware code. The time shift is the one step that writes to
+# the database directly: it moves created_at back for the demo accounts' rows only (plan §3, Afik 15.10), in one transaction.
+#
+# step:
+#   plan           the dry run: the content is checked and every step printed. No secret, no network.
+#   seed           creates the content (accounts first; DEMO_ALLOW_SIGNUP creates missing ones). Safe to run again: skips what exists.
+#   shift-dry-run  the time shift, rolled back: prints the row count per statement.
+#   shift          the time shift, committed. Run once, right after the seed, off-peak: a table whose guard refuses the move is
+#                  locked (ALTER TABLE) for the few seconds of the transaction. A statement that moves no row stops it (rollback).
+#   stories        the Stories only - on the demo day itself (a Story expires after 24 hours, FR-FEED-008).
+#
+# Secrets and variables (Afik creates them; this file never prints one):
+#   Preview  - environment `preview-e2e` (main only): DEMO_ACCOUNTS (secret), SUPABASE_PUBLISHABLE_KEY (variable, nestly-preview);
+#              PREVIEW_DB_ADMIN_URL and VERCEL_AUTOMATION_BYPASS_SECRET are already there.
+#   Production - environment `demo-production` with Afik as required reviewer (every run waits for his approval): DEMO_ACCOUNTS
+#              (secret), PRODUCTION_DB_ADMIN_URL (secret: postgres.cihugbwafnaujsqabgyp through the session pooler, port 5432),
+#              SUPABASE_PUBLISHABLE_KEY (variable, nestly-prod).
+# Inputs reach the scripts through env only, never interpolated into `run:`.
+
+name: demo-seed
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: where the content goes
+        type: choice
+        default: preview
+        options: [preview, production]
+      step:
+        description: plan (dry run) · seed · shift-dry-run · shift · stories
+        type: choice
+        default: plan
+        options: [plan, seed, shift-dry-run, shift, stories]
+      base_url:
+        description: "preview only: the deployment URL (https://nestly-<hash>-afikyermis-projects.vercel.app)"
+        type: string
+        default: ""
+      allow_signup:
+        description: "seed: create the demo accounts that do not exist yet (tick it for the first seed only)"
+        type: boolean
+        default: false
+      allow_empty:
+        description: "shift: comma-separated statement labels whose 0 rows may not stop the apply (content the product refused)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: demo-seed-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: demo-seed plan
+    if: inputs.step == 'plan'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build -w @nestly/shared
+      - name: Dry run
+        run: |
+          node tools/demo-seed/cli.ts plan seed
+          node tools/demo-seed/cli.ts plan stories
+
+  preview:
+    name: demo-seed preview
+    if: inputs.target == 'preview' && inputs.step != 'plan' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    environment: preview-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # Dependencies and the shared build run before any step holds a secret.
+      - run: npm ci --ignore-scripts
+      - run: npm run build -w @nestly/shared
+      - name: Seed or Stories
+        if: inputs.step == 'seed' || inputs.step == 'stories'
+        env:
+          STEP: ${{ inputs.step }}
+          DEMO_BASE_URL: ${{ inputs.base_url }}
+          DEMO_ALLOW_SIGNUP: ${{ inputs.allow_signup && '1' || '0' }}
+          DEMO_ACCOUNTS: ${{ secrets.DEMO_ACCOUNTS }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: node tools/demo-seed/cli.ts run "$STEP" preview
+      - name: Time shift
+        if: inputs.step == 'shift-dry-run' || inputs.step == 'shift'
+        env:
+          SHIFT_MODE: ${{ inputs.step == 'shift' && 'apply' || 'dry-run' }}
+          DEMO_SHIFT_ALLOW_EMPTY: ${{ inputs.allow_empty }}
+          DEMO_DB_ADMIN_URL: ${{ secrets.PREVIEW_DB_ADMIN_URL }}
+          DEMO_ACCOUNTS: ${{ secrets.DEMO_ACCOUNTS }}
+        run: node tools/demo-seed/shift-cli.ts preview "$SHIFT_MODE"
+
+  production:
+    name: demo-seed production
+    if: inputs.target == 'production' && inputs.step != 'plan' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    # Protected: Afik is its required reviewer, so every production run waits for his approval (plan §3, §6).
+    environment: demo-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build -w @nestly/shared
+      - name: Seed or Stories
+        if: inputs.step == 'seed' || inputs.step == 'stories'
+        env:
+          STEP: ${{ inputs.step }}
+          DEMO_ALLOW_SIGNUP: ${{ inputs.allow_signup && '1' || '0' }}
+          DEMO_ACCOUNTS: ${{ secrets.DEMO_ACCOUNTS }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+        run: node tools/demo-seed/cli.ts run "$STEP" production
+      - name: Time shift
+        if: inputs.step == 'shift-dry-run' || inputs.step == 'shift'
+        env:
+          SHIFT_MODE: ${{ inputs.step == 'shift' && 'apply' || 'dry-run' }}
+          DEMO_SHIFT_ALLOW_EMPTY: ${{ inputs.allow_empty }}
+          DEMO_DB_ADMIN_URL: ${{ secrets.PRODUCTION_DB_ADMIN_URL }}
+          DEMO_ACCOUNTS: ${{ secrets.DEMO_ACCOUNTS }}
+        run: node tools/demo-seed/shift-cli.ts production "$SHIFT_MODE"

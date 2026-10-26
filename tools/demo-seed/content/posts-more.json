@@ -1,0 +1,105 @@
+{
+  "posts": [
+    {
+      "key": "tamar-heartburn", "author": "tamar", "ageHours": 26, "audience": "everyone", "stageTag": "pregnant",
+      "body": "צרבת בשבוע 22, זה כבר מתחיל? 😩 מה עובד לכן חוץ מלישון עם שלושה כריות?",
+      "likes": ["michal", "maya", "yael"],
+      "comments": [
+        { "key": "c-th-1", "author": "maya", "ageHours": 24, "body": "ארוחות קטנות ולא לאכול שעתיים לפני השינה. ושאלתי את הרופאה מה מותר לקחת." },
+        { "key": "c-th-2", "author": "keren", "ageHours": 22, "body": "אוכל חריף, שומני ושוקולד מחמירים אצל רבות. כדאי לנסות לזהות מה מחמיר אצלך, ולהתייעץ עם הרופאה לפני כל תרופה." },
+        { "key": "c-th-3", "author": "tamar", "ageHours": 20, "body": "שוקולד?! 💔 טוב, ננסה.", "replyTo": "c-th-2" }
+      ]
+    },
+    {
+      "key": "dana-night-feeds", "author": "dana", "ageHours": 12, "audience": "friends", "stageTag": "has_child",
+      "body": "3:40 לפנות בוקר, הנקה רביעית הלילה. מי עוד ערה? ☕",
+      "likes": ["avi", "orit", "roni"],
+      "comments": [
+        { "key": "c-dn-1", "author": "avi", "ageHours": 11, "body": "כאן! בקבוק של 3:30 🙋‍♂️" },
+        { "key": "c-dn-2", "author": "orit", "ageHours": 8, "body": "שולחת כוחות. זה עובר, באמת." }
+      ]
+    },
+    {
+      "key": "yossi-weekend", "author": "yossi", "ageHours": 150, "audience": "everyone",
+      "body": "רעיונות לסופ\"ש גשום עם ילד בן 6 ופעוטה בת שנתיים? כבר בנינו מבצר מכריות, אפינו עוגיות וצפינו בסרט. עוד שעתיים עד הצהריים 😅",
+      "likes": ["hila", "orit", "avi", "maya"],
+      "comments": [
+        { "key": "c-yw-1", "author": "hila", "ageHours": 148, "body": "ציד אוצרות בבית עם רמזים מצוירים! נגה משתגעת על זה." },
+        { "key": "c-yw-2", "author": "orit", "ageHours": 147, "body": "מוזיאון ילדים / ספרייה עירונית — בחורף יש שם פעילויות." },
+        { "key": "c-yw-3", "author": "maya", "ageHours": 140, "body": "פלסטלינה ביתית מקמח ומלח, מעסיק אצלנו שעה שלמה." },
+        { "key": "c-yw-4", "author": "yossi", "ageHours": 139, "body": "ציד אוצרות זה גאוני, תודה!", "replyTo": "c-yw-1" }
+      ]
+    },
+    {
+      "key": "roni-picky-eater", "author": "roni", "ageHours": 330, "audience": "everyone", "stageTag": "has_child",
+      "body": "איתמר החליט שהוא אוכל רק דברים בצבע לבן: אורז, פסטה, לחם ויוגורט. זה שלב? מישהו עבר את זה?",
+      "likes": ["dana", "orit", "hila", "keren"],
+      "comments": [
+        { "key": "c-rp-1", "author": "keren", "ageHours": 325, "body": "בררנות בגיל הזה מאוד שכיחה. מה שעוזר: להמשיך להציע מגוון בלי לחץ, לאכול יחד, ולהגיש מאכל חדש לצד משהו שהוא כבר אוהב. לפעמים צריך עשר-חמש עשרה חשיפות." },
+        { "key": "c-rp-2", "author": "orit", "ageHours": 320, "body": "נועם שלי היה בדיוק ככה. היום הוא אוכל סלט (לפעמים 😄)." },
+        { "key": "c-rp-3", "author": "roni", "ageHours": 318, "body": "עשר חשיפות! טוב, יש לי סבלנות 💪", "replyTo": "c-rp-1" }
+      ]
+    },
+    {
+      "key": "michal-hospital", "author": "michal", "ageHours": 400, "audience": "everyone", "stageTag": "pregnant",
+      "body": "איך בחרתן בית חולים ללידה? קרבה לבית, חוות דעת, מחלקת יולדות? אנחנו מתלבטים בין שניים וקשה להחליט.",
+      "likes": ["tamar", "maya", "sigal"],
+      "comments": [
+        { "key": "c-mh-1", "author": "maya", "ageHours": 395, "body": "אנחנו בחרנו לפי סיור — האווירה בחדרי הלידה עשתה את ההבדל." },
+        { "key": "c-mh-2", "author": "sigal", "ageHours": 390, "body": "כדאי לבדוק: מדיניות לגבי מלווים, אפשרות ללינה משותפת עם התינוק, ומה זמין בחדר הלידה (מקלחת, כדור, אמבטיה). ולהגיע לסיור — רוב בתי החולים מציעים." }
+      ]
+    },
+    {
+      "key": "hila-birthday-ideas", "author": "hila", "ageHours": 610, "audience": "everyone", "stageTag": "has_child",
+      "body": "נגה חוגגת חמש! מסיבה בבית לעשרה ילדים — מה הפעילות שהכי הצליחה לכם בגיל הזה?",
+      "likes": ["orit", "yossi"],
+      "comments": [
+        { "key": "c-hb-1", "author": "orit", "ageHours": 600, "body": "קישוט עוגיות. פשוט, זול, וכולם הולכים הביתה עם משהו." }
+      ]
+    },
+    {
+      "key": "avi-dad-question", "author": "avi", "ageHours": 220, "audience": "everyone",
+      "body": "שאלה לאבות: איך שמרתם על זמן זוגי בחודשים הראשונים? אנחנו מרגישים כמו שני שותפים למשמרת לילה 😅",
+      "likes": ["yossi", "dana", "merav"],
+      "comments": [
+        { "key": "c-adq-1", "author": "yossi", "ageHours": 215, "body": "ארוחת ערב אחת בשבוע אחרי שהם נרדמים, בלי טלפונים. נשמע קטן, עושה הרבה." },
+        { "key": "c-adq-2", "author": "merav", "ageHours": 210, "body": "התחושה של 'שותפים למשמרת' מאוד מוכרת ונורמלית. גם עשר דקות ביום של שיחה שהיא לא על התינוק שומרות על הקשר." }
+      ]
+    },
+    {
+      "key": "maya-28-weeks", "author": "maya", "ageHours": 48, "audience": "everyone", "stageTag": "pregnant",
+      "body": "שבוע 28 בהריון השני — ובאמת הכול מרגיש מהר יותר הפעם. מי עוד בהריון עם פעוט בבית? איך אתן נחות? 🙃",
+      "likes": ["tamar", "orit", "michal"],
+      "comments": [
+        { "key": "c-m28-1", "author": "orit", "ageHours": 46, "body": "נחים כשהוא בגן, ובערב — מה שאבא יכול, אבא עושה 😉" },
+        { "key": "c-m28-2", "author": "tamar", "ageHours": 40, "body": "מעריצה אותך! אני בקושי מתפקדת עם אחד בבטן 😂" }
+      ]
+    },
+    {
+      "key": "orit-kindergarten-reg", "author": "orit", "ageHours": 260, "audience": "everyone", "stageTag": "has_child",
+      "body": "תזכורת למי שיש לו ילדים בגיל הרלוונטי: הרישום לגנים ולכיתה א' נפתח בדרך כלל בחורף. כדאי לבדוק באתר הרשות המקומית שלכם את התאריכים.",
+      "likes": ["hila", "yossi", "maya", "roni"],
+      "comments": [
+        { "key": "c-okr-1", "author": "hila", "ageHours": 255, "body": "תודה!! שכחתי לגמרי." }
+      ]
+    },
+    {
+      "key": "yael-told-family", "author": "yael", "ageHours": 30, "audience": "friends", "stageTag": "pregnant",
+      "body": "סיפרנו למשפחה בסוף השבוע! אמא שלי בכתה, אבא שלי שאל אם זה בטוח 😂 איזו הקלה לא לשמור את זה בסוד.",
+      "likes": ["michal", "shira"],
+      "comments": [
+        { "key": "c-ytf-1", "author": "shira", "ageHours": 28, "body": "איזה כיף!! מחכה לתור שלי 💛" },
+        { "key": "c-ytf-2", "author": "michal", "ageHours": 25, "body": "מזל טוב, מתוקה! 🥰" }
+      ]
+    },
+    {
+      "key": "liat-early-bedtime", "author": "liat", "ageHours": 70, "audience": "followers",
+      "body": "למי שעוקב: מחר אני עונה כאן על שאלות על שעת שינה מוקדמת בפעוטות. כתבו בתגובות מה מעניין אתכם, ואענה על הכול בפוסט אחד.",
+      "likes": ["roni", "avi", "michal"],
+      "comments": [
+        { "key": "c-leb-1", "author": "roni", "ageHours": 66, "body": "איך מקדימים שעת שינה בלי שהוא יתעורר ב-5 בבוקר? 🙏" },
+        { "key": "c-leb-2", "author": "avi", "ageHours": 60, "body": "מתי עוברים משתי תנומות לאחת?" }
+      ]
+    }
+  ]
+}
