@@ -8,6 +8,10 @@ export const ADMIN_HOME_TITLE = 'בית הניהול';
 export const MY_WORK_TITLE = 'העבודה שלי';
 export const CHILD_SAFETY_BAR = (n: number) => (n === 1 ? 'יש דיווח פתוח על תוכן שמסכן ילד' : `יש ${n} דיווחים פתוחים על תוכן שמסכן ילד`);
 export const CHILD_SAFETY_BAR_LINK = 'לטיפול עכשיו';
+// I9 (decisions-in-force §16.4): the account deletions that wait for their date, and the red bar for one past it (numbers only).
+export const PENDING_DELETIONS_LABEL = 'מחיקות חשבון ממתינות';
+export const OVERDUE_DELETIONS_BAR = (n: number) =>
+  n === 1 ? 'מחיקת חשבון אחת עברה את מועד הביצוע ועדיין לא בוצעה' : `${n} מחיקות חשבון עברו את מועד הביצוע ועדיין לא בוצעו`;
 export const ATTENTION_TITLE = 'דורש תשומת לב';
 export const NOTHING_NEEDS_ATTENTION = 'אין כרגע דבר שמחכה לטיפול';
 export const ATTENTION_LABELS = {

@@ -242,9 +242,11 @@ select is(
 
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'nestly' and c.relname = 'recovery_events' and pol.polcmd in ('r', 'w', 'd')),
+    where n.nspname = 'nestly' and c.relname = 'recovery_events' and pol.polcmd in ('r', 'w', 'd')
+      and not (pol.polname in ('recovery_events_select_jobs', 'recovery_events_delete_jobs')
+               and pol.polroles = array[(select r.oid from pg_catalog.pg_roles r where r.rolname = 'app_jobs')])),
   0::bigint,
-  '[F2.0-a c2 c12] recovery_events still has no SELECT, UPDATE or DELETE policy: the audit stays append-only');
+  '[F2.0-a c2 c12 · I9] recovery_events still has no SELECT, UPDATE or DELETE policy: the audit stays append-only, but for I9''s purge TO app_jobs of an account deleted 90 days ago (BR-073, file 110)');
 
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace

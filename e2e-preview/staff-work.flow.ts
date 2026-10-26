@@ -27,14 +27,20 @@ test('[I14 completion] a community account keeps its home and is refused every s
   await expect(page).toHaveURL(/\/recovery-questions$/);
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
-  const bell = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/notifications' && r.request().method() === 'GET');
+  // the bell's first request: the list on mount, or its light poll (/counts) when the list loaded before this wait (PR #241)
+  const bell = page.waitForResponse((r) => ['/api/notifications', '/api/notifications/counts'].includes(new URL(r.url()).pathname) && r.request().method() === 'GET');
   await page.getByRole('button', { name: 'שמירה', exact: true }).click();
   await expect(page).toHaveURL(/\/feed$/, { timeout: AFTER_ANSWERS_MS });
   const authorization = (await (await bell).request().headerValue('authorization')) ?? '';
   expect(authorization).toMatch(/^Bearer /);
 
-  // §9.6: /home by role: a parent keeps the parent's home
-  await page.goto('/home');
+  // §9.6: /home by role: a parent keeps the parent's home. Reached the way a parent reaches it, by "בית" in the primary navigation (a
+  // staff account's "בית" leads to /admin instead). Not page.goto: a full load restores the session first (Auth, then GET /api/me), and
+  // on the slow Preview that left the page on the session skeleton past the assertion's wait in three runs (25.10), right after the
+  // feed's own requests; the restore is covered by the flows that reload on purpose.
+  const homeLink = page.getByRole('navigation', { name: 'ניווט ראשי' }).getByRole('link', { name: 'בית', exact: true });
+  await expect(homeLink).toHaveAttribute('href', '/home');
+  await homeLink.click();
   await expect(page).toHaveURL(/\/home$/);
   await expect(page.getByRole('main').getByRole('heading', { level: 1 })).not.toHaveText('ניהול');
 

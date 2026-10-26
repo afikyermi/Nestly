@@ -81,7 +81,7 @@ const GOOD_FACTS = {
   dbUser: 'postgres',
   bypassRls: true,
   canDeleteAuthUsers: true,
-  nestlyTables: ['algorithm_configurations', 'audit_log', 'auto_hide_scopes', 'chat_blocks', 'chat_reads', 'chat_requests', 'children', 'comments', 'conversations', 'cycle_entries', 'enforcement_records', 'friend_content_notification_preferences', 'friendships', 'group_access', 'group_bans', 'group_highlight_configurations', 'group_highlights', 'group_invitations', 'group_join_requests', 'group_member_enforcements', 'group_members', 'group_notification_preferences', 'group_staff_views', 'group_suggestions', 'groups', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'marketplace_listings', 'media_assets', 'media_fingerprints', 'media_reviews', 'media_training_candidates', 'media_training_events', 'media_training_samples', 'messages', 'moderator_invitations', 'moderator_permissions', 'notification_preferences', 'notifications', 'outreach_requests', 'people_search_counts', 'post_authors', 'post_hides', 'posts', 'private_group_content_views', 'professional_articles', 'professional_follows', 'professional_profiles', 'professional_reviews', 'professional_views', 'profile_open_counts', 'profile_photos', 'profile_staff_views', 'promotion_events', 'promotion_monthly_summaries', 'promotion_payments', 'promotion_plans', 'promotion_settings', 'promotions', 'reaction_owners', 'reactions', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'report_auto_hides', 'report_escalations', 'report_openings', 'report_reasons', 'reported_comment_views', 'reported_message_views', 'reports', 'search_intents', 'security_events', 'security_limits', 'sponsored_products', 'staff_roles', 'status_guides', 'stories', 'support_messages', 'support_requests', 'suspected_image_fingerprints', 'system_announcements', 'tracker_events', 'trend_scopes', 'usage_events', 'user_blocks', 'user_enforcements', 'users'],
+  nestlyTables: ['account_deletion_events', 'algorithm_configurations', 'audit_log', 'auto_hide_scopes', 'chat_blocks', 'chat_reads', 'chat_requests', 'children', 'comments', 'conversations', 'cycle_entries', 'enforcement_records', 'friend_content_notification_preferences', 'friendships', 'group_access', 'group_bans', 'group_highlight_configurations', 'group_highlights', 'group_invitations', 'group_join_requests', 'group_member_enforcements', 'group_members', 'group_notification_preferences', 'group_staff_views', 'group_suggestions', 'groups', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'marketplace_listings', 'media_assets', 'media_fingerprints', 'media_reviews', 'media_training_candidates', 'media_training_events', 'media_training_samples', 'messages', 'moderator_invitations', 'moderator_permissions', 'notification_preferences', 'notifications', 'outreach_requests', 'people_search_counts', 'post_authors', 'post_hides', 'posts', 'private_group_content_views', 'professional_articles', 'professional_follows', 'professional_profiles', 'professional_reviews', 'professional_views', 'profile_open_counts', 'profile_photos', 'profile_staff_views', 'promotion_events', 'promotion_monthly_summaries', 'promotion_payments', 'promotion_plans', 'promotion_settings', 'promotions', 'reaction_owners', 'reactions', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'report_auto_hides', 'report_escalations', 'report_openings', 'report_reasons', 'reported_comment_views', 'reported_message_views', 'reports', 'search_intents', 'security_events', 'security_limits', 'sponsored_products', 'staff_roles', 'status_guides', 'stories', 'support_messages', 'support_requests', 'suspected_image_fingerprints', 'system_announcements', 'tracker_events', 'trend_scopes', 'usage_events', 'user_blocks', 'user_enforcements', 'users'],
 };
 
 test('[E c8] preflight passes only for the exact expected facts, in any table order', () => {
@@ -474,15 +474,15 @@ test('[cleanup a] the expected tables are exactly the nestly tables the migratio
   assert.doesNotMatch(code, /alter\s+table\s+(?:if\s+exists\s+)?nestly\.[a-z_]+\s+rename\s+to/i, 'a renamed table: update this test');
   assert.deepEqual([...cleanup.EXPECTED_NESTLY_TABLES], [...created].sort());
   assert.ok(created.has('identity_link_checks'));
-  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 91);
+  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 92);
   for (const t of ['algorithm_configurations', 'post_authors', 'post_hides', 'posts', 'comments', 'reaction_owners', 'reactions', 'reports']) assert.ok(cleanup.EXPECTED_NESTLY_TABLES.includes(t), t);
 });
 
-test('[cleanup a] the preflight with all ninety-one tables passes; the ninety left without identity_link_checks fail', () => {
-  assert.equal(GOOD_FACTS.nestlyTables.length, 91);
+test('[cleanup a] the preflight with all ninety-two tables passes; the ninety-one left without identity_link_checks fail', () => {
+  assert.equal(GOOD_FACTS.nestlyTables.length, 92);
   assert.equal(cleanup.decidePreflight(GOOD_FACTS).ok, true);
   const rest = GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks');
-  assert.equal(rest.length, 90);
+  assert.equal(rest.length, 91);
   assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: rest }).ok, false);
 });
 
@@ -521,7 +521,7 @@ test('[F2.4c1 c20 c21 c22] the preflight fails closed when any of the three F2.4
 // I12: sponsored_products are written by the Admin only (a test user is never staff).
 // I13: promotion_plans is the seeded sample price list (no runtime role writes it); promotion_settings is written by the Admin only.
 // I14 completion: report_escalations and report_openings are written by staff only and go with their report by cascade; group_staff_views with its Group; trend_scopes holds no user and is always empty between calls.
-const NO_DELETE = ['security_limits', 'algorithm_configurations', 'status_guides', 'report_reasons', 'media_training_samples', 'media_training_events', 'media_reviews', 'media_training_candidates', 'moderator_invitations', 'system_announcements', 'group_highlight_configurations', 'sponsored_products', 'report_escalations', 'report_openings', 'group_staff_views', 'trend_scopes', 'promotion_plans',
+const NO_DELETE = ['security_limits', 'algorithm_configurations', 'status_guides', 'report_reasons', 'media_training_samples', 'media_training_events', 'media_reviews', 'media_training_candidates', 'moderator_invitations', 'system_announcements', 'group_highlight_configurations', 'sponsored_products', 'trend_scopes', 'promotion_plans',
   // I14 completion B: a hide goes with its item or author, a fingerprint with its image (cascades); the block list names no user
   'report_auto_hides', 'media_fingerprints', 'suspected_image_fingerprints', 'auto_hide_scopes', 'promotion_settings',
   // I10 completion C: a Highlight goes with its post or Group (cascade); it names no user
@@ -551,15 +551,19 @@ test('[cleanup a] every expected table is deleted from in the user transaction, 
   assert.deepEqual(order.filter((t) => !['nestly.identity_link_checks', 'nestly.post_hides', 'nestly.posts', 'nestly.post_authors', 'nestly.reports', 'nestly.reactions', 'nestly.comments'].includes(t)), [
     'nestly.audit_log', 'nestly.recovery_throttles', 'nestly.recovery_events', 'nestly.legal_consents', 'nestly.recovery_answers', 'nestly.tracker_events', 'nestly.cycle_entries', 'nestly.children',
     'nestly.journey_contexts', 'nestly.notifications', 'nestly.notification_preferences', 'nestly.friend_content_notification_preferences',
-    'nestly.reported_message_views', 'nestly.private_group_content_views', 'nestly.reported_comment_views', 'nestly.profile_staff_views', 'nestly.enforcement_records', 'nestly.promotion_events', 'nestly.promotion_monthly_summaries', 'nestly.promotions', 'nestly.promotion_payments', 'nestly.professional_views', 'nestly.usage_events', 'nestly.stories', 'nestly.profile_photos', 'nestly.media_assets', 'nestly.marketplace_listings',
+    'nestly.reported_message_views', 'nestly.private_group_content_views', 'nestly.reported_comment_views', 'nestly.profile_staff_views', 'nestly.enforcement_records', 'nestly.report_openings', 'nestly.report_escalations', 'nestly.group_staff_views', 'nestly.promotion_events', 'nestly.promotion_monthly_summaries', 'nestly.promotions', 'nestly.promotion_payments', 'nestly.professional_views', 'nestly.usage_events', 'nestly.stories', 'nestly.profile_photos', 'nestly.media_assets', 'nestly.marketplace_listings',
     'nestly.groups', 'nestly.group_suggestions', 'nestly.group_invitations', 'nestly.group_join_requests', 'nestly.group_member_enforcements', 'nestly.group_bans',
     'nestly.group_notification_preferences', 'nestly.group_access', 'nestly.group_members',
     'nestly.professional_reviews', 'nestly.professional_follows', 'nestly.professional_articles', 'nestly.outreach_requests',
     'nestly.chat_reads', 'nestly.support_messages', 'nestly.support_requests', 'nestly.messages', 'nestly.conversations', 'nestly.chat_requests', 'nestly.chat_blocks',
     'nestly.user_blocks', 'nestly.friendships', 'nestly.regular_names', 'nestly.regular_profiles', 'nestly.professional_profiles',
-    'nestly.profile_open_counts', 'nestly.search_intents', 'nestly.people_search_counts', 'nestly.user_enforcements', 'nestly.moderator_permissions', 'nestly.staff_roles', 'nestly.security_events', 'nestly.users', 'auth.users',
+    'nestly.profile_open_counts', 'nestly.search_intents', 'nestly.people_search_counts', 'nestly.user_enforcements', 'nestly.moderator_permissions', 'nestly.staff_roles', 'nestly.security_events', 'nestly.account_deletion_events', 'nestly.users', 'auth.users',
   ]);
   assert.ok(order.indexOf('nestly.security_events') < order.indexOf('nestly.identity_link_checks'));
+  // I9: conversations (both sides) and messages go before nestly.users, so the SET NULL of a deleted side never leaves a one-sided
+  // conversation of a test user behind; the deletion record (no FK) by account id
+  assert.ok(at('nestly.messages') < at('nestly.conversations') && at('nestly.conversations') < at('nestly.users'), 'conversations before users');
+  assert.match(cliText, /counts\['account_deletion_events'\] = \(await tx`delete from nestly\.account_deletion_events where account_id = \$\{id\}`\)\.count/);
   // I5: Stories and the profile photo before the images they point at; all three before regular_profiles (stories reference it)
   assert.ok(at('nestly.stories') < at('nestly.media_assets') && at('nestly.profile_photos') < at('nestly.media_assets') && at('nestly.media_assets') < at('nestly.regular_profiles'));
   assert.match(cliText, /counts\['friendships'\] = \(\s*await tx`delete from nestly\.friendships where requester_id = \$\{id\} or addressee_id = \$\{id\}`\s*\)\.count/);

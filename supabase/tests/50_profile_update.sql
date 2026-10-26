@@ -116,8 +116,8 @@ select is(pg_temp.upd('a', $q$ update nestly.regular_profiles set full_name = 'O
   '[F2.1-a c9 c10] a granted column together with a forbidden one: the whole statement is refused');
 select is(pg_temp.upd('a', $q$ delete from nestly.regular_profiles where user_id = auth.uid() $q$), 'ERR:42501',
   '[F2.1-a c10] DELETE of own row: refused (no grant)');
-select is(pg_temp.upd('a', $q$ update nestly.users set status = 'banned' where id = auth.uid() $q$), 'OK:0',
-  '[F2.1-a spec "users read only"] users stays read only for the owner: no policy opens the row to its own account (I4: the status column is granted for staff, RLS touches no row)');
+select is(pg_temp.upd('a', $q$ update nestly.users set status = 'banned' where id = auth.uid() $q$), 'ERR:42501',
+  '[F2.1-a spec "users read only" · I9] users stays read only for the owner: only the own deletion request and cancel open the row (file 110), and users_status_guard refuses every other change');
 
 -- =====================================================================================================================
 -- 4. Not an active account: nothing (c11)

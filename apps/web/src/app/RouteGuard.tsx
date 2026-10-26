@@ -21,7 +21,7 @@ function returnToOf(state: unknown): string | null {
 // A Guest who opens a profile or post link goes to Login and back to it after signing in (F2.4c2 c27, F3.6 c8); this holds only for a visitor
 // who has not had a session in this page load, so signing out never leads to the profile that was open.
 export function RouteGuard({ children }: { children: ReactNode }) {
-  const { state, notice, needsRecoveryQuestions, mustSetPassword } = useSession();
+  const { state, notice, needsRecoveryQuestions, mustSetPassword, deletionScheduled } = useSession();
   const location = useLocation();
   const { storage, landed } = useContext(ReturnTargetContext);
   const hadSession = useRef(false);
@@ -30,6 +30,7 @@ export function RouteGuard({ children }: { children: ReactNode }) {
   const decision = decideAccess(state, location.pathname, notice !== null, needsRecoveryQuestions, mustSetPassword, {
     fromGuest: !hadSession.current,
     returnTo,
+    deletionScheduled,
   });
   useEffect(() => {
     if (state === 'signed-in' || state === 'signed-in-no-account') hadSession.current = true;

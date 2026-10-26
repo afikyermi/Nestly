@@ -11,6 +11,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 import { createBypassRouteHandler } from './support/bypass.ts';
 import { expect, test } from './support/fixtures.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
+import { AFTER_ANSWERS_MS, createAccount, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
 const passwordField = (page: Page) => page.getByLabel('סיסמה', { exact: true });
@@ -28,13 +29,14 @@ async function signUp(page: Page, fullName: string): Promise<string> {
   await box.focus();
   await page.keyboard.press('Space');
   await expect(box).toBeChecked();
-  await page.getByRole('button', { name: 'יצירת חשבון', exact: true }).click();
+  await createAccount(page); // both sign-up calls, up to 30 s each, as every other flow's sign-up
   await expect(page).toHaveURL(/\/recovery-questions$/);
   await page.getByLabel(/חיית המחמד/).fill(u.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(u.answers.nickname);
-  const bell = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/notifications' && r.request().method() === 'GET');
+  // the bell's first request: the list on mount, or its light poll (/counts) when the list loaded before this wait (PR #241)
+  const bell = page.waitForResponse((r) => ['/api/notifications', '/api/notifications/counts'].includes(new URL(r.url()).pathname) && r.request().method() === 'GET');
   await page.getByRole('button', { name: 'שמירה', exact: true }).click();
-  await expect(page).toHaveURL(/\/feed$/);
+  await expect(page).toHaveURL(/\/feed$/, { timeout: AFTER_ANSWERS_MS });
   const authorization = (await (await bell).request().headerValue('authorization')) ?? '';
   expect(authorization).toMatch(/^Bearer /);
   return authorization;
@@ -68,8 +70,8 @@ async function openAsStaff(page: Page, staff: TestUser, path: string, ready: (pa
   await page.goto('/login');
   await emailField(page).fill(staff.email);
   await passwordField(page).fill(staff.password);
-  await page.getByRole('button', { name: 'התחברות', exact: true }).click();
-  await expect(page).not.toHaveURL(/\/login$/, { timeout: SLOW });
+  await submitSignIn(page);
+  await expect(page).not.toHaveURL(/\/login$/, { timeout: SIGN_IN_MS });
   await page.goto(path);
   const gate = page.getByLabel(/חיית המחמד/);
   await expect(ready(page).or(gate)).toBeVisible({ timeout: SLOW });

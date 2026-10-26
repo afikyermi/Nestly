@@ -20,6 +20,7 @@ const FAILED = (code: string, status = 400): SignInAnswer => ({ accessToken: nul
 interface Latest {
   state: string;
   notice: string | null;
+  deletionScheduled: boolean;
   signOut: () => unknown;
   account: ReturnType<typeof useSessionAccount>;
 }
@@ -29,7 +30,7 @@ let renders: string[];
 function Probe() {
   const s = useSession();
   const account = useSessionAccount();
-  latest = { state: s.state, notice: s.notice, signOut: s.signOut, account };
+  latest = { state: s.state, notice: s.notice, deletionScheduled: s.deletionScheduled, signOut: s.signOut, account };
   renders.push(s.state);
   return <output>{s.state}</output>;
 }
@@ -535,5 +536,34 @@ describe('[F1.5 c14] logout and the entry after registration', () => {
     t.advanceClock(120_000);
     await t.tabVisible();
     expect(latest.state).toBe('signed-out');
+  });
+});
+
+// I9 (FR-SET-002, PG-050, FR-AUTH-002): a scheduled account keeps its session only held on PG-050; a deleted one is signed out and told so.
+describe('account deletion states (I9)', () => {
+  it('[I9 PG-050 AC-108] a scheduled account signs in held, and the hold ends when the server says active again', async () => {
+    const t = setup({ restore: 'none', outcomes: ['deletion-scheduled', 'active'] });
+    await settle();
+    expect(await signIn()).toEqual({ kind: 'signed-in' });
+    expect(latest.state).toBe('signed-in');
+    expect(latest.deletionScheduled).toBe(true);
+    expect(t.authSignOut).not.toHaveBeenCalled();
+    await act(async () => {
+      await latest.account?.recheck();
+    });
+    expect(latest.deletionScheduled).toBe(false);
+  });
+
+  it('[I9 BR-073] a deleted account: the sign-in is ended, the result says deleted; at restore the notice says deleted', async () => {
+    const t = setup({ restore: 'none', outcomes: ['deleted'] });
+    await settle();
+    expect(await signIn()).toEqual({ kind: 'deleted' });
+    expect(t.authSignOut).toHaveBeenCalledTimes(1);
+    expect(renders).not.toContain('signed-in');
+    t.view.unmount();
+    setup({ restore: 'session', outcomes: ['deleted'] });
+    await settle();
+    expect(latest.state).toBe('signed-out');
+    expect(latest.notice).toBe('deleted');
   });
 });

@@ -12,7 +12,7 @@ import { GUEST_PATHS, PROTECTED_PATHS } from '../../src/app/paths';
 
 // F1.4 part c adds three Guest placeholders (interface "part c"): recovery (F1.6) and the two consent-document links (I9).
 const GUEST = ['/', '/login', '/register', '/auth/google', '/recovery', '/terms', '/privacy', '/team/join'];
-const PROTECTED = ['/home', '/feed', '/profile', '/settings', '/recovery-questions', '/change-password', '/friends', '/groups', '/posts/new', '/medical-hotlines', '/community-rules', '/notifications', '/search', '/admin', '/admin/reports', '/admin/users', '/admin/audit', '/admin/guides', '/admin/media', '/admin/team', '/admin/community', '/admin/announcements', '/admin/analytics', '/admin/child-data', '/admin/support', '/chat', '/support', '/services', '/pro/profile', '/pro/articles', '/offers', '/following', '/help-requests', '/pro/promotion', '/pro/billing', '/marketplace', '/marketplace/mine', '/marketplace/new', '/admin/marketplace', '/admin/sponsored', '/admin/promotions'];
+const PROTECTED = ['/home', '/feed', '/profile', '/settings', '/recovery-questions', '/change-password', '/settings/delete-account', '/friends', '/groups', '/posts/new', '/medical-hotlines', '/community-rules', '/notifications', '/search', '/admin', '/admin/reports', '/admin/users', '/admin/audit', '/admin/guides', '/admin/media', '/admin/team', '/admin/community', '/admin/announcements', '/admin/analytics', '/admin/child-data', '/admin/support', '/chat', '/support', '/services', '/pro/profile', '/pro/articles', '/offers', '/following', '/help-requests', '/pro/promotion', '/pro/billing', '/marketplace', '/marketplace/mine', '/marketplace/new', '/admin/marketplace', '/admin/sponsored', '/admin/promotions'];
 const UNLISTED = [
   '/coupons',
   '/profile/123',
@@ -167,6 +167,24 @@ describe('held on the questions screen (F1.6 Status, Amendment 4)', () => {
     for (const path of [...GUEST, ...PROTECTED, ...UNLISTED]) {
       expect(decideAccess(state, path, false, true)).toEqual(decideAccess(state, path));
     }
+  });
+});
+
+// I9 (FR-SET-002, PG-050): an account scheduled for deletion is held on PG-050; it opens nowhere else, and the hold comes first.
+describe('held on PG-050 while the account is scheduled for deletion (I9)', () => {
+  const held = { deletionScheduled: true };
+  it.each(['/account/scheduled-deletion', '/terms', '/privacy'])('[I9 PG-050 AC-108] a scheduled account may open %s', (path) => {
+    expect(decideAccess('signed-in', path, false, false, false, held)).toEqual({ kind: 'render' });
+  });
+  it.each(['/feed', '/home', '/settings', '/settings/delete-account', '/recovery-questions', '/set-new-password', '/admin', ...UNLISTED])(
+    '[I9 PG-050 FR-AUTH-002] a scheduled account on %s is sent to PG-050, before any other hold',
+    (path) => {
+      expect(decideAccess('signed-in', path, false, true, true, held)).toEqual({ kind: 'redirect', to: '/account/scheduled-deletion' });
+    },
+  );
+  it('[I9 PG-050] PG-050 does not open without the hold', () => {
+    expect(decideAccess('signed-in', '/account/scheduled-deletion')).toEqual({ kind: 'redirect', to: '/feed' });
+    expect(decideAccess('signed-out', '/account/scheduled-deletion', false, false, false, { ...held, fromGuest: false })).toEqual({ kind: 'redirect', to: '/' });
   });
 });
 

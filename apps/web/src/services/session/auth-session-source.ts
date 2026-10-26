@@ -1,8 +1,8 @@
-import type { AuthEvent, AuthSessionPort, GoogleAuthPort, SignInResponse } from '@/services/auth/auth-client';
+import type { AuthEvent, AuthSessionPort, GoogleAuthPort, PasswordCheckPort, SignInResponse } from '@/services/auth/auth-client';
 import { classifySignInFailure } from '@/services/auth/sign-in-problem';
 import type { AccountStateOutcome } from '@/services/api/account-state';
 import type { BrowserEvents } from '@/platform/browser-events';
-import type { SessionAccount, SessionEntry, SessionNotice, SessionSource, SessionState, SignInResult } from './session-source';
+import type { PasswordCheck, SessionAccount, SessionEntry, SessionNotice, SessionSource, SessionState, SignInResult } from './session-source';
 
 // The real session source behind the F1.2 seam (F1.5). Auth holds the session (tokens, persisted, refreshed); this source holds
 // what the app needs to know about it: signed in with an account, signed in with none, signed out, or not known yet. The
@@ -21,7 +21,7 @@ export type AuthSessionSource = SessionSource & SessionEntry & SessionAccount;
 
 export interface AuthSessionSourceDeps {
   /** The Auth client. Without the Google return (a test fake), a Google return reads as a failure. */
-  auth: AuthSessionPort & Partial<Pick<GoogleAuthPort, 'completeGoogleSignIn' | 'discardGoogleStart' | 'readGoogleAccount'>>;
+  auth: AuthSessionPort & Partial<Pick<GoogleAuthPort, 'completeGoogleSignIn' | 'discardGoogleStart' | 'readGoogleAccount'>> & Partial<PasswordCheckPort>;
   /** Asks the server for the account state (`GET /api/me`) with this access token. */
   accountState: (accessToken: string) => Promise<AccountStateOutcome>;
   /** The clock, in milliseconds. */
@@ -33,13 +33,15 @@ export interface AuthSessionSourceDeps {
 
 const hasSession = (state: SessionState) => state === 'signed-in' || state === 'signed-in-no-account';
 
-type SignedInAnswer = 'active' | 'active-missing' | 'active-must-set-password' | 'unregistered';
+type SignedInAnswer = 'active' | 'active-missing' | 'active-must-set-password' | 'deletion-scheduled' | 'unregistered';
 const isSignedInAnswer = (answer: AccountStateOutcome | 'no-session'): answer is SignedInAnswer =>
-  answer === 'active' || answer === 'active-missing' || answer === 'active-must-set-password' || answer === 'unregistered';
+  answer === 'active' || answer === 'active-missing' || answer === 'active-must-set-password' || answer === 'deletion-scheduled' || answer === 'unregistered';
 // F2.0 c7, c8: a session that must set a new password has no recovery questions either (the clear removed them), so both holds are on;
 // the new-password one comes first (access.ts).
 const needsQuestionsFor = (answer: SignedInAnswer) => answer === 'active-missing' || answer === 'active-must-set-password';
 const mustSetPasswordFor = (answer: SignedInAnswer) => answer === 'active-must-set-password';
+// FR-SET-002, PG-050: a scheduled account keeps its session only to see the date and cancel; the guard holds it on PG-050.
+const deletionScheduledFor = (answer: SignedInAnswer) => answer === 'deletion-scheduled';
 
 export function createAuthSessionSource({ auth, accountState, now, events, random = Math.random }: AuthSessionSourceDeps): AuthSessionSource {
   const listeners = new Set<() => void>();
@@ -49,6 +51,8 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
   let needsQuestions = false;
   // F2.0 c14: this session must set a new password after a takeover clear. Always changes together with the state.
   let mustSetPassword = false;
+  // PG-050: the account is scheduled for deletion. Always changes together with the state.
+  let deletionScheduled = false;
   // Bumped whenever the session is replaced or ended, so an answer that arrives for an older session is dropped.
   let epoch = 0;
   let lastCheckAt: number | null = null;
@@ -65,14 +69,22 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
     nextNotice: SessionNotice | null,
     nextNeedsQuestions = needsQuestions,
     nextMustSetPassword = mustSetPassword,
+    nextDeletionScheduled = deletionScheduled,
   ) => {
-    if (state === nextState && notice === nextNotice && needsQuestions === nextNeedsQuestions && mustSetPassword === nextMustSetPassword) {
+    if (
+      state === nextState &&
+      notice === nextNotice &&
+      needsQuestions === nextNeedsQuestions &&
+      mustSetPassword === nextMustSetPassword &&
+      deletionScheduled === nextDeletionScheduled
+    ) {
       return;
     }
     state = nextState;
     notice = nextNotice;
     needsQuestions = nextNeedsQuestions;
     mustSetPassword = nextMustSetPassword;
+    deletionScheduled = nextDeletionScheduled;
     for (const listener of [...listeners]) listener();
   };
 
@@ -86,7 +98,7 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
     epoch += 1;
     lastCheckAt = null;
     clearRetry();
-    apply('signed-out', why, false, false);
+    apply('signed-out', why, false, false, false);
   };
 
   // Work started by an event, not by a caller. If it breaks, the session is treated as signed-out (fail closed) and the break is logged.
@@ -133,9 +145,11 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
     retryAttempt = 0;
     if (isSignedInAnswer(answer)) {
       lastCheckAt = now();
-      apply(answer === 'unregistered' ? 'signed-in-no-account' : 'signed-in', null, needsQuestionsFor(answer), mustSetPasswordFor(answer));
+      apply(answer === 'unregistered' ? 'signed-in-no-account' : 'signed-in', null, needsQuestionsFor(answer), mustSetPasswordFor(answer), deletionScheduledFor(answer));
     } else if (answer === 'unavailable') {
       await end('stopped');
+    } else if (answer === 'deleted') {
+      await end('deleted');
     } else if (answer === 'unauthenticated' || answer === 'no-session') {
       await end('expired');
     } else if (context === 'restore') {
@@ -157,7 +171,7 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
       const outcome = await auth.restore();
       if (epoch !== startedAt) return;
       if (outcome === 'none') {
-        apply('signed-out', null, false, false);
+        apply('signed-out', null, false, false, false);
       } else if (outcome === 'refused') {
         endLocally('expired');
       } else if (outcome === 'unreachable') {
@@ -211,10 +225,11 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
       }
       if (isSignedInAnswer(answer)) {
         lastCheckAt = now();
-        apply(answer === 'unregistered' ? 'signed-in-no-account' : 'signed-in', null, needsQuestionsFor(answer), mustSetPasswordFor(answer));
+        apply(answer === 'unregistered' ? 'signed-in-no-account' : 'signed-in', null, needsQuestionsFor(answer), mustSetPasswordFor(answer), deletionScheduledFor(answer));
         return answer === 'unregistered' ? { kind: 'unregistered' } : { kind: 'signed-in' };
       }
       await auth.signOut();
+      if (answer === 'deleted') return { kind: 'deleted' };
       return answer === 'unavailable' ? { kind: 'stopped' } : { kind: 'failed', problem: 'unavailable' };
     })();
     const tracked = attempt.finally(() => {
@@ -259,6 +274,7 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
     getNotice: () => notice,
     getNeedsRecoveryQuestions: () => needsQuestions,
     getMustSetPassword: () => mustSetPassword,
+    getDeletionScheduled: () => deletionScheduled,
     subscribe: (listener) => {
       listeners.add(listener);
       watch();
@@ -291,7 +307,7 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
           epoch += 1;
           lastCheckAt = now();
           clearRetry();
-          apply('signed-in', null, answer === 'active-missing', answer === 'active-must-set-password');
+          apply('signed-in', null, answer === 'active-missing', answer === 'active-must-set-password', false);
         }),
       );
     },
@@ -317,5 +333,16 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
     },
     // The server's password set ended every session (DR-E): signed out here, and Auth is told (scope local; it only clears storage).
     endAfterPasswordChange: () => end(null),
+    // VAL-052: a separate sign-in with the password; this session, its state and its storage stay as they are.
+    checkPassword: async (password): Promise<PasswordCheck> => {
+      if (auth.checkPassword === undefined) return { kind: 'failed', problem: 'unavailable' };
+      try {
+        const response = await auth.checkPassword(password);
+        if (response.failure !== null) return { kind: 'failed', problem: classifySignInFailure(response.failure) };
+        return { kind: 'ok', accessToken: response.accessToken, release: response.release };
+      } catch {
+        return { kind: 'failed', problem: 'unavailable' };
+      }
+    },
   };
 }

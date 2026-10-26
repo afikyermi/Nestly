@@ -201,13 +201,13 @@ select is(pg_temp.opn('pv_e', 'pv_b'), 'shown', '[F2.4-c c22] and the open is sh
 -- =====================================================================================================================
 -- c23 -- the fence: one definer, three closed tables, seven scoped policies
 -- =====================================================================================================================
-select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.audit_trigger(),"nestly.child_tracker_trends(text,text,text,integer)","nestly.child_tracker_trends(text,text,text,text)",nestly.deliver_child_birthdays(),nestly.identical_reports_hide(),nestly.notify_comment(),nestly.notify_friendship(),nestly.notify_group(),nestly.notify_post(),nestly.notify_professional(),nestly.own_post_engagement(integer),nestly.profile_view(text),nestly.reveal_post_author(uuid),"nestly.search_people(text,integer,integer)"}',
+select is((select array_agg(a order by a) from tests.approved_security_definer() as a)::text, '{nestly.audit_trigger(),"nestly.child_tracker_trends(text,text,text,integer)","nestly.child_tracker_trends(text,text,text,text)",nestly.deliver_child_birthdays(),nestly.identical_reports_hide(),nestly.notify_comment(),nestly.notify_friendship(),nestly.notify_group(),nestly.notify_post(),nestly.notify_professional(),nestly.profile_view(text),nestly.reveal_post_author(uuid),"nestly.search_people(text,integer,integer)"}',
   '[F2.4-c c23 A8 rule 10 DR-G1 DR-L] the approved SECURITY DEFINER list is profile_view(text), I4''s two, the three notification triggers and search_people, I10''s notify_group (file 96), notify_professional (file 98) the I14 completion''s child_tracker_trends (file 100), completion B''s identical_reports_hide (file 103) and the SRS-audit fixes'' deliver_child_birthdays (file 102)');
 select set_eq(
   $$ select p.oid::regprocedure::text from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'nestly' and p.prosecdef $$,
-  $$ values ('nestly.profile_view(text)'), ('nestly.audit_trigger()'), ('nestly.reveal_post_author(uuid)'), ('nestly.notify_comment()'), ('nestly.notify_friendship()'), ('nestly.notify_post()'), ('nestly.search_people(text,integer,integer)'), ('nestly.notify_group()'), ('nestly.notify_professional()'), ('nestly.child_tracker_trends(text,text,text,integer)'), ('nestly.child_tracker_trends(text,text,text,text)'), ('nestly.identical_reports_hide()'), ('nestly.deliver_child_birthdays()'), ('nestly.own_post_engagement(integer)') $$,
-  '[F2.3-b c15] the SECURITY DEFINER functions in nestly are exactly the fourteen approved ones (own_post_engagement, file 109; I10''s notify_group, file 96; notify_professional, file 98; child_tracker_trends, file 100; identical_reports_hide, file 103; deliver_child_birthdays, file 102)');
+  $$ values ('nestly.profile_view(text)'), ('nestly.audit_trigger()'), ('nestly.reveal_post_author(uuid)'), ('nestly.notify_comment()'), ('nestly.notify_friendship()'), ('nestly.notify_post()'), ('nestly.search_people(text,integer,integer)'), ('nestly.notify_group()'), ('nestly.notify_professional()'), ('nestly.child_tracker_trends(text,text,text,integer)'), ('nestly.child_tracker_trends(text,text,text,text)'), ('nestly.identical_reports_hide()'), ('nestly.deliver_child_birthdays()') $$,
+  '[F2.3-b c15] the SECURITY DEFINER functions in nestly are exactly the thirteen approved ones (I10''s notify_group, file 96; notify_professional, file 98; child_tracker_trends, file 100; identical_reports_hide, file 103; deliver_child_birthdays, file 102)');
 select is(
   (select string_agg(c.relname || ':' || c.relrowsecurity::text || ':' || c.relforcerowsecurity::text || ':' || pg_catalog.pg_get_userbyid(c.relowner),
                      ', ' order by c.relname)
@@ -221,9 +221,25 @@ select is(
      cross join pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('security_limits', 'profile_open_counts', 'security_events')
       and (has_table_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-           or has_any_column_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,REFERENCES'))),
+           or has_any_column_privilege(r.rolname, c.oid, 'SELECT,INSERT,UPDATE,REFERENCES'))
+      and not (r.rolname = 'app_jobs' and c.relname = 'security_events')),
   null,
-  '[F2.4-c c23 c21 c22] no runtime role holds any privilege, table or column, on the three tables (authenticated, anon, app_server, app_jobs, app_recovery, service_role, authenticator)');
+  '[F2.4-c c23 c21 c22 · I9] no runtime role holds any privilege, table or column, on the three tables (authenticated, anon, app_server, app_jobs, app_recovery, service_role, authenticator), but app_jobs on security_events (I9''s 90-day purge after an account deletion, BR-073: below and file 110)');
+select is(
+  (select string_agg(p, ', ' order by p) from (
+     select 'table:' || x.p as p from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace,
+            unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) x(p)
+      where n.nspname = 'nestly' and c.relname = 'security_events' and has_table_privilege('app_jobs', c.oid, x.p)
+     union all
+     select 'write:' || a.attname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace join pg_catalog.pg_attribute a on a.attrelid = c.oid
+      where n.nspname = 'nestly' and c.relname = 'security_events' and a.attnum > 0 and not a.attisdropped
+        and (has_column_privilege('app_jobs', c.oid, a.attnum, 'INSERT') or has_column_privilege('app_jobs', c.oid, a.attnum, 'UPDATE'))
+     union all
+     select 'select:' || a.attname from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace join pg_catalog.pg_attribute a on a.attrelid = c.oid
+      where n.nspname = 'nestly' and c.relname = 'security_events' and a.attnum > 0 and not a.attisdropped
+        and has_column_privilege('app_jobs', c.oid, a.attnum, 'SELECT')) s),
+  'select:id, select:user_id, table:DELETE',
+  '[I9 BR-073 rule 6] app_jobs on security_events: DELETE and a read of id and user_id, nothing else (the policies narrow both to accounts deleted 90 days ago)');
 select is(
   (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace,
           aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a
@@ -243,15 +259,17 @@ select is(
   (select string_agg(pol.polname, ', ' order by pol.polname)
      from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('security_limits', 'profile_open_counts', 'security_events')),
-  'profile_open_counts_insert_profile_view, profile_open_counts_select_profile_view, profile_open_counts_update_profile_view, security_events_insert_profile_view, '
-  || 'security_events_insert_search, security_limits_select_profile_view, security_limits_select_search_people',
-  '[F2.4-c c23] the three closed tables carry exactly seven policies (five of profile_view, two of search_people - file 90), none for authenticated, anon or PUBLIC');
+  'profile_open_counts_insert_profile_view, profile_open_counts_select_profile_view, profile_open_counts_update_profile_view, security_events_delete_jobs, security_events_insert_profile_view, '
+  || 'security_events_insert_search, security_events_select_jobs, security_limits_select_profile_view, security_limits_select_search_people',
+  '[F2.4-c c23 · I9] the three closed tables carry exactly nine policies (five of profile_view, two of search_people - file 90, and I9''s 90-day purge read and delete - file 110), none for authenticated, anon or PUBLIC');
 select is(
-  (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+  (select string_agg(pol.polname, ', ' order by pol.polname) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname in ('security_limits', 'profile_open_counts', 'security_events')
-      and pol.polroles <> array[(select oid from pg_catalog.pg_roles where rolname = 'app_owner')]::oid[]),
-  0::bigint,
-  '[F2.4-c c23] and all seven are TO app_owner only');
+      and pol.polroles <> array[(select oid from pg_catalog.pg_roles where rolname = 'app_owner')]::oid[]
+      and not (pol.polname in ('security_events_select_jobs', 'security_events_delete_jobs')
+               and pol.polroles = array[(select oid from pg_catalog.pg_roles where rolname = 'app_jobs')]::oid[])),
+  null,
+  '[F2.4-c c23 · I9] and all seven others are TO app_owner only (the two purge policies TO app_jobs only)');
 select is(
   (select count(*) from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and pol.polname like '%\_profile\_view'

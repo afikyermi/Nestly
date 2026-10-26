@@ -39,3 +39,17 @@ describe('fetchAccountState and recoveryQuestions (F1.6 c19)', () => {
     expect(await fetchAccountState('t')).toBe('unavailable');
   });
 });
+
+describe('fetchAccountState and account deletion (I9)', () => {
+  it.each([
+    ['deletion_scheduled', 'deletion-scheduled'],
+    ['deleted', 'deleted'],
+  ])('[I9 PG-050] state %s -> %s', async (state, outcome) => {
+    respond(200, { state });
+    expect(await fetchAccountState('t')).toBe(outcome);
+  });
+  it('[I9] an unknown deletion word is not trusted', async () => {
+    respond(200, { state: 'toString' });
+    expect(await fetchAccountState('t')).toBe('failed');
+  });
+});

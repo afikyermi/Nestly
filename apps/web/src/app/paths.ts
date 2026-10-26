@@ -48,6 +48,10 @@ export const PATHS = {
   recoveryQuestions: '/recovery-questions',
   /** F2.0 c14: set a new password after a takeover clear. Opens only while the session is held there. */
   setNewPassword: '/set-new-password',
+  /** I9 (FR-SET-002, PG-060): delete the account, from Settings → Account (Regular and Professional). */
+  deleteAccount: '/settings/delete-account',
+  /** I9 (PG-050): the account is scheduled for deletion — its date, cancel or sign out. Opens only while the session is held there. */
+  deletionScheduled: '/account/scheduled-deletion',
   /** F2.0 c15: change the password with the two recovery answers, from the menu. */
   changePassword: '/change-password',
   /** F3.8: the medical hotlines page (PG-047, FR-MENU-002), from the side menu; BR-075 rule 2 links here (PG-049, its own part). */
@@ -135,6 +139,7 @@ export const PROTECTED_PATHS: readonly string[] = [
   PATHS.newPost,
   PATHS.recoveryQuestions,
   PATHS.changePassword,
+  PATHS.deleteAccount,
   PATHS.medicalHotlines,
   PATHS.communityRules,
   PATHS.admin,

@@ -362,7 +362,7 @@ export async function readAnalytics(tx: IdentityTx, days: AnalyticsPeriod): Prom
     days,
     accounts: {
       byType: { regular: pick(types, 'type', 'regular'), professional: pick(types, 'type', 'professional'), moderator: pick(types, 'type', 'moderator'), admin: pick(types, 'type', 'admin') },
-      byStatus: { active: pick(statuses, 'status', 'active'), suspended: pick(statuses, 'status', 'suspended'), banned: pick(statuses, 'status', 'banned') },
+      byStatus: { active: pick(statuses, 'status', 'active'), suspended: pick(statuses, 'status', 'suspended'), banned: pick(statuses, 'status', 'banned'), deletionScheduled: pick(statuses, 'status', 'deletion_scheduled') },
       registrations,
     },
     content: { posts, comments, likes, postsPerAuthor: order.map((bucket) => ({ bucket, accounts: perAuthor.find((row) => row.bucket === bucket)?.accounts ?? 0 })) },

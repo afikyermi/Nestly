@@ -1,6 +1,7 @@
 // Notifications (FR-NOTIF-001/002/003; AC-040, AC-041). Signed in: the authentication hook has run before anything here. The caller is never
 // named; a notification is named by its id in the path.
 //   GET  /api/notifications[?before=<cursor>][&poll=1] → 200 { items:[{id,type,actor,actorName,targetKind,targetId,createdAt,isRead}], unreadCount, nextCursor } · 400 invalid
+//   GET  /api/notifications/counts                → 200 { unreadCount, chatUnread, latestId } (the bell's light poll)
 //   POST /api/notifications/read-all              → 200 {}   (Mark all as read)
 //   POST /api/notifications/:id/read              → 200 {} · 404 unavailable (not the caller's) · 400 invalid
 //   GET  /api/notification-preferences            → 200 { categories:[{category,isEnabled}], friends:[{userId,fullName,isEnabled}] }
@@ -10,6 +11,7 @@
 // Logs carry a fixed line and the SQLSTATE, never a body, a name or an id (NFR-PRIV-001).
 
 import {
+  bellCountsResponse,
   checkCategoryUpdate,
   checkFriendFollowBody,
   checkUserId,
@@ -25,6 +27,7 @@ import { replySessionRefused } from '../plugins/authentication.js';
 import {
   markEverythingRead,
   markRead,
+  readBell,
   readNotifications,
   readPreferences,
   setCategory,
@@ -84,6 +87,16 @@ export function registerNotificationsRoutes(app: FastifyInstance, deps: Notifica
       const outcome = await readNotifications(database, identity, before, { deliver: query.success && query.data.poll === undefined });
       if (outcome.kind !== 'ok') return replyRefusal(reply, outcome);
       return reply.code(200).send(notificationsResponse.parse({ items: outcome.items, unreadCount: outcome.unreadCount, nextCursor: outcome.nextCursor }));
+    }),
+  });
+
+  app.route({
+    method: 'GET',
+    url: '/api/notifications/counts',
+    handler: guarded('notification counts read failed', async (database, _request, reply, identity) => {
+      const outcome = await readBell(database, identity);
+      if (outcome.kind !== 'ok') return replyRefusal(reply, outcome);
+      return reply.code(200).send(bellCountsResponse.parse({ unreadCount: outcome.unreadCount, chatUnread: outcome.chatUnread, latestId: outcome.latestId }));
     }),
   });
 

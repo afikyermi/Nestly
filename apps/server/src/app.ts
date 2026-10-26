@@ -43,6 +43,7 @@ import { createJobKick } from './media/job-kick.js';
 import { reuseSignedUrls } from './media/signed-url-cache.js';
 import { createMediaStorage } from './media/storage-admin.js';
 import type { MediaDependencies } from './services/media-service.js';
+import { registerAccountDeletionRoutes } from './routes/account-deletion.js';
 import { registerPrivacyRoute } from './routes/privacy.js';
 import { registerProfileRoute } from './routes/profile.js';
 import { registerProfileViewRoute } from './routes/profile-view.js';
@@ -168,6 +169,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerCycleRoutes(app, { database, clock });
   registerAdminGuidesRoutes(app, { database, clock });
   registerPrivacyRoute(app, { database });
+  registerAccountDeletionRoutes(app, { database, clock });
   registerFriendsRoutes(app, { database });
   const media: MediaDependencies = {
     storage: reuseSignedUrls(deps.media?.storage ?? createMediaStorage()),

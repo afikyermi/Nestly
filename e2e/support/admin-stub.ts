@@ -28,6 +28,8 @@ export interface Net {
   mediaMatches: string[];
   /** I14 completion B: the account's content deleted by justified reports. */
   contentDecisions: Array<{ targetKind: string; rule: string; ruleLabel: string; excerpt: string; decidedAt: string }>;
+  /** I9 (§16.4): the Admin home's account deletion counts. */
+  accountDeletions: { pending: number; overdue: number };
   sent: Sent[];
 }
 
@@ -51,6 +53,7 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
     mediaQueue: [ID(70), ID(71)],
     mediaMatches: [],
     contentDecisions: [],
+    accountDeletions: { pending: 0, overdue: 0 },
     sent: [],
     ...start,
   };
@@ -143,6 +146,7 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
     if (path === '/api/admin/overview') {
       return json(route, 200, {
         childSafetyOpen: net.queue.filter((q) => q.priority === 1).length,
+        accountDeletions: net.accountDeletions,
         attention: { openReports: net.queue.length, pastTargetReports: 1, escalatedReports: 1, queuedImages: net.mediaQueue.length, openSupport: 0, openInvitations: 1, draftGuides: 9, reportSpike: { lastDay: 6, dailyAverage: 1, isSpike: true } },
         metrics: ['registrations', 'posts', 'comments', 'reports', 'enforcements', 'support'].map((key, index) => ({ key, current: 10 + index, previous: 5 })),
         team: [{ userId: ID(70), label: 'נועה לוי', status: 'active', keyCount: 3, lastActionAt: '2026-06-14T09:00:00.000Z', actionsThisWeek: 4 }],

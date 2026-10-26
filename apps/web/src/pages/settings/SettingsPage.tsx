@@ -10,6 +10,7 @@ import { fetchAccountKind } from '@/services/api/professionals';
 import { NotificationSettings } from '@/features/notifications/NotificationSettings';
 import { BlockedUsersSection } from '@/features/blocks/BlockedUsersSection';
 import { PrivacySettingsSection } from '@/features/privacy/PrivacySettingsSection';
+import { DELETE_LINK } from '@/lib/account-deletion-texts';
 import { documentTitle } from '@/lib/document-title';
 import { parseSettingsSection, SETTINGS_SECTIONS, type SettingsSectionId } from '@/lib/settings-sections';
 import { SettingsLink } from './SettingsLink';
@@ -35,7 +36,7 @@ function LinkSection({ id, children }: { id: SettingsSectionId; children: ReactN
 // profile-privacy form (FR-PRIV-001 is a Regular profile's); a staff account has no profile, no blocked list and no notification settings
 // (FR-NOTIF-002), so only the password links and the terms. The kind is the server's answer (presentation only). A section's address is the hash of this path; the section it names gets focus (WCAG 2.4.3), so the menu lands on its
 // heading. An unknown hash shows the top. The page sends no request of its own: the Privacy section loads and fails on its own, and
-// the other two hold only links. No account deletion until its feature exists (I9). Notification Settings load and fail on their own.
+// the other two hold only links. Account deletion (FR-SET-002, I9) is a link in Account, for a Regular or Professional account only. Notification Settings load and fail on their own.
 export function SettingsPage() {
   const { hash, key } = useLocation();
   const shared = useAccountKind();
@@ -101,6 +102,7 @@ export function SettingsPage() {
         {staff ? null : (
           <LinkSection id="account">
             <SettingsLink to={professional ? PATHS.proProfile : PATHS.profile}>עריכת פרופיל</SettingsLink>
+            <SettingsLink to={PATHS.deleteAccount}>{DELETE_LINK}</SettingsLink>
           </LinkSection>
         )}
         <div data-settings-section="privacy" className="scroll-mt-20">
