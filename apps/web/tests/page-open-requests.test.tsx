@@ -2,7 +2,8 @@
 //   י1: the own user id (the feed, its Stories tray) is the access token's `sub`, read locally: no call to Auth.
 //   י2: the Chat badge reads the bell's light counters (GET /api/notifications/counts), never GET /api/chat/unread, while the bell has them;
 //       on a screen change, one counts request. An account the bell has nothing for (403) keeps the Chat's own badge request.
-//   י3: a staff account (the shell's account-kind or staff-access answer says so) sends no notifications request at all.
+//   י3: a staff account sends no notifications request once the shell's account-kind or staff-access answer says so; the first load never
+//       waits for those answers (a staff account may still send one refused request at open).
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
@@ -13,7 +14,7 @@ import { StaffAccessProvider, type StaffAccessState } from '@/hooks/use-staff-ac
 import type { SessionAccount } from '@/services/session/session-source';
 import { readOwnUserId } from '@/services/session/own-user-id';
 import { ChatTopBarButton } from '@/features/chat/ChatTopBarButton';
-import { NotificationsProvider, useNotifications } from '@/features/notifications/NotificationsProvider';
+import { NotificationsProvider, POLL_MS, useNotifications } from '@/features/notifications/NotificationsProvider';
 
 const USER = 'a0000000-0000-4000-8000-0000000000a1';
 const part = (o: object): string => btoa(JSON.stringify(o)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
@@ -121,12 +122,25 @@ describe('[י3] a staff account sends no notifications request', () => {
     expect(screen.getByTestId('bell').textContent).toBe('unavailable');
   });
 
-  it('waits for either answer: nothing is asked while both are loading, the list once the account is known to be a community one', async () => {
-    const view = render(shell(<Probe />, 'loading', { kind: 'loading' }));
-    await settle();
-    expect(calls).toEqual([]);
-    view.rerender(shell(<Probe />, 'regular', { kind: 'loading' }));
+  it('the first load never waits for those answers: the list goes at once, as before', async () => {
+    render(shell(<Probe />, 'loading', { kind: 'loading' }));
     await settle();
     expect(count('/api/notifications')).toBe(1);
+    expect(screen.getByTestId('bell').textContent).toBe('ready');
+  });
+
+  it('once an answer says staff, the bell is unavailable and the poll stops: nothing more is asked', async () => {
+    vi.useFakeTimers();
+    try {
+      const view = render(shell(<Probe />, 'loading', { kind: 'loading' }));
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      const before = calls.length;
+      view.rerender(shell(<Probe />, 'staff', { kind: 'loading' }));
+      await act(async () => { await vi.advanceTimersByTimeAsync(POLL_MS * 3); });
+      expect(calls.length).toBe(before);
+      expect(screen.getByTestId('bell').textContent).toBe('unavailable');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

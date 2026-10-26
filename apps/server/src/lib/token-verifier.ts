@@ -3,7 +3,7 @@
 // `user_metadata` are never read (data-model rules 3 and 14). Account type, status and permissions come from the
 // database, through RLS.
 
-import { createRemoteJWKSet, errors, jwtVerify } from 'jose';
+import { createRemoteJWKSet, errors, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import type { AuthConfig } from './config.js';
 
 /**
@@ -117,12 +117,17 @@ function classify(error: unknown): TokenRejected {
  * rejected as `unavailable` (criterion 26).
  *
  * `prefetch`: start fetching the key set now, at instance start, in parallel with everything else, instead of on the first request. It is
- * the same fetch `jose` would make on first use (a request that arrives meanwhile waits for it); verification is unchanged, and a failed
- * prefetch is dropped: the next token fetches again.
+ * the same fetch `jose` would make on first use; verification is unchanged. A request that arrives meanwhile waits for it, and if it fails
+ * or times out the request then makes its own fetch, exactly as with no prefetch: the prefetch never refuses a token by itself.
  */
 export function createTokenVerifier(config: AuthConfig, options: { readonly prefetch?: boolean } = {}): TokenVerifier {
   const keySet = createRemoteJWKSet(config.jwksUrl);
-  if (options.prefetch === true) void keySet.reload().catch(() => undefined);
+  // Settles either way: a failed prefetch only means the first request fetches as it would have.
+  const prefetched: Promise<void> | undefined = options.prefetch === true ? keySet.reload().catch(() => undefined) : undefined;
+  const keys: JWTVerifyGetKey = async (protectedHeader, flattened) => {
+    if (prefetched !== undefined) await prefetched;
+    return keySet(protectedHeader, flattened);
+  };
 
   return async (token) => {
     let subject: unknown;
@@ -131,7 +136,7 @@ export function createTokenVerifier(config: AuthConfig, options: { readonly pref
     let sessionId: unknown;
     let amr: unknown;
     try {
-      const { payload } = await jwtVerify(token, keySet, {
+      const { payload } = await jwtVerify(token, keys, {
         algorithms: ALGORITHMS,
         issuer: config.issuer,
         audience: config.audience,

@@ -87,11 +87,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   stateKind.current = state.kind;
   const visibility = useTabVisibility();
   // An Admin or Moderator account, as the shell's own account-kind and staff-access answers already tell: no notifications request is sent for
-  // it (the server would refuse it, 403). The first load waits for either answer; outside the shell both read as not staff.
+  // it once known (the server would refuse it, 403), and the poll stops then. The first load never waits for them: until one says staff, the
+  // bell loads as before (a staff account may still send one refused request at open). Outside the shell both read as not staff.
   const kind = useAccountKind();
   const staffAccess = useStaffAccess();
   const staffAccount = kind === "staff" || staffAccess.kind === "staff";
-  const accountKnown = kind !== "loading" || staffAccess.kind !== "loading";
   const stopped = state.kind === "unavailable" || staffAccount;
   useEffect(() => {
     if (staffAccount) setState({ kind: "unavailable" });
@@ -177,7 +177,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const bellRefresh = useCallback(() => void askCounts(), [askCounts]);
 
   useEffect(() => {
-    if (stopped || !accountKnown) return;
+    if (stopped) return;
     const visible = () => visibility?.isTabVisible?.() ?? true;
     if (visible()) void refresh();
     const timer = setInterval(() => {
@@ -188,7 +188,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       clearInterval(timer);
       stopListening?.();
     };
-  }, [refresh, check, stopped, accountKnown, visibility]);
+  }, [refresh, check, stopped, visibility]);
 
   const markAll = useCallback(async (): Promise<boolean> => {
     const accessToken = await token();

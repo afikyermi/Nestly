@@ -55,6 +55,33 @@ describe('the signing keys at instance start', () => {
     expect(jwks.hits()).toBe(1);
   });
 
+  it('a prefetch that fails late does not refuse the request waiting on it: that request fetches again and verifies', async () => {
+    const key = await newKey('late-fail-key');
+    let hits = 0;
+    const server = createServer((_req, res) => {
+      hits += 1;
+      if (hits === 1) {
+        // the prefetch: answered late, and with a failure
+        setTimeout(() => {
+          res.statusCode = 500;
+          res.end('{}');
+        }, 150);
+        return;
+      }
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ keys: [key.publicJwk] }));
+    });
+    servers.push(server);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address: string | AddressInfo | null = server.address();
+    const port = typeof address === 'object' && address !== null ? address.port : 0;
+    const verify = createTokenVerifier({ jwksUrl: new URL(`http://127.0.0.1:${port}/.well-known/jwks.json`), issuer: ISSUER, audience: AUDIENCE }, { prefetch: true });
+    await until(() => hits === 1); // the prefetch is in flight; the request below arrives while it is
+    const verified = await verify(await token({ key, sub: ACCOUNT_A }));
+    expect(verified.identity.userId).toBe(ACCOUNT_A);
+    expect(hits).toBe(2);
+  });
+
   it('without prefetch nothing is fetched until the first token (the default, as before)', async () => {
     const key = await newKey('lazy-key');
     const jwks = await countingJwks(key);
