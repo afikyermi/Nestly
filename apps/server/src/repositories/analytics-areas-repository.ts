@@ -58,6 +58,16 @@ export async function readAreaAnalytics(tx: IdentityTx, days: AnalyticsPeriod): 
              (select count(*) from nestly.marketplace_listings where status = 'sold' and sold_at >= ${since}) as sold,
              (select count(*) from nestly.conversations where context = 'marketplace' and created_at >= ${since}) as chats`),
   );
+  // I12-B (Afik §10.6, AC-206): the listings marked sold/given, by the Israel day of the marking, every day of the period (a sold listing is kept, BR-091)
+  const soldByDay = z.array(z.object({ day: z.string(), count })).parse(
+    await tx.execute(sql`
+      select to_char(g.day, 'YYYY-MM-DD') as day, coalesce(c.n, 0) as count
+      from generate_series(((now() at time zone 'Asia/Jerusalem')::date - ${days - 1}::int)::timestamp, (now() at time zone 'Asia/Jerusalem')::date::timestamp,
+                           interval '1 day') as g(day)
+      left join (select (sold_at at time zone 'Asia/Jerusalem')::date as d, count(*) as n from nestly.marketplace_listings
+                  where status = 'sold' and sold_at >= ${since} group by 1) c on c.d = g.day::date
+      order by g.day`),
+  );
   const categories = z
     .array(z.object({ category: z.enum(LISTING_CATEGORIES), count }))
     .parse(
@@ -83,6 +93,6 @@ export async function readAreaAnalytics(tx: IdentityTx, days: AnalyticsPeriod): 
       chatStarts: pros?.chats ?? 0,
       reviews: pros?.reviews ?? 0,
     },
-    marketplace: { active: market?.active ?? 0, byCategory: categories, created: market?.created ?? 0, sold: market?.sold ?? 0, chats: market?.chats ?? 0 },
+    marketplace: { active: market?.active ?? 0, byCategory: categories, created: market?.created ?? 0, sold: market?.sold ?? 0, chats: market?.chats ?? 0, soldByDay },
   };
 }

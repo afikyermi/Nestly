@@ -9,6 +9,8 @@ export const MY_LISTINGS_TITLE = 'המודעות שלי';
 export const NEW_LISTING_TITLE = 'מודעה חדשה';
 export const EDIT_LISTING_TITLE = 'עריכת המודעה';
 export const NEW_LISTING_LABEL = 'פרסום מודעה';
+/** Afik §10.5: a Professional views and contacts only. */
+export const PRO_VIEW_ONLY_NOTE = 'אפשר לצפות במודעות ולפנות למוכרים בצ׳אט. פרסום מודעות פתוח לחשבונות הורים בלבד.';
 
 // ---- the list and its filters
 export const SEARCH_LABEL = 'חיפוש מוצר';
@@ -48,6 +50,14 @@ export const HIDDEN_BADGE = 'הוסתרה על ידי הצוות';
 export const EXPIRED_BADGE = 'פגה';
 export const PENDING_IMAGES_NOTE = 'תמונות שממתינות לבדיקה מוצגות רק לך';
 export const expiresText = (date: string): string => `מוצגת עד ${date}`;
+/** BR-090 (Afik §10.6): the seller learns when the listing is deleted. */
+export const ownerExpiresText = (date: string): string => `מוצגת עד ${date}, ואז נמחקת עם התמונות שלה`;
+/** BR-091: a sold listing leaves the Marketplace and is kept for its seller. */
+export const SOLD_KEPT_NOTE = 'המודעה לא מוצגת ב-Marketplace, ונשמרת אצלך ב"המודעות שלי".';
+/** ERR-054: a sold listing past its 60 days stays sold. */
+export const SOLD_EXPIRED_NOTE = 'עברו 60 יום מהפרסום, ולכן אי אפשר להחזיר את המודעה למכירה. אפשר לפרסם מודעה חדשה.';
+export const EXPIRED_DELETE_NOTE = 'המודעה פגה ותימחק בקרוב. אפשר לפרסם אותה מחדש כמודעה חדשה.';
+export const DESCRIPTION_HEADING = 'תיאור';
 export const SELLER_LABEL = 'פורסם על ידי';
 export const NO_PURCHASE_NOTE = 'אין קנייה או תשלום דרך Nestly: מתאמים ישירות בצ׳אט.';
 export const CONTACT_HEADING = 'הודעה על המודעה';
@@ -80,11 +90,13 @@ export const DELETED_TEXT = 'המודעה נמחקה.';
 export const ACTION_FAILED = 'הפעולה לא הצליחה. אפשר לנסות שוב.';
 export const MINE_EMPTY = 'עוד לא פרסמת מודעות.';
 
-// ---- the form (FR-MKT-002; no description field)
+// ---- the form (FR-MKT-002; I12-B, Afik §10.6: a description, price 0 = "למסירה")
 export const TITLE_LABEL = 'כותרת';
 export const PRICE_LABEL = 'מחיר (₪)';
-export const PRICE_HINT = 'מספר שלם, 1 עד 100,000';
-export const GIVE_AWAY_LABEL = 'למסירה, בלי מחיר';
+export const PRICE_HINT = 'מספר שלם, 0 עד 100,000. ‏0 — למסירה';
+export const PRICE_FREE_HINT = 'המודעה תוצג "למסירה"';
+export const DESCRIPTION_LABEL = 'תיאור';
+export const DESCRIPTION_HINT = 'עד 1,000 תווים: מה המצב ומה כלול. בלי כתובת או טלפון — מתאמים בצ׳אט.';
 export const IMAGES_LABEL = 'תמונות (עד 6)';
 export const IMAGES_HINT = 'כל תמונה נבדקת לפני שהיא מוצגת לאחרים.';
 export const CHOOSE = 'בחירה';
@@ -92,16 +104,19 @@ export const SAVE_LISTING = 'פרסום';
 export const SAVE_CHANGES = 'שמירת השינויים';
 export const SAVING = 'שומרים';
 export const SAVE_FAILED = 'המודעה לא נשמרה. אפשר לנסות שוב.';
-export const NOT_REGULAR_TEXT = 'רק חשבון הורה יכול לפרסם מודעה.';
+/** A staff account reviews the Marketplace; it neither publishes nor contacts sellers. */
+export const STAFF_NOT_PUBLISHER_TEXT = 'חשבון צוות לא מפרסם מודעות. אפשר לעיין במודעות.';
+export const NOT_REGULAR_TEXT = 'רק חשבון הורה יכול לפרסם מודעה. אפשר לצפות במודעות ולפנות למוכרים.';
 export const REMOVE_EXISTING_IMAGE = 'הסרת התמונה';
 export const IMAGE_IN_REVIEW = 'אי אפשר להסיר תמונה שממתינה לבדיקת הצוות. אפשר לנסות שוב אחרי הבדיקה.';
 export const FORM_ERRORS: Record<string, string> = {
   title_length: 'כותרת של 2 עד 80 תווים',
   category_required: 'צריך לבחור קטגוריה',
   condition_required: 'צריך לבחור מצב',
-  price_invalid: 'מחיר במספר שלם, 1 עד 100,000, או "למסירה"',
+  price_invalid: 'מחיר במספר שלם, 0 עד 100,000 (0 — למסירה)',
   city_required: 'צריך לבחור עיר או אזור',
   too_many_images: 'עד 6 תמונות',
+  description_too_long: 'תיאור עד 1,000 תווים',
 };
 
 // ---- staff: listings (MARKETPLACE_MODERATE) and Sponsored Products (FR-ADMIN-009, Admin only)
@@ -116,7 +131,7 @@ export const ADMIN_HIDDEN_DONE = 'המודעה הוסתרה.';
 export const ADMIN_RESTORED_DONE = 'המודעה הוחזרה.';
 export const ADMIN_SEARCH_BUTTON = 'חיפוש';
 export const SPONSORED_TITLE = 'מוצרים ממומנים';
-export const SPONSORED_INTRO = 'מוצר ממומן מוצג ב-Marketplace תמיד עם הסימון "ממומן", בנפרד ממודעות המשתמשים. קופון להצגה למרצה הוא מוצר רגיל שהתיאור שלו אומר "דוגמה".';
+export const SPONSORED_INTRO = 'מוצר ממומן מוצג ב-Marketplace תמיד עם הסימון "ממומן", בנפרד ממודעות המשתמשים. קופון להדגמה הוא מוצר ממומן רגיל, ונמחק לפני ההשקה.';
 export const SPONSORED_NEW_HEADING = 'מוצר ממומן חדש';
 export const SPONSORED_SPONSOR_LABEL = 'שם המפרסם';
 export const SPONSORED_TITLE_LABEL = 'כותרת';

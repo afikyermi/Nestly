@@ -59,6 +59,7 @@ function ok<T extends { kind: string }>(outcome: T): Extract<T, { kind: 'ok' }> 
 }
 const listing = (over: Partial<ListingWrite> = {}): ListingWrite => ({
   title: `עגלת תינוק ${tag}`,
+  description: null,
   category: 'strollers',
   condition: 'like_new',
   price: 450,

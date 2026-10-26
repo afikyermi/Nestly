@@ -68,7 +68,7 @@ function browserProblems(job, names) {
 
   if (String(job.strategy?.['fail-fast']) !== 'false') problems.push('fail-fast is not false: one failing leg would cancel the others');
   const minutes = Number(job['timeout-minutes']);
-  if (!(minutes >= 10 && minutes <= 15)) problems.push(`timeout-minutes is ${job['timeout-minutes']}, not 10 to 15`);
+  if (!(minutes >= 10 && minutes <= 30)) problems.push(`timeout-minutes is ${job['timeout-minutes']}, not 10 to 30`);
   if (!needsOf(job).includes('changes')) problems.push('the job does not need `changes`');
   if (typeof job.if !== 'string' || !FULL_IF.test(job.if.trim())) problems.push(`the job's if is not needs.changes.outputs.browser == 'full': ${String(job.if)}`);
   if (has(job, 'continue-on-error')) problems.push('the job has continue-on-error');
@@ -99,7 +99,7 @@ function browserProblems(job, names) {
 
 const browser = ci.jobs?.browser;
 
-test('[CI contract] the full browser job is a chrome by shards 1 to 10 matrix, behind browser=full, with a timeout of 10 to 15 minutes', () => {
+test('[CI contract] the full browser job is a chrome by shards 1 to 10 matrix, behind browser=full, with a timeout of 10 to 30 minutes', () => {
   assert.deepEqual(browserProblems(browser, projectNames), []);
 });
 
@@ -129,7 +129,7 @@ test('[CI contract] the browser problem check can fail: every drift from the con
     'shards out of order': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['10', '9', '8', '7', '6', '5', '4', '3', '2', '1'] } } }),
     'two shards swapped': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, shard: ['1', '3', '2', '4', '5', '6', '7', '8', '9', '10'] } } }),
     'an extra matrix key': () => ({ ...clone(), strategy: { ...browser.strategy, matrix: { ...browser.strategy.matrix, os: ['ubuntu-latest'] } } }),
-    'timeout 20': () => ({ ...clone(), 'timeout-minutes': '20' }),
+    'timeout 45': () => ({ ...clone(), 'timeout-minutes': '45' }),
     'timeout 5': () => ({ ...clone(), 'timeout-minutes': '5' }),
     'no needs': () => {
       const j = clone();
@@ -190,7 +190,7 @@ function edgeProblems(job, triggers) {
   if (!EDGE_IF.test(condition)) problems.push(`the if is not exactly github.event_name == 'workflow_dispatch': ${condition}`);
   if (has(job, 'continue-on-error')) problems.push('the job has continue-on-error');
   const minutes = Number(job['timeout-minutes']);
-  if (!(minutes >= 10 && minutes <= 15)) problems.push(`timeout-minutes is ${job['timeout-minutes']}, not 10 to 15`);
+  if (!(minutes >= 10 && minutes <= 30)) problems.push(`timeout-minutes is ${job['timeout-minutes']}, not 10 to 30`);
   const test = steps.find((s) => /\bplaywright\s+test\b/.test(runOf(s)));
   if (!test) problems.push('no step runs playwright test');
   else {
@@ -266,7 +266,7 @@ function changedProblems(job) {
   if (typeof job.if !== 'string' || !CHANGED_IF.test(job.if.trim())) problems.push(`the if is not needs.changes.outputs.browser == 'changed': ${String(job.if)}`);
   for (const key of ['strategy', 'continue-on-error']) if (has(job, key)) problems.push(`the job has ${key}`);
   const minutes = Number(job['timeout-minutes']);
-  if (!(minutes >= 10 && minutes <= 15)) problems.push(`timeout-minutes is ${job['timeout-minutes']}, not 10 to 15`);
+  if (!(minutes >= 10 && minutes <= 30)) problems.push(`timeout-minutes is ${job['timeout-minutes']}, not 10 to 30`);
   const idx = (re) => steps.findIndex((s) => re.test(runOf(s)));
   const installAt = idx(/\bplaywright\s+install\b/);
   const storybookAt = idx(/\bbuild-storybook\b/);
@@ -306,7 +306,7 @@ test('[CI contract] the browser-changed check can fail: every drift is caught (g
     'runs on browser=full': () => ({ ...clone(), if: "needs.changes.outputs.browser == 'full'" }),
     'a matrix': () => ({ ...clone(), strategy: { matrix: { shard: ['1', '2'] } } }),
     'continue-on-error': () => ({ ...clone(), 'continue-on-error': 'true' }),
-    'timeout 30': () => ({ ...clone(), 'timeout-minutes': '30' }),
+    'timeout 45': () => ({ ...clone(), 'timeout-minutes': '45' }),
     'the whole suite': () => onTest((s) => ({ run: runOf(s).replace('--pass-with-no-tests ${SPECS}', '--pass-with-no-tests') })),
     'a changed visual spec blocks again': () => onTest((s) => ({ env: { ...s.env, E2E_SKIP_VISUAL: undefined } })),
     'a pull request of visual specs only fails on "no tests"': () => onTest((s) => ({ run: runOf(s).replace('--pass-with-no-tests ', '') })),
@@ -337,7 +337,7 @@ function visualProblems(job) {
   if (has(job, 'continue-on-error')) problems.push('the job has continue-on-error (the step carries it)');
   if (has(job, 'strategy')) problems.push('the job has a strategy (one job)');
   const minutes = Number(job['timeout-minutes']);
-  if (!(minutes >= 10 && minutes <= 15)) problems.push(`timeout-minutes is ${job['timeout-minutes']}, not 10 to 15`);
+  if (!(minutes >= 10 && minutes <= 30)) problems.push(`timeout-minutes is ${job['timeout-minutes']}, not 10 to 30`);
   const idx = (re) => steps.findIndex((s) => re.test(runOf(s)));
   const installAt = idx(/\bplaywright\s+install\b/);
   const storybookAt = idx(/\bbuild-storybook\b/);
@@ -389,7 +389,7 @@ test('[CI contract] the browser-visual check can fail: every drift is caught (gu
     'no storybook build': () => ({ ...clone(), steps: clone().steps.filter((s) => !/build-storybook/.test(runOf(s))) }),
     'both browsers installed': () => ({ ...clone(), steps: clone().steps.map((s) => (/playwright\s+install/.test(runOf(s)) ? { ...s, run: 'npx playwright install --with-deps chrome msedge' } : s)) }),
     'a matrix': () => ({ ...clone(), strategy: { matrix: { shard: ['1', '2'] } } }),
-    'timeout 30': () => ({ ...clone(), 'timeout-minutes': '30' }),
+    'timeout 45': () => ({ ...clone(), 'timeout-minutes': '45' }),
     'no report': () => ({ ...clone(), steps: clone().steps.filter((s) => !(typeof s.uses === 'string' && s.uses.startsWith('actions/upload-artifact'))) }),
   };
   for (const [label, make] of Object.entries(mutants)) {
@@ -541,7 +541,7 @@ test('[P3] the timing check can fail: every drift is caught (guards the test abo
     'a second file turned parallel': [config, { ...e2eFiles, 'e2e/motion.spec.ts': `${e2eFiles['e2e/motion.spec.ts']}\ntest.describe.configure({ mode: 'parallel' });` }, jobMinutes],
     'storyIds unsorted': [config, { ...e2eFiles, 'e2e/helpers.ts': e2eFiles['e2e/helpers.ts'].replace('}).sort();', '});') }, jobMinutes],
     'no globalTimeout': [config.replace(/\n\s*globalTimeout:[^\n]*/, ''), e2eFiles, jobMinutes],
-    'globalTimeout equal to the job timeout': [config.replace(/globalTimeout: isCi \? \d+/, 'globalTimeout: isCi ? 15'), e2eFiles, jobMinutes],
+    'globalTimeout equal to the job timeout': [config.replace(/globalTimeout: isCi \? \d+/, 'globalTimeout: isCi ? 30'), e2eFiles, jobMinutes],
     'job timeout cut to the globalTimeout': [config, e2eFiles, { ...jobMinutes, 'browser-edge': '12' }],
     'a11y back to file order': [config, { ...e2eFiles, 'e2e/a11y.spec.ts': a11y.replace(/test\.describe\.configure\([^)]*\);/, '') }, jobMinutes],
     'build limit removed': [config, { ...e2eFiles, 'e2e/app-shell-guard-build.spec.ts': '' }, jobMinutes],

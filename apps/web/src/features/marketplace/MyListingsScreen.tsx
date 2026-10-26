@@ -27,8 +27,8 @@ import { fetchPromotionOverview } from '@/services/api/promotions';
 
 type View = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; listings: ListingCard[] };
 
-// "My listings" (FR-MKT-002): every listing of the caller, with its state - live, sold/given, hidden by staff, or expired (kept; it no longer shows
-// in the Marketplace). Each opens its page, where the owner edits, marks and deletes it.
+// "My listings" (FR-MKT-002): every listing of the caller, with its state - live, sold/given (kept, BR-091), hidden by staff, or expired (it no
+// longer shows in the Marketplace and is deleted at the next daily run, BR-090; a sold one is never marked expired). Each opens its page, where the owner edits, marks and deletes it.
 export function MyListingsScreen() {
   const call = useProCall();
   const [view, setView] = useState<View>({ kind: 'loading' });
@@ -85,7 +85,7 @@ export function MyListingsScreen() {
                 imageAlt={imageAltOf(listing.title, 0, 1)}
                 price={priceText(listing.price)}
                 meta={[conditionText(listing.condition), cityText(listing.city)].join(' · ')}
-                badges={[listing.status === 'sold' ? SOLD_BADGE : null, listing.isHidden ? HIDDEN_BADGE : null, listing.isExpired ? EXPIRED_BADGE : null].filter(
+                badges={[listing.status === 'sold' ? SOLD_BADGE : null, listing.isHidden ? HIDDEN_BADGE : null, listing.isExpired && listing.status !== 'sold' ? EXPIRED_BADGE : null].filter(
                   (badge) => badge !== null,
                 )}
                 footer={

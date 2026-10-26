@@ -4,13 +4,15 @@ import { createDatabase, type Database } from '../../src/db/client.js';
 import { cancelDeletion, readDeletionStatus, requestDeletion } from '../../src/services/account-deletion-service.js';
 import { readAccountState } from '../../src/services/account-state-service.js';
 import { readAdminOverview } from '../../src/services/staff-work-service.js';
+import { enforce } from '../../src/services/admin-service.js';
+import { createAccountDeletionDb, runAccountDeletion } from '../../src/jobs/account-deletion.js';
 import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
 import { buildRegisterApp, post, validBody } from '../helpers/register-app.js';
 
 // I9 part 1, the account's own deletion against the real database (CI `db` job, as app_server): FR-SET-002, BR-073, PG-050, ERR-026,
 // AC-108, decisions-in-force §16.4 (the Admin's counter and red bar). The policies, the guard and the execution are pgTAP's (file 110);
 // here the services run in the identity transaction exactly as the routes call them. Each test leaves its accounts active again,
-// except the one whose deletion it executes.
+// except the ones whose deletion it executes and (§22.4, BR-085) the ones it suspends or bans out of a scheduled deletion.
 
 const T = { timeout: COLD_START_MS };
 const DAY = 24 * 60 * 60 * 1000;
@@ -22,6 +24,9 @@ let database: Database;
 let parent = '';
 let owner = '';
 let gone = '';
+let suspended = '';
+let banned = '';
+let expired = '';
 let admin = '';
 let moderator = '';
 /** A password sign-in five seconds ago (VAL-052). */
@@ -61,13 +66,13 @@ beforeAll(async () => {
   const env = { SUPABASE_JWKS_URL: jwks.url, SUPABASE_JWT_ISSUER: ISSUER, SUPABASE_JWT_AUDIENCE: AUDIENCE, DATABASE_URL: url() };
   const app: App = await buildRegisterApp(env, { database, clock: () => new Date() });
   const made: string[] = [];
-  for (const fullName of ['Noa Leaving', 'Tal Owner', 'Gil Gone']) {
+  for (const fullName of ['Noa Leaving', 'Tal Owner', 'Gil Gone', 'Dana Suspended', 'Ron Banned', 'Lia Expired']) {
     const userId = await text(side`select tests.fx_new_auth_user()::text as v`);
     const res = await post(app, `Bearer ${await token({ key, sub: userId })}`, validBody({ fullName }));
     if (res.statusCode !== 201) throw new Error(`could not register ${fullName}: ${res.statusCode} ${res.body}`);
     made.push(userId);
   }
-  [parent = '', owner = '', gone = ''] = made;
+  [parent = '', owner = '', gone = '', suspended = '', banned = '', expired = ''] = made;
   await app.close();
   admin = await text(side`select tests.fx_fr_id('fr_d')::text as v`);
   moderator = await text(side`select tests.fx_sf_id('sf_m1')::text as v`);
@@ -140,5 +145,72 @@ describe('[I9 §16.4 BR-073] the Admin sees an overdue deletion; an executed acc
     // an Auth user that never had an account is still sent to registration
     const newcomer = await text(side`select tests.fx_new_auth_user()::text as v`);
     expect(await readAccountState(database, id(newcomer))).toEqual({ state: 'unregistered' });
+  });
+});
+
+describe('[I9 §22.4 BR-085] a suspension or ban wins over a scheduled deletion', () => {
+  it('[BR-085 AC-188] staff suspend a scheduled account: the deletion is cancelled and the account cannot undo the suspension through it', T, async () => {
+    const before = await counts();
+    expect((await requestDeletion(database, id(suspended), fresh(), new Date())).kind).toBe('scheduled');
+    expect(await counts()).toEqual({ pending: before.pending + 1, overdue: before.overdue });
+    const outcome = await enforce(database, id(admin), { userId: suspended, kind: 'suspension', reason: 'harassment', durationHours: 24 });
+    expect(outcome.kind).toBe('ok');
+    // a suspended account is unavailable to itself (FR-AUTH-002), with no deletion pending
+    expect(await readAccountState(database, id(suspended))).toEqual({ state: 'unavailable' });
+    expect(await fixture((tx) => tx`select tests.fx_user(${suspended}::uuid) as v`)).toBe('regular/suspended');
+    expect(await readDeletionStatus(database, id(suspended))).toEqual({ status: 'none' });
+    // §16.4: the cancel closes the request in the Admin's counter
+    expect(await counts()).toEqual(before);
+    expect(await cancelDeletion(database, id(suspended))).toEqual({ kind: 'not_scheduled' });
+    expect(await requestDeletion(database, id(suspended), fresh(), new Date())).toEqual({ kind: 'not_allowed' });
+    expect(await fixture((tx) => tx`select tests.fx_user(${suspended}::uuid) as v`)).toBe('regular/suspended');
+  });
+
+  it('[BR-085 AC-189] the Admin bans a scheduled account past its date: no deletion runs, cancel and a new request are refused', T, async () => {
+    expect((await requestDeletion(database, id(banned), fresh(), new Date())).kind).toBe('scheduled');
+    await fixture((tx) => tx`select tests.fx_dl_due(${banned}::uuid, interval '31 days')::text as v`);
+    expect((await enforce(database, id(admin), { userId: banned, kind: 'ban', reason: 'harassment' })).kind).toBe('ok');
+    expect(await readAccountState(database, id(banned))).toEqual({ state: 'unavailable' });
+    expect(await fixture((tx) => tx`select tests.fx_user(${banned}::uuid) as v`)).toBe('regular/banned');
+    expect(await cancelDeletion(database, id(banned))).toEqual({ kind: 'not_scheduled' });
+    expect(await requestDeletion(database, id(banned), fresh(), new Date())).toEqual({ kind: 'not_allowed' });
+    const stillThere = `select count(*)::text from nestly.users where id = '${banned}'`;
+    expect(await fixture((tx) => tx`select tests.fx_dl_text(${stillThere}) as v`)).toBe('1');
+  });
+});
+
+describe('[I9 §22.6 AC-191] the deletion job removes each executed account from Auth once', () => {
+  /** The job's own connection; app_server holds app_jobs for this test alone (tests.fx_jobs_on/off), as the job's role will by bootstrap. */
+  const jobs = (): ReturnType<typeof postgres> => postgres(url(), { max: 1, prepare: false, onnotice: () => undefined });
+  const grantJobs = (on: boolean): Promise<string> =>
+    fixture((tx) => (on ? tx`select tests.fx_jobs_on()::text as v` : tx`select tests.fx_jobs_off()::text as v`));
+
+  it('[BR-073 AC-191] executes the due deletion, calls Auth once for the account, and never again on the next run', T, async () => {
+    expect((await requestDeletion(database, id(expired), fresh(), new Date())).kind).toBe('scheduled');
+    await fixture((tx) => tx`select tests.fx_dl_due(${expired}::uuid, interval '31 days')::text as v`);
+    const sql = jobs();
+    await grantJobs(true);
+    try {
+      const calls: string[] = [];
+      const first = await runAccountDeletion({
+        db: createAccountDeletionDb(sql),
+        removeAuthUser: (userId) => (calls.push(userId), Promise.resolve('removed')),
+        timeLeft: () => 50_000,
+      });
+      expect(first.executed).toBeGreaterThanOrEqual(1);
+      expect(calls.filter((userId) => userId === expired)).toHaveLength(1);
+      expect(await readAccountState(database, id(expired))).toEqual({ state: 'deleted' });
+      const again: string[] = [];
+      const second = await runAccountDeletion({
+        db: createAccountDeletionDb(sql),
+        removeAuthUser: (userId) => (again.push(userId), Promise.resolve('removed')),
+        timeLeft: () => 50_000,
+      });
+      expect(again).toEqual([]);
+      expect(second.authRemoved).toBe(0);
+    } finally {
+      await grantJobs(false);
+      await sql.end({ timeout: 5 });
+    }
   });
 });

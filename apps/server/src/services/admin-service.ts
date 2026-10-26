@@ -83,12 +83,14 @@ async function missingOrRefused(tx: IdentityTx, kind: ReportTargetKind, targetId
   return (await hasOpenReports(tx, kind, targetId)) ? { kind: 'forbidden' } : { kind: 'not_found' };
 }
 
-/** A reported listing as staff read it now: its title and price, its state (hidden, sold, expired or live) and its owner. */
+/** A reported listing as staff read it now: its title and description (I12-B), its state (hidden, sold, expired or live) and its owner. */
 async function readListingContent(tx: IdentityTx, id: string): Promise<{ text: string; status: string; isAnonymous: boolean; authorId: string } | undefined> {
   const row = await readListing(tx, id);
   if (row === undefined) return undefined;
   const status = row.isHidden ? 'hidden' : row.status === 'sold' ? 'sold' : row.isExpired ? 'expired' : 'active';
-  return { text: row.title, status, isAnonymous: false, authorId: row.sellerId };
+  return { text: row.description === null ? row.title : `${row.title}
+
+${row.description}`, status, isAnonymous: false, authorId: row.sellerId };
 }
 
 /** A refusal found after a write in the same transaction: thrown so that the transaction rolls back, answered as forbidden. */

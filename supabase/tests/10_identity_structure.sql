@@ -420,7 +420,7 @@ select is(
      join pg_catalog.pg_namespace n on n.oid = p.pronamespace
      cross join (values ('anon'), ('service_role'), ('app_server'), ('app_jobs')) as r(rolname)
     where n.nspname = 'nestly' and has_function_privilege(r.rolname, p.oid, 'EXECUTE')
-      and not (r.rolname = 'app_jobs' and p.proname in ('purge_held_content', 'purge_search_intents', 'purge_usage_events', 'purge_promotion_data',
+      and not (r.rolname = 'app_jobs' and p.proname in ('purge_held_content', 'purge_search_intents', 'purge_expired_listings', 'purge_usage_events', 'purge_promotion_data',
                                                          'execute_account_deletions', 'purge_deleted_accounts'))),
   0::bigint,
   '[F1.1-b c19 platform r4,r7 · F3.0-b c14 · I9] no function in schema nestly is executable by anon, service_role, app_server or app_jobs (so not by PUBLIC either), but the purges and I9''s deletion job (file 110), executable by app_jobs only');

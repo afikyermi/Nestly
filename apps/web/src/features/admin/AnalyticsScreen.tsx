@@ -39,6 +39,7 @@ import {
   ANALYTICS_MARKET_CHATS,
   ANALYTICS_MARKET_CREATED,
   ANALYTICS_MARKET_SOLD,
+  ANALYTICS_MARKET_SOLD_CHART,
   ANALYTICS_PROS,
   ANALYTICS_PROS_ACTIVE,
   ANALYTICS_PROS_BY_FIELD,
@@ -328,6 +329,8 @@ function Areas({ data }: { data: AnalyticsView }) {
             { label: ANALYTICS_MARKET_CHATS, value: marketplace.chats },
           ]}
         />
+        {/* I12-B (Afik §10.6, AC-206): the listings marked sold/given, day by day (a sold listing is kept, BR-091) */}
+        <Chart title={ANALYTICS_MARKET_SOLD_CHART} points={marketplace.soldByDay} />
         <h4 className="text-label">{ANALYTICS_MARKET_BY_CATEGORY}</h4>
         {marketplace.byCategory.length === 0 ? (
           <p className="text-muted-foreground">{ANALYTICS_EMPTY}</p>

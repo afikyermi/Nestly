@@ -16,7 +16,7 @@ permissions:
 jobs:
   baselines:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -26,6 +26,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # Slow on some runners (26.10: the Azure Ubuntu mirror, 6.5 to 15 min): the job limit leaves room for it; never cut it short,
+      # a killed apt keeps the dpkg lock and a retry fails (run 40365878428).
       - run: npx playwright install --with-deps chrome
       - run: npm run build-storybook
       - run: npx playwright test --project=chrome --update-snapshots --grep "visual:"

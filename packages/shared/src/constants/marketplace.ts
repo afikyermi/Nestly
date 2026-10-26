@@ -3,7 +3,7 @@
 // 21.10.2026) are recorded in the SRS as open points: the category and condition lists, the price range.
 
 /** The product categories (a listing's and a Sponsored Product's). */
-export const LISTING_CATEGORIES = ['strollers', 'car_seats', 'furniture', 'clothing', 'toys', 'feeding', 'bath_care', 'maternity', 'books', 'other'] as const;
+export const LISTING_CATEGORIES = ['strollers', 'car_seats', 'furniture', 'clothing', 'toys', 'feeding', 'bath_care', 'maternity', 'books', 'electrical', 'other'] as const;
 export type ListingCategory = (typeof LISTING_CATEGORIES)[number];
 
 export const LISTING_CATEGORY_LABELS: Readonly<Record<ListingCategory, string>> = {
@@ -16,6 +16,7 @@ export const LISTING_CATEGORY_LABELS: Readonly<Record<ListingCategory, string>> 
   bath_care: 'רחצה וטיפוח',
   maternity: 'הריון',
   books: 'ספרים',
+  electrical: 'מכשירי חשמל',
   other: 'אחר',
 };
 
@@ -36,8 +37,10 @@ export type ListingStatus = (typeof LISTING_STATUSES)[number];
 
 export const LISTING_TITLE_MIN = 2;
 export const LISTING_TITLE_MAX = 80;
-/** The asking price in whole shekels; no price is "למסירה". */
-export const LISTING_PRICE_MIN = 1;
+/** The asking price in whole shekels, 0 to 100,000; 0 is "למסירה" (Afik §10.6), kept as no price. */
+export const LISTING_PRICE_MIN = 0;
+/** FR-MKT-002, VAL-013 (Afik §10.6): the optional description. */
+export const LISTING_DESCRIPTION_MAX = 1000;
 export const LISTING_PRICE_MAX = 100_000;
 /** VAL-041: images per listing. */
 export const LISTING_MAX_IMAGES = 6;
@@ -61,6 +64,7 @@ export const LISTING_CATEGORY_TOPICS: Readonly<Record<ListingCategory, string | 
   bath_care: null,
   maternity: 'pregnancy',
   books: null,
+  electrical: 'baby_gear',
   other: null,
 };
 

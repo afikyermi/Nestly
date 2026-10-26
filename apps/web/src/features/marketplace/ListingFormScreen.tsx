@@ -17,10 +17,10 @@ import { FormField } from '@/components/shared/form-field';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { MediaTile } from '@/components/shared/media-tile';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { CloseIcon } from '@/components/ui/icons';
 import { SelectInput } from '@/components/ui/select-input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TextArea } from '@/components/ui/text-area';
 import { TextInput } from '@/components/ui/text-input';
 import { usePickedImages } from '@/hooks/use-picked-images';
 import { useProCall } from '@/hooks/use-pro-call';
@@ -30,14 +30,16 @@ import {
   CHOOSE,
   CITY_LABEL,
   CONDITION_LABEL,
+  DESCRIPTION_HINT,
+  DESCRIPTION_LABEL,
   FORM_ERRORS,
-  GIVE_AWAY_LABEL,
   IMAGES_HINT,
   IMAGE_IN_REVIEW,
   IMAGES_LABEL,
   LISTING_GONE,
   LOAD_FAILED,
   NOT_REGULAR_TEXT,
+  PRICE_FREE_HINT,
   PRICE_HINT,
   PRICE_LABEL,
   REMOVE_EXISTING_IMAGE,
@@ -54,22 +56,23 @@ interface Values {
   category: string;
   condition: string;
   price: string;
-  free: boolean;
   city: string;
+  description: string;
 }
-type Field = 'title' | 'category' | 'condition' | 'price' | 'city' | 'imageIds';
-const FIELDS: readonly Field[] = ['title', 'category', 'condition', 'price', 'city', 'imageIds'];
+type Field = 'title' | 'category' | 'condition' | 'price' | 'city' | 'description' | 'imageIds';
+const FIELDS: readonly Field[] = ['title', 'category', 'condition', 'price', 'city', 'description', 'imageIds'];
 const fieldOf = (value: unknown): Field | undefined => FIELDS.find((field) => field === value);
-const EMPTY: Values = { title: '', category: '', condition: '', price: '', free: false, city: '' };
+const EMPTY: Values = { title: '', category: '', condition: '', price: '', city: '', description: '' };
 
 const CATEGORY_OPTIONS = LISTING_CATEGORIES.map((value) => ({ value, label: LISTING_CATEGORY_LABELS[value] }));
 const CONDITION_OPTIONS = LISTING_CONDITIONS.map((value) => ({ value, label: LISTING_CONDITION_LABELS[value] }));
 const CITY_OPTIONS = PROFESSIONAL_AREAS.map((value) => ({ value, label: PROFESSIONAL_AREA_LABELS[value] }));
 
-/** The body the server takes, as the shared schema reads it (a typed number; "למסירה" is null). */
+/** The body the server takes, as the shared schema reads it (a typed number; 0 is "למסירה", Afik §10.6). */
 function inputOf(values: Values, imageIds: string[]): unknown {
-  const price = values.free ? null : /^\d{1,6}$/.test(values.price.trim()) ? Number(values.price.trim()) : values.price.trim() === '' ? undefined : NaN;
-  return { title: values.title, category: values.category, condition: values.condition, price, city: values.city, imageIds };
+  const typed = values.price.trim();
+  const price = /^\d{1,6}$/.test(typed) ? Number(typed) : typed === '' ? undefined : NaN;
+  return { title: values.title, description: values.description, category: values.category, condition: values.condition, price, city: values.city, imageIds };
 }
 
 /** The shared rule's problems, by field (the message is the code the form shows). */
@@ -87,7 +90,8 @@ function problemsOf(input: unknown): Partial<Record<Field, string>> {
 type Loaded = { kind: 'loading' } | { kind: 'gone' } | { kind: 'failed' } | { kind: 'ready'; images: MediaImage[] };
 
 // Create or edit a listing (FR-MKT-002, VAL-041; decisions §3 item 11): title, category, condition, a price or "למסירה", a city or area from the
-// list (§12) and up to 6 pictures, each checked before others see it. No description field (§3.11). The shared rule checks before sending and
+// list (§12), an optional description of up to 1,000 characters and up to 6 pictures, each checked before others see it; a price of 0 is
+// "למסירה" (Afik §10.6). The shared rule checks before sending and
 // the server checks again; the database decides who may publish (a Regular account) and edit (the owner).
 export function ListingFormScreen({ listingId }: { listingId?: string }) {
   const call = useProCall();
@@ -107,7 +111,7 @@ export function ListingFormScreen({ listingId }: { listingId?: string }) {
     if (result.kind !== 'ok') return setLoaded(result.kind === 'unavailable' ? { kind: 'gone' } : { kind: 'failed' });
     const page = result.value;
     if (!page.isMine) return setLoaded({ kind: 'gone' });
-    setValues({ title: page.title, category: page.category, condition: page.condition, price: page.price === null ? '' : String(page.price), free: page.price === null, city: page.city });
+    setValues({ title: page.title, category: page.category, condition: page.condition, price: page.price === null ? '0' : String(page.price), city: page.city, description: page.description ?? '' });
     setLoaded({ kind: 'ready', images: page.images });
   }, [call, listingId]);
 
@@ -164,16 +168,15 @@ export function ListingFormScreen({ listingId }: { listingId?: string }) {
       <FormField label={CONDITION_LABEL} {...(problems.condition === undefined ? {} : { error: problems.condition })}>
         {(control) => <SelectInput {...control} options={CONDITION_OPTIONS} placeholder={CHOOSE} value={values.condition} onChange={set('condition')} />}
       </FormField>
-      <Checkbox checked={values.free} onCheckedChange={(free) => setValues((current) => ({ ...current, free }))}>
-        {GIVE_AWAY_LABEL}
-      </Checkbox>
-      {values.free ? null : (
-        <FormField label={PRICE_LABEL} hint={PRICE_HINT} {...(problems.price === undefined ? {} : { error: problems.price })}>
-          {(control) => <TextInput {...control} dir="ltr" value={values.price} onChange={(event) => set('price')(event.target.value)} />}
-        </FormField>
-      )}
+      {/* VAL-013 (Afik §10.6): 0 to 100,000 in whole shekels; 0 shows as "למסירה", and the hint says so as soon as 0 is typed */}
+      <FormField label={PRICE_LABEL} hint={values.price.trim() === '0' ? PRICE_FREE_HINT : PRICE_HINT} {...(problems.price === undefined ? {} : { error: problems.price })}>
+        {(control) => <TextInput {...control} dir="ltr" value={values.price} onChange={(event) => set('price')(event.target.value)} />}
+      </FormField>
       <FormField label={CITY_LABEL} {...(problems.city === undefined ? {} : { error: problems.city })}>
         {(control) => <SelectInput {...control} options={CITY_OPTIONS} placeholder={CHOOSE} value={values.city} onChange={set('city')} />}
+      </FormField>
+      <FormField label={DESCRIPTION_LABEL} optional hint={DESCRIPTION_HINT} {...(problems.description === undefined ? {} : { error: problems.description })}>
+        {(control) => <TextArea {...control} rows={4} dir="auto" value={values.description} onChange={(event) => set('description')(event.target.value)} />}
       </FormField>
       <fieldset className="flex flex-col gap-2">
         <legend className="text-label">{IMAGES_LABEL}</legend>

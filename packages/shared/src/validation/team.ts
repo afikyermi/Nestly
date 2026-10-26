@@ -222,13 +222,15 @@ export const analyticsBody = z.object({
     chatStarts: z.number().int(),
     reviews: z.number().int(),
   }),
-  /** FR-ADMIN-010: Marketplace. Listings shown now, by category, and the period's new and sold listings and chats opened about one. */
+  /** FR-ADMIN-010: Marketplace. Listings shown now, by category, and the period's new and sold listings and chats opened about one;
+   *  I12-B (Afik §10.6, AC-206): the listings marked "נמכר/נמסר" by Israel day, for the Admin's graph. */
   marketplace: z.object({
     active: z.number().int(),
     byCategory: z.array(z.object({ category: z.enum(LISTING_CATEGORIES), count: z.number().int() })),
     created: z.number().int(),
     sold: z.number().int(),
     chats: z.number().int(),
+    soldByDay: z.array(dayCount).default([]),
   }),
   /** FR-ADMIN-010, OP-039 (I13): usage by day — accounts that came in (one a day each), profile and post views. Never an account or a target. */
   usage: z.object({ dailyLogins: z.array(dayCount), profileViews: z.array(dayCount), postViews: z.array(dayCount) }),

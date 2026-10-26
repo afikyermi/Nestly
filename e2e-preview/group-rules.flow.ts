@@ -1,6 +1,6 @@
 // I10 completion C on the real Preview (Afik 21.10.2026, decisions-in-force §11.13-11.17; e2e-preview/README.md "the main flow"):
-//   1. An Owner creates a Public Group; two members join; one posts. Likes and a comment by others reach the threshold (three members: 3),
-//      and the other member sees the post in the main feed, labelled "מתוך: <name>"; a post that is not a Highlight stays on the Group page.
+//   1. An Owner creates a Public Group; three members join; one posts. Likes and a comment by three different people other than the
+//      author reach the threshold (four members: 3, counted by people since OP-077), and another member sees the post in the main feed, labelled "מתוך: <name>"; a post that is not a Highlight stays on the Group page.
 //   2. The Owner makes a member Group Moderator, who warns and mutes the other member (a reason, 7 days): that member sees the notice and
 //      the read-only banner, has no composer, and the server refuses a post. Then remove + block and unblock.
 //      C reads their own history on "about" (OP-070): the three records, never who acted.
@@ -121,7 +121,10 @@ test('[FR-GRP-001 FR-GRP-002 FR-GRP-003 FR-ALG-010 AC-038 AC-066 AC-164 AC-167 A
     const bAuth = await signUp(bPage, bName);
     const cPage = await open();
     const cAuth = await signUp(cPage, cName);
-    for (const p of [bPage, cPage]) {
+    // a third member besides the author: since OP-077 (#263) the threshold counts different people other than the author, at least 3
+    const dPage = await open();
+    const dAuth = await signUp(dPage, `דנה ${family}`);
+    for (const p of [bPage, cPage, dPage]) {
       await p.goto(`/groups/${groupId}`);
       await main(p).getByRole('button', { name: 'הצטרפות', exact: true }).click();
       await expect(main(p).getByText(/חברים בקבוצה · חבר$/)).toBeVisible({ timeout: 20_000 });
@@ -137,9 +140,10 @@ test('[FR-GRP-001 FR-GRP-002 FR-GRP-003 FR-ALG-010 AC-038 AC-066 AC-164 AC-167 A
     const quiet = await api(page, ownerAuth, '/api/posts', { method: 'POST', body: { body: `רגיל ${family}`, audience: 'everyone', groupId } });
     expect(quiet.status).toBe(201);
 
-    // likes and a comment by others reach the threshold (3 for three members)
+    // likes and a comment by three different people other than the author reach the threshold (3 for four members, OP-077)
     expect((await api(page, ownerAuth, `/api/posts/${postId}/like`, { method: 'PUT' })).status).toBeLessThan(300);
     expect((await api(cPage, cAuth, `/api/posts/${postId}/like`, { method: 'PUT' })).status).toBeLessThan(300);
+    expect((await api(dPage, dAuth, `/api/posts/${postId}/like`, { method: 'PUT' })).status).toBeLessThan(300);
     expect((await api(page, ownerAuth, `/api/posts/${postId}/comments`, { method: 'POST', body: { body: 'כל הכבוד' } })).status).toBe(201);
 
     // the other member sees it in the main feed with "מתוך: <name>"; the plain post is only on the Group page

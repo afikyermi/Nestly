@@ -147,6 +147,31 @@ test.describe('[I4 FR-MOD-002] accounts and enforcement', () => {
   });
 });
 
+test.describe('[I9 §22.4 BR-085] enforcement on an account scheduled for deletion', () => {
+  test('[I9 AC-188 AC-189 BR-085] a scheduled account offers warning, suspension and ban, says the deletion will be cancelled, and the suspension goes through', async ({ page }) => {
+    const net = await setupAdmin(page, { userStatus: 'deletion_scheduled' });
+    await signIn(page);
+    await page.goto('/admin/users');
+    await page.getByLabel('חיפוש לפי שם').fill('רינה');
+    await page.getByRole('button', { name: 'חיפוש', exact: true }).click();
+    await expect(page.getByRole('listitem').filter({ hasText: 'רינה כהן' })).toContainText('ממתין למחיקה');
+    await page.getByRole('listitem').filter({ hasText: 'רינה כהן' }).getByRole('button', { name: 'פתיחה החשבון של רינה כהן' }).click();
+    const panel = page.getByRole('region', { name: 'אכיפה' });
+    await expect(panel).toContainText('ממתין למחיקה');
+    await expect(panel.getByText('החשבון ביקש למחוק את עצמו. השעיה או חסימה יבטלו את המחיקה, והחשבון לא יוכל לבטל אותן דרך מחיקה.')).toBeVisible();
+    const options = panel.getByLabel('פעולה').locator('option');
+    await expect(options).toHaveText(['בחירת פעולה', 'אזהרה', 'השעיה', 'חסימה']);
+    await panel.getByLabel('פעולה').selectOption({ label: 'השעיה' });
+    await panel.getByLabel('משך ההשעיה').selectOption({ label: '24 שעות' });
+    await panel.getByLabel('סיבה (נרשמת ביומן)').fill('הטרדה לפני מחיקת החשבון');
+    await panel.getByRole('button', { name: 'ביצוע הפעולה' }).click();
+    await expect(page.getByText('הפעולה בוצעה')).toBeVisible();
+    expect(net.sent[0]).toMatchObject({ body: { userId: USER_RINA, kind: 'suspension', durationHours: 24 } });
+    await expect(panel).toContainText('מושעה');
+    await expect(panel.getByText(/השעיה או חסימה יבטלו את המחיקה/)).toHaveCount(0);
+  });
+});
+
 test.describe('[I5 Afik 20.10] the image approval queue', () => {
   test('[I5 BR-076] a CONTENT_MODERATE holder approves one image with the child mark and marks a suspicion on another; each leaves the queue', async ({ page }) => {
     const net = await setupAdmin(page, { role: 'moderator', permissions: ['CONTENT_MODERATE'] });
