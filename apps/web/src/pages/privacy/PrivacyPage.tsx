@@ -1,17 +1,8 @@
-import { GuestPlaceholderPage } from '@/pages/placeholder/GuestPlaceholderPage';
-import { PRIVACY_SECTIONS, PRIVACY_TITLE } from './privacy-texts';
+import { CONSENT_PRIVACY_VERSION } from '@nestly/shared';
+import { LegalDocumentPage } from '@/pages/legal/LegalDocumentPage';
+import { PRIVACY_INTRO, PRIVACY_SECTIONS, PRIVACY_TITLE } from './privacy-texts';
 
+// The privacy policy (BR-078, PG-061): the version a registration records is the day it shows as updated (AC-186).
 export function PrivacyPage() {
-  return (
-    <GuestPlaceholderPage title={PRIVACY_TITLE}>
-      <div className="flex flex-col gap-5 text-body">
-        {PRIVACY_SECTIONS.map((section) => (
-          <section key={section.title} aria-label={section.title}>
-            <h2 className="mb-2 text-h3">{section.title}</h2>
-            <p>{section.text}</p>
-          </section>
-        ))}
-      </div>
-    </GuestPlaceholderPage>
-  );
+  return <LegalDocumentPage id="privacy" title={PRIVACY_TITLE} updated={CONSENT_PRIVACY_VERSION} intro={PRIVACY_INTRO} sections={PRIVACY_SECTIONS} />;
 }

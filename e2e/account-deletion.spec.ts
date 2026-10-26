@@ -119,6 +119,46 @@ test.describe('[I9 FR-SET-002 PG-050 PG-060] account deletion', () => {
     expect(net.deletionCalls.at(-1)).toMatchObject({ path: 'cancel', body: {} });
   });
 
+  test('[I9 part 2 NFR-A11Y-001 PG-060] the deletion form works by keyboard alone: box, password, send', async ({ page }) => {
+    const net = await setup(page);
+    await signIn(page);
+    await openDeletion(page);
+    const box = page.getByRole('checkbox', { name: /החשבון וכל התוכן יימחקו לצמיתות/ });
+    await box.focus();
+    await page.keyboard.press('Space');
+    await expect(box).toBeChecked();
+    await page.keyboard.press('Tab');
+    await expect(page.getByLabel('סיסמה', { exact: true })).toBeFocused();
+    await page.keyboard.type(PASSWORD);
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'הצגת הסיסמה' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'מחיקת החשבון', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => pathOf(page)).toBe('/login');
+    expect(net.deletionCalls).toEqual([{ path: 'request', body: { confirmed: true }, authorization: 'Bearer e2e-access-token' }]);
+  });
+
+  test('[I9 part 2 PG-050 PG-061 AC-187] while held, the privacy policy opens from PG-050 by keyboard, and every other screen leads back', async ({ page }) => {
+    await setup(page, { me: 'deletion_scheduled' });
+    await signIn(page);
+    await expect.poll(() => pathOf(page)).toBe('/account/scheduled-deletion');
+    const documents = page.getByRole('navigation', { name: 'מסמכים' });
+    await expect(documents.getByRole('link')).toHaveText(['תנאי השימוש', 'מדיניות הפרטיות', 'הצהרת נגישות']);
+    // The links come before the two actions in the reading order
+    await page.getByRole('button', { name: 'ביטול המחיקה', exact: true }).focus();
+    await page.keyboard.press('Shift+Tab');
+    await expect(documents.getByRole('link', { name: 'הצהרת נגישות' })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(documents.getByRole('link', { name: 'מדיניות הפרטיות' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => pathOf(page)).toBe('/privacy');
+    await expect(page.getByRole('heading', { level: 1, name: 'מדיניות הפרטיות' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'מחיקת החשבון', exact: true })).toContainText('במשך 30 יום');
+    await page.goto('/feed');
+    await expect.poll(() => pathOf(page)).toBe('/account/scheduled-deletion');
+  });
+
   test('[ERR-026 ERR-048 AC-177 AC-183] a Group Owner is told to transfer the ownership; a wrong password sends nothing', async ({ page }) => {
     const net = await setup(page, { request: { status: 409, body: { error: 'group_owner' } } });
     await signIn(page);

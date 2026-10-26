@@ -15,7 +15,8 @@ export interface GuestPlaceholderPageProps {
   children?: ReactNode;
 }
 
-// Shared public-document frame: supplied document content, or the remaining Terms placeholder (I9).
+// Shared public-document frame (PG-061): the terms, the privacy policy and the accessibility statement supply their content; with none, the
+// placeholder line.
 // Both guests and signed-in accounts can read it without requests; the back link returns to their entry surface.
 export function GuestPlaceholderPage({ title, children }: GuestPlaceholderPageProps) {
   const { state } = useSession();

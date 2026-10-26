@@ -13,12 +13,12 @@ for (const kind of ['guest', 'regular', 'professional', 'staff'] as const) {
     await expect(main.getByRole('heading', { name: 'מדיניות הפרטיות', level: 1 })).toBeVisible();
     await expect(main.getByRole('region', { name: 'מדידת השימוש' })).toContainText('בלי תוכן ובלי זיהוי הפרופיל או הפוסט שנצפה');
     await expect(main.getByRole('region', { name: 'צפייה בנתוני השימוש' })).toContainText('בלי שמות, פרטי חשבון');
-    await expect(main.getByRole('region', { name: 'מדידת השימוש' })).toContainText('ונשמרים 90 יום');
+    await expect(main.getByRole('region', { name: 'מדידת השימוש' })).toContainText('ונשמרים עד 90 יום');
     // What is kept per viewer is stated, with who sees what and for how long (professional_views, promotion_events).
     const professionals = main.getByRole('region', { name: 'צפיות בבעלי מקצוע' });
     await expect(professionals).toContainText('ספירה יומית לכל חשבון צופה');
     await expect(professionals).toContainText('ואף פעם לא מי צפה');
-    await expect(professionals).toContainText('הפירוט נשמר 12 חודשים ואחר כך נמחק');
+    await expect(professionals).toContainText('הפירוט נשמר עד 12 חודשים');
     await expect(main.getByRole('region', { name: 'נתוני קידום' })).toContainText('ספירה יומית לכל חשבון צופה ולכל קידום');
     await expect(main.getByRole('region', { name: 'נתוני קידום' })).toContainText('רק סיכום חודשי לכל קידום, בלי הצופים');
     await expect(main.getByRole('region', { name: 'נתוני קידום' })).toContainText('בלי זהות הצופים');

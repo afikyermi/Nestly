@@ -127,6 +127,7 @@ export function SettingsPage() {
         <LinkSection id="terms">
           <SettingsLink to={PATHS.terms}>תנאי השימוש</SettingsLink>
           <SettingsLink to={PATHS.privacy}>מדיניות הפרטיות</SettingsLink>
+          <SettingsLink to={PATHS.accessibility}>הצהרת נגישות</SettingsLink>
         </LinkSection>
       </div>
     </>

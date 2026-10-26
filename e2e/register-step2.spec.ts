@@ -703,14 +703,16 @@ test.describe('F1.4 criterion 19 [F1.3 criterion 13] back from step 2', () => {
 test.describe('F1.4 criterion 4 the public documents the consent links lead to', () => {
   for (const [path, h1] of [['/terms', 'תנאי השימוש'], ['/privacy', 'מדיניות הפרטיות']] as const) {
     // /recovery stopped being a placeholder in F1.6 c16; recovery-web.spec.ts covers it
-    test(`[F1.4 c4 OP-039] ${path} opens the consent document "${h1}" for a Guest`, async ({ page }) => {
+    test(`[F1.4 c4 OP-039 AC-187] ${path} opens the consent document "${h1}" for a Guest`, async ({ page }) => {
       await open(page, path, 'signed-out');
       await expect(h1Of(page)).toHaveText(h1);
+      // BR-078, AC-187: both are real documents now, with the version a registration records (AC-186)
+      await expect(page.getByText('המסך הזה ייפתח בקרוב.')).toHaveCount(0);
+      await expect(page.getByText('עודכן לאחרונה: 26 באוקטובר 2026')).toBeVisible();
       if (path === '/privacy') {
         await expect(page.getByRole('region', { name: 'מדידת השימוש' })).toContainText('בלי תוכן ובלי זיהוי הפרופיל או הפוסט שנצפה');
-        await expect(page.getByText('המסך הזה ייפתח בקרוב.')).toHaveCount(0);
       } else {
-        await expect(page.getByText('המסך הזה ייפתח בקרוב.')).toBeVisible();
+        await expect(page.getByRole('region', { name: 'מי יכול להשתמש' })).toContainText('בני 18 ומעלה');
       }
       expect(pathOf(page)).toBe(path);
     });

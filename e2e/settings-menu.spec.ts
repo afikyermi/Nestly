@@ -226,15 +226,16 @@ test.describe('F2.5 c4 c7 [FR-SET-001 PG-038] the Settings page', () => {
     await expect.poll(() => pathOf(page)).toBe('/change-password');
   });
 
-  test('[F2.5 c7 DR-2 A] Terms & Privacy: two links in the same tab, each page has a way back to Settings', async ({ page }) => {
+  test('[F2.5 c7 DR-2 A] Terms & Privacy: three links (PG-061: the accessibility statement too) in the same tab, each page has a way back to Settings', async ({ page }) => {
     await signedInAtFeed(page);
     await choose(page, 'תנאים ופרטיות');
     const controls = await controlsOf(page, 'תנאים ופרטיות');
     expect(controls).toEqual([
       { tag: 'a', name: 'תנאי השימוש', href: '/terms', type: null },
       { tag: 'a', name: 'מדיניות הפרטיות', href: '/privacy', type: null },
+      { tag: 'a', name: 'הצהרת נגישות', href: '/accessibility', type: null },
     ]);
-    for (const [name, path, h1] of [['תנאי השימוש', '/terms', 'תנאי השימוש'], ['מדיניות הפרטיות', '/privacy', 'מדיניות הפרטיות']] as const) {
+    for (const [name, path, h1] of [['תנאי השימוש', '/terms', 'תנאי השימוש'], ['מדיניות הפרטיות', '/privacy', 'מדיניות הפרטיות'], ['הצהרת נגישות', '/accessibility', 'הצהרת נגישות']] as const) {
       await expect(main(page).getByRole('link', { name, exact: true })).not.toHaveAttribute('target', /./);
       const pages = page.context().pages().length;
       await main(page).getByRole('link', { name, exact: true }).click();
