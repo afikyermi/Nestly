@@ -59,6 +59,10 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
     test(`[c13] ${label}: main, h1 "הפיד", the form "כתיבת פוסט" above the list, cards in server order, the only product request is GET /feed; axe`, async ({ page }) => {
       await page.setViewportSize(viewport);
       const net = await setupFeed(page, () => pageOf([named(3), named(1), named(2)], null));
+      const authUser: string[] = [];
+      page.on('request', (req) => {
+        if (net.armed && new URL(req.url()).pathname.endsWith('/auth/v1/user')) authUser.push(req.url());
+      });
       await open(page, net);
       await expect(page.getByRole('heading', { level: 1, name: 'הפיד', exact: true })).toBeVisible();
       await expect(main(page)).toBeVisible();
@@ -71,9 +75,12 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
       const [w, l] = [await write.boundingBox(), await list(page).boundingBox()];
       expect(w?.y ?? 0).toBeLessThan(l?.y ?? 0);
       expect(net.methods).toEqual(['GET']);
-      // I5: the Stories tray loads with the feed; I4: the menu asks whether the account is staff; I7: the bell; I8: the shell's Chat badge asks once the staff check says it is a community account (the shell's, not the feed's).
-      // I11: the shell asks for the account kind once (any time after sign-in), like the Chat badge
-      expect(new Set(net.apiPaths.filter((path) => path !== '/api/chat/unread' && path !== '/api/account/kind'))).toEqual(new Set(['/api/me', '/api/profile', '/api/feed', '/api/stories', '/api/admin/access', '/api/notifications']));
+      // I5: the Stories tray loads with the feed; I4: the menu asks whether the account is staff; I7: the bell; I8: the shell's Chat badge asks the
+      // bell's light counters once the staff check says it is a community account (the shell's, not the feed's), never /api/chat/unread.
+      // I11: the shell asks for the account kind once (any time after sign-in). The own user id (the feed, its Stories tray) comes from the token:
+      // neither asks Auth's /user (measured 26.10: three calls before, one after). The one left is the Auth client's own reload of the stored session.
+      await expect.poll(() => [...new Set(net.apiPaths)].sort()).toEqual(['/api/account/kind', '/api/admin/access', '/api/feed', '/api/me', '/api/notifications', '/api/notifications/counts', '/api/profile', '/api/stories']);
+      expect(authUser.length).toBeLessThanOrEqual(1);
       await scan(page);
     });
   }

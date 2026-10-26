@@ -4,6 +4,7 @@
 // professionals-stub.ts; the staff screens add e2e/support/admin-stub.ts first.
 import type { Page, Route } from '@playwright/test';
 import { CORS, EMAIL, NOW, json, session } from './journeys-stub';
+import { tokenFor } from './feed-stub';
 
 export const MID = (n: number): string => `b1200000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 export const ME = 'f0000000-0000-4000-8000-0000000000f1';
@@ -80,7 +81,8 @@ async function signedIn(page: Page): Promise<void> {
   await page.route('https://e2e-stub.invalid/auth/v1/**', async (route) => {
     const req = route.request();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
-    if (req.url().includes('/token')) return json(route, 200, session(far));
+    // A token that names ME: the web reads the own user id from it (no Auth /user call).
+    if (req.url().includes('/token')) return json(route, 200, { ...session(far), access_token: tokenFor(ME), user: { ...session(far).user, id: ME } });
     if (req.url().includes('/logout')) return route.fulfill({ status: 204, headers: CORS });
     if (req.method() === 'GET' && req.url().includes('/auth/v1/user')) return json(route, 200, { id: ME, email: EMAIL, app_metadata: { provider: 'email' } });
     return json(route, 404, { error: 'unstubbed' });
