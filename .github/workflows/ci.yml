@@ -210,7 +210,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.browser == 'full'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -234,7 +234,14 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       # Only this job's browser; Edge is installed in `browser-edge`.
-      - run: npx playwright install --with-deps chrome
+      # A runner's apt sometimes hangs (26.10: 6.5 to 15 min, the whole job): a step limit and one fresh retry instead of a lost job.
+      - id: install
+        continue-on-error: true
+        timeout-minutes: 6
+        run: npx playwright install --with-deps chrome
+      - if: steps.install.outcome == 'failure'
+        timeout-minutes: 6
+        run: npx playwright install --with-deps chrome
       - run: npm run build-storybook
       - env:
           E2E_SKIP_VISUAL: 'true'
@@ -255,7 +262,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.browser == 'changed'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -272,7 +279,14 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      - run: npx playwright install --with-deps chrome
+      # A runner's apt sometimes hangs (26.10: 6.5 to 15 min, the whole job): a step limit and one fresh retry instead of a lost job.
+      - id: install
+        continue-on-error: true
+        timeout-minutes: 6
+        run: npx playwright install --with-deps chrome
+      - if: steps.install.outcome == 'failure'
+        timeout-minutes: 6
+        run: npx playwright install --with-deps chrome
       - run: npm run build-storybook
       - name: The changed specs in Chrome
         env:
@@ -303,7 +317,7 @@ jobs:
   browser-visual:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -320,7 +334,14 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      - run: npx playwright install --with-deps chrome
+      # A runner's apt sometimes hangs (26.10: 6.5 to 15 min, the whole job): a step limit and one fresh retry instead of a lost job.
+      - id: install
+        continue-on-error: true
+        timeout-minutes: 6
+        run: npx playwright install --with-deps chrome
+      - if: steps.install.outcome == 'failure'
+        timeout-minutes: 6
+        run: npx playwright install --with-deps chrome
       - run: npm run build-storybook
       # The argument is a file filter: only *.visual.spec.ts. E2E_SKIP_VISUAL is left unset, so the chrome project keeps them.
       - id: visual
@@ -343,7 +364,7 @@ jobs:
   browser-edge:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -364,7 +385,14 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      - run: npx playwright install --with-deps msedge
+      # A runner's apt sometimes hangs (26.10: 6.5 to 15 min, the whole job): a step limit and one fresh retry instead of a lost job.
+      - id: install
+        continue-on-error: true
+        timeout-minutes: 6
+        run: npx playwright install --with-deps msedge
+      - if: steps.install.outcome == 'failure'
+        timeout-minutes: 6
+        run: npx playwright install --with-deps msedge
       - run: npm run build-storybook
       - run: npx playwright test --project=edge --shard=${{ matrix.shard }}/10
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

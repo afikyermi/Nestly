@@ -16,7 +16,7 @@ permissions:
 jobs:
   baselines:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -26,7 +26,14 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chrome
+      # A runner's apt sometimes hangs (26.10): a step limit and one fresh retry, as in ci.yml.
+      - id: install
+        continue-on-error: true
+        timeout-minutes: 6
+        run: npx playwright install --with-deps chrome
+      - if: steps.install.outcome == 'failure'
+        timeout-minutes: 6
+        run: npx playwright install --with-deps chrome
       - run: npm run build-storybook
       - run: npx playwright test --project=chrome --update-snapshots --grep "visual:"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
