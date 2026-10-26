@@ -344,7 +344,7 @@ test('the shift: every statement is bound to a demo account ($1), touches known 
   assert.ok(touchedTables(statements).includes('posts'));
 });
 
-function fakeDb({ who = 'postgres', bypass = true, dropColumn = null, staffFor = null, zeroFor = null, guardOn = null } = {}) {
+function fakeDb({ who = 'postgres', bypass = true, dropColumn = null, staffFor = null, zeroFor = null, guardOn = null, deferredRefusal = null } = {}) {
   const triggersOff = new Set();
   const log = [];
   const db = {
@@ -355,6 +355,7 @@ function fakeDb({ who = 'postgres', bypass = true, dropColumn = null, staffFor =
           async run(text, params = []) {
             log.push(text.split(' ').slice(0, 4).join(' '));
             if (text.startsWith('select current_user')) return { count: 1, rows: [{ who, bypass }] };
+            if (text === 'set constraints all immediate' && deferredRefusal !== null) throw Object.assign(new Error('query would be affected by row-level security policy for table "x" value 42'), deferredRefusal);
             if (text.startsWith('select table_name')) {
               const rows = Object.entries(SHIFT_COLUMNS).flatMap(([t, cols]) => cols.filter((c) => `${t}.${c}` !== dropColumn).map((c) => ({ table_name: t, column_name: c })));
               return { count: rows.length, rows };
@@ -500,4 +501,14 @@ test('the role walk: GET only, every screen of every persona, a non-200 or an em
   assert.ok(report.failed.includes('nobody: no demo account'));
   const logged = [...lines, ...report.failed].join('\n');
   assert.ok(!/secret-pw|@gmail|tok-/.test(logged));
+});
+
+test('the shift checks the deferred constraints before the end: a dry run meets a commit refusal and names only schema names', async () => {
+  for (const apply of [false, true]) {
+    const refused = fakeDb({ deferredRefusal: { code: '42501', table_name: 'posts', constraint_name: 'posts_anonymous_author_fkey', routine: 'check_enable_rls' } });
+    const report = await runShift({ db: refused.db, content, emails, anchor: NOW, apply, log: silent });
+    assert.equal(report.ok, false);
+    assert.equal(report.reason, 'the shift failed and was rolled back (SQLSTATE 42501 table posts constraint posts_anonymous_author_fkey routine check_enable_rls)');
+    assert.equal(refused.log.at(-1), 'rollback');
+  }
 });
