@@ -5,6 +5,7 @@
 //        · 403 not_allowed (not the caller's fresh Story image, already used, not a Regular account, or stopped)
 //   all: 401/503 session guard · 503 · 500. Logs carry a fixed line and the SQLSTATE, never a caption or an id (NFR-PRIV-001).
 
+import { noteFailure } from '../lib/failure-report.js';
 import { createStoryBody, storiesResponse } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
@@ -22,6 +23,7 @@ function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unkno
   const refused = replySessionRefused(reply, error);
   if (refused !== undefined) return refused;
   request.log.error({ sqlstate: readDatabaseFault(error)?.code }, line);
+  noteFailure(request, error);
   if (isTransientFailure(error)) return reply.code(503).send({ error: 'unavailable' });
   return reply.code(500).send({ error: 'internal' });
 }

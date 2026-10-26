@@ -8,6 +8,7 @@
 //   any other method → 405.
 // Logs carry a fixed line and the SQLSTATE, never the body, a token or an id (NFR-PRIV-001).
 
+import { noteFailure } from '../lib/failure-report.js';
 import { accountDeletionCancelRequest, accountDeletionRequest } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
@@ -27,6 +28,7 @@ function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unkno
   const refused = replySessionRefused(reply, error);
   if (refused !== undefined) return refused;
   request.log.error({ sqlstate: readDatabaseFault(error)?.code }, line);
+  noteFailure(request, error);
   if (isTransientFailure(error)) return reply.code(503).send({ error: 'unavailable' });
   return reply.code(500).send({ error: 'internal' });
 }

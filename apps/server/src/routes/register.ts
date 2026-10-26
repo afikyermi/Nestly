@@ -7,6 +7,7 @@
 // constraint name, never the error object: a driver or parser message can quote the body, and the body is a parent's
 // and children's data (NFR-PRIV-001).
 
+import { noteFailure } from '../lib/failure-report.js';
 import { createRegistrationRequestSchema } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
@@ -44,6 +45,7 @@ async function register(request: FastifyRequest, reply: FastifyReply, deps: Regi
     if (refused !== undefined) return refused;
     const fault = readDatabaseFault(error);
     request.log.error({ sqlstate: fault?.code, constraint: fault?.constraint }, 'registration write failed');
+    noteFailure(request, error);
     // A retry may pass only after a transient failure, in any transaction of the request (hasAccount included).
     if (isTransientFailure(error)) return reply.code(503).send({ error: 'profile_write_failed' });
     return reply.code(500).send({ error: 'internal' });
@@ -58,6 +60,7 @@ export function registerRegistrationRoute(app: FastifyInstance, deps: RegisterRo
     errorHandler: (error, request, reply) => {
       const status = typeof error.statusCode === 'number' && error.statusCode >= 400 ? error.statusCode : 500;
       request.log.warn({ status, code: error.code }, 'register request failed');
+      if (status >= 500) noteFailure(request, error);
       reply.code(status).send({ error: status < 500 ? 'bad_request' : 'internal' });
     },
     handler: (request, reply) => register(request, reply, deps),

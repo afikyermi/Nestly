@@ -7,6 +7,7 @@
 //   all: 401/503 session guard · 503 · 500 server_error. Any other method → 405 with Allow.
 // Nothing is returned: no count, no user id, no is_by_author. Logs carry a fixed line and the SQLSTATE, never an id (NFR-PRIV-001).
 
+import { noteFailure } from '../lib/failure-report.js';
 import { commentPathParams } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
@@ -28,6 +29,7 @@ function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unkno
   if (refused !== undefined) return refused;
   const fault = readDatabaseFault(error);
   request.log.error({ sqlstate: fault?.code }, 'like change failed');
+  noteFailure(request, error);
   // The target went away or stopped being readable between the read and the write.
   if (fault?.code === '42501' || fault?.code === '23503') return reply.code(404).send(NOT_FOUND);
   if (isConnectionFailure(error)) return reply.code(503).send({ error: 'unavailable' });

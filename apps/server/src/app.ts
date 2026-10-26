@@ -40,6 +40,7 @@ import { registerStoriesRoutes } from './routes/stories.js';
 import { registerMediaQueueRoutes } from './routes/media-queue.js';
 import { processUpload } from './media/image-processing.js';
 import { createJobKick } from './media/job-kick.js';
+import { reuseSignedUrls } from './media/signed-url-cache.js';
 import { createMediaStorage } from './media/storage-admin.js';
 import type { MediaDependencies } from './services/media-service.js';
 import { registerAccountDeletionRoutes } from './routes/account-deletion.js';
@@ -53,6 +54,7 @@ import { registerRecoveryResetRoute } from './routes/recovery-reset.js';
 import { registerRegistrationRoute } from './routes/register.js';
 import { registerStripBypassHeader } from './plugins/strip-bypass-header.js';
 import { registerServerTiming, serverTimingEnabled } from './lib/server-timing.js';
+import { noteOf, reportableFailure } from './lib/failure-report.js';
 
 export interface AppDependencies {
   /** Defaults to the process environment. */
@@ -110,7 +112,8 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   // Right after it, so it times the rest of the request: a Vercel Preview only (never Production, never a test unless it asks).
   registerServerTiming(app, deps.serverTiming ?? serverTimingEnabled(process.env));
 
-  // Every 5xx is reported: a thrown error by the error handler below (with its stack), any other 5xx here, by status and route
+  // Every 5xx is reported: a thrown error by the error handler below (with its stack), a failure a route caught and noted here
+  // (failure-report.ts), any other 5xx here by status and route
   // template only (`/api/posts/:postId`, never the address). Nothing from the request goes with it.
   const monitor = deps.errorMonitor ?? noErrorMonitor;
   const reported = new WeakSet<object>();
@@ -122,7 +125,12 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   });
   if (monitor.enabled) {
     app.addHook('onResponse', (request, reply, done) => {
-      if (reply.statusCode >= 500 && !reported.has(request)) monitor.captureStatus(reportOf(request, reply.statusCode));
+      if (reply.statusCode >= 500 && !reported.has(request)) {
+        // A route that caught the failure noted it: its error (rebuilt without database values) instead of the bare status
+        const noted = noteOf(request);
+        if (noted === undefined) monitor.captureStatus(reportOf(request, reply.statusCode));
+        else monitor.capture(reportableFailure(noted), reportOf(request, reply.statusCode));
+      }
       done();
     });
   }
@@ -149,7 +157,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
     request.log.error({ status, code, name }, 'request failed');
     if (status === 500) {
       reported.add(request);
-      monitor.capture(error, reportOf(request, status));
+      monitor.capture(reportableFailure(error), reportOf(request, status));
     }
     return reply.code(status).send({ error: status === 500 ? 'internal' : 'bad_request' });
   });
@@ -171,7 +179,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerAccountDeletionRoutes(app, { database, clock });
   registerFriendsRoutes(app, { database });
   const media: MediaDependencies = {
-    storage: deps.media?.storage ?? createMediaStorage(),
+    storage: reuseSignedUrls(deps.media?.storage ?? createMediaStorage()),
     kick: deps.media?.kick ?? createJobKick(),
     process: deps.media?.process ?? processUpload,
   };
