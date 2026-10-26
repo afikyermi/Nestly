@@ -190,22 +190,27 @@ export async function readOwnAnalyticsCounts(tx: IdentityTx, days: number): Prom
   const paid = (kind: string, onlyProfile = false) =>
     sql`(select coalesce(sum(e.times), 0) from nestly.promotion_events e join nestly.promotions p on p.id = e.promotion_id
           where p.owner_id = (select auth.uid()) and e.kind = ${kind} and e.occurred_on >= ${since} ${onlyProfile ? sql`and p.target_kind = 'profile'` : sql``})`;
-  // One statement per number, in this order, so Server-Timing names the slow one (25.10: 0.9 s for the single statement on Production).
-  const one = async (statement: SQL): Promise<number> =>
-    z.array(z.object({ n: count })).length(1).parse(await tx.execute(sql`select ${statement} as n`))[0]?.n ?? 0;
-  return analyticsRow.parse({
-    profileViews: await one(view('profile_view', 'sum')),
-    profileViewers: await one(view('profile_view', 'rows')),
-    postViews: await one(view('post_view', 'sum')),
-    postReach: await one(view('post_view', 'rows')),
-    impressions: await one(paid('impression')),
-    clicks: await one(paid('click')),
-    profileVisits: await one(paid('click', true)),
-    follows: await one(paid('follow')),
-    chatStarts: await one(paid('chat_start')),
-    spent: await one(sql`(select coalesce(sum(pp.amount_ils), 0) from nestly.promotion_payments pp
-      where pp.payer_id = (select auth.uid()) and (pp.created_at at time zone 'Asia/Jerusalem')::date >= ${since})`),
-  });
+  // ONE statement (plan ל', 26.10): each number its own sub-select, with the predicates it had as a statement of its own (25.10–26.10 they
+  // ran one by one to time each; the round trips cost more than any one of them).
+  const [row] = z
+    .array(analyticsRow)
+    .length(1)
+    .parse(
+      await tx.execute(sql`select
+        ${view('profile_view', 'sum')} as "profileViews",
+        ${view('profile_view', 'rows')} as "profileViewers",
+        ${view('post_view', 'sum')} as "postViews",
+        ${view('post_view', 'rows')} as "postReach",
+        ${paid('impression')} as impressions,
+        ${paid('click')} as clicks,
+        ${paid('click', true)} as "profileVisits",
+        ${paid('follow')} as follows,
+        ${paid('chat_start')} as "chatStarts",
+        (select coalesce(sum(pp.amount_ils), 0) from nestly.promotion_payments pp
+          where pp.payer_id = (select auth.uid()) and (pp.created_at at time zone 'Asia/Jerusalem')::date >= ${since}) as spent`),
+    );
+  if (row === undefined) throw new Error('the analytics counts returned no row');
+  return row;
 }
 
 // ---- serving promoted units (FR-ALG-007) ----------------------------------------------------------------------------------------------------
