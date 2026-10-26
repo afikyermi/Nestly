@@ -72,6 +72,7 @@ select is(pg_temp.list('a', 'd1000', 'toys', repeat('ש', 1000)), 'kept', '[F12.
 select is(pg_temp.list('a', 'd1001', 'toys', repeat('ש', 1001)), 'ERR:23514', '[F12.2-a c1 I12-B AC-201 VAL-013] 1,001 characters: refused (23514)');
 select is(pg_temp.list('a', 'demoji', 'toys', repeat(chr(128512), 1000)), 'kept', '[F12.2-a c1 I12-B VAL-013] the cap counts characters (code points), not bytes');
 select is(pg_temp.list('a', 'dblank', 'toys', '   '), 'ERR:23514', '[F12.2-a c1 I12-B VAL-013] a blank description is refused (no description is NULL)');
+select is(pg_temp.list('a', 'dws', 'toys', E'\n\t \n'), 'ERR:23514', '[F12.2-a c1 I12-B VAL-013] a description of tabs and line breaks only is refused too');
 select is(pg_temp.dml('a', format($q$ update nestly.marketplace_listings set description = 'עובד מצוין, עם קופסה' where id = %L $q$, pg_temp.v('el'))),
   'OK:1', '[F12.2-a c1 I12-B AC-201] the owner edits the description');
 select is(pg_temp.q('b', format('select description from nestly.marketplace_listings where id = %L', pg_temp.v('el'))), 'עובד מצוין, עם קופסה',
@@ -99,6 +100,7 @@ select is(pg_temp.list('a', 'exp'), 'kept', '[F12.2-a c1 I12-B setup] a listing 
 select is(pg_temp.list('a', 'rep'), 'kept', '[F12.2-a c1 I12-B setup] a listing that will be reported, then expire');
 select is(pg_temp.dml('b', format($q$ insert into nestly.reports (target_kind, listing_id, reason) values ('listing', %L, 'spam') $q$, pg_temp.v('rep'))), 'OK:1',
   '[F12.2-a c1 I12-B setup] b reports it (open)');
+select is(pg_temp.list('a', 'late'), 'kept', '[F12.2-a c1 I12-B setup] a listing that expires unsold');
 select is(pg_temp.list('a', 'img'), 'kept', '[F12.2-a c1 I12-B setup] a listing with an image');
 select is(pg_temp.keep('m', pg_temp.q('a', $q$ insert into nestly.media_assets (kind, mime, width, height, byte_size) values ('listing', 'image/webp', 800, 600, 120000) returning id::text $q$)),
   'kept', '[F12.2-a c1 I12-B setup] a listing image');
@@ -107,6 +109,9 @@ select is(pg_temp.dml('a', format($q$ update nestly.media_assets set listing_id 
 select tests.fx_mkt_expire(pg_temp.v('exp'));
 select tests.fx_mkt_expire(pg_temp.v('rep'));
 select tests.fx_mkt_expire(pg_temp.v('img'));
+select tests.fx_mkt_expire(pg_temp.v('late'));
+select is(pg_temp.dml('a', format($q$ update nestly.marketplace_listings set status = ''sold'' where id = %L $q$, pg_temp.v('late'))), 'ERR:23514',
+  '[F12.2-a c1 I12-B ERR-054 BR-090] an expired listing is not marked sold afterwards (it would escape the deletion)');
 
 select is(pg_temp.q('a', 'select nestly.purge_expired_listings()::text'), 'ERR:42501', '[F12.2-a c1 I12-B rule 6] a user cannot run the purge');
 select is(tests.jobs_as(format('select title from nestly.marketplace_listings where id = %L', pg_temp.v('exp'))), 'ERR:42501',
@@ -118,6 +123,7 @@ select is(tests.jobs_dml(format('delete from nestly.marketplace_listings where i
 
 select cmp_ok(tests.jobs_as('select nestly.purge_expired_listings()::text')::int, '>=', 2, '[F12.2-a c1 I12-B AC-203 BR-090] the purge runs as app_jobs and deletes');
 select is(pg_temp.exists_('exp'), 0::bigint, '[F12.2-a c1 I12-B AC-203 BR-090] an expired listing is deleted');
+select is(pg_temp.exists_('late'), 0::bigint, '[F12.2-a c1 I12-B AC-203 BR-090] the listing its owner tried to mark sold after its expiry is deleted too');
 select is(pg_temp.exists_('img'), 0::bigint, '[F12.2-a c1 I12-B AC-203 BR-090] an expired listing with an image is deleted');
 select is(tests.fx_mkt_text(format('select coalesce(listing_id::text, ''none'') from nestly.media_assets where id = %L', pg_temp.v('m'))), 'none',
   '[F12.2-a c1 I12-B BR-090 BR-077] its image lost the link (the media job deletes an unattached image a day after its upload)');

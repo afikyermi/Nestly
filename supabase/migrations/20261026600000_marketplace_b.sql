@@ -10,7 +10,8 @@
 --    (INSERT/UPDATE grant), every reader of the listing reads it (SELECT grant). The price rule is unchanged here: "0 = למסירה" is stored as
 --    the existing "no price" (the server maps 0 to it), so price keeps its CHECK (NULL or 1..100,000).
 -- 3. The update guard (replaced): as before, with the description among the owner's fields (updated_at moves with it; a moderation changes
---    none of them), and a sold listing whose 60 days have passed does not return to sale (23514: it would be deleted at the next run).
+--    none of them), and past its 60 days a listing's status no longer moves (23514): a sold one does not return to sale (it would be
+--    deleted at the next run), an expired active one is not marked sold (it would escape the purge).
 -- 4. Expiry deletes (BR-090): purge_expired_listings(), SECURITY INVOKER, EXECUTE app_jobs only, the retention pattern of
 --    purge_search_intents() and purge_usage_events(). It deletes every active listing past its 60 days that has no open report (an open
 --    report holds it until the report is closed, as BR-080 holds an account's deletion, so the staff still see the item). A sold listing is
@@ -34,7 +35,7 @@ alter table nestly.sponsored_products add constraint sponsored_products_category
 -- 2. The description ---------------------------------------------------------------------------------------------------
 alter table nestly.marketplace_listings add column description text
   constraint marketplace_listings_description_check check (description is null
-    or (pg_catalog.btrim(description) <> '' and pg_catalog.char_length(description) <= 1000));
+    or (description ~ '[^[:space:]]' and pg_catalog.char_length(description) <= 1000));
 
 grant select (description), insert (description), update (description) on table nestly.marketplace_listings to authenticated;
 
@@ -74,9 +75,10 @@ begin
     raise exception 'marketplace_listings: only the owner edits a listing' using errcode = '42501';
   end if;
   if new.status is distinct from old.status then
-    -- ERR-054: a sold listing whose 60 days have passed stays sold (back on sale it would be deleted at the next run, BR-090)
-    if new.status = 'active' and old.expires_at <= pg_catalog.now() then
-      raise exception 'marketplace_listings: an expired listing does not return to sale' using errcode = '23514';
+    -- ERR-054: past its 60 days a listing's status no longer moves: a sold one stays sold (back on sale it would be deleted at the next
+    -- run, BR-090), and an expired active one is not marked sold (that would take it out of the purge and into the sold graph)
+    if old.expires_at <= pg_catalog.now() then
+      raise exception 'marketplace_listings: an expired listing keeps its status' using errcode = '23514';
     end if;
     new.sold_at := case when new.status = 'sold' then pg_catalog.now() end;
   end if;
@@ -120,14 +122,14 @@ grant execute on function nestly.purge_expired_listings() to app_jobs;
 
 -- 5. Comments -----------------------------------------------------------------------------------------------------------
 comment on column nestly.marketplace_listings.description is
-  'FR-MKT-002, VAL-013 (Afik §10.6): the seller''s optional description, 1 to 1,000 characters (code points), never blank; the server trims and checks first.';
+  'FR-MKT-002, VAL-013 (Afik §10.6): the seller''s optional description, 1 to 1,000 characters (code points), never only white space; the server trims and checks first.';
 comment on constraint marketplace_listings_description_check on nestly.marketplace_listings is
-  'VAL-013: NULL, or not blank and at most 1,000 characters (code points).';
+  'VAL-013: NULL, or at least one character that is not white space and at most 1,000 characters (code points).';
 comment on constraint marketplace_listings_category_check on nestly.marketplace_listings is
   'FR-MKT-002 (Afik §10.6): the category list, "מכשירי חשמל" (electrical) included; the same list as sponsored_products.';
 comment on constraint sponsored_products_category_check on nestly.sponsored_products is
   'FR-ADMIN-009: the Marketplace''s category list (as marketplace_listings_category_check).';
-comment on function nestly.marketplace_listings_update_guard() is 'BEFORE UPDATE, SECURITY INVOKER. The id and the owner never change; a client never changes the expiry or created_at. A change of is_hidden needs MARKETPLACE_MODERATE and changes nothing else (hidden_at, hidden_by set here); every other change is the owner''s (sold_at and updated_at are the database clock; the description is one of the owner''s fields). A sold listing past its expiry does not return to sale (23514, ERR-054). A cascade and the retention job pass.';
+comment on function nestly.marketplace_listings_update_guard() is 'BEFORE UPDATE, SECURITY INVOKER. The id and the owner never change; a client never changes the expiry or created_at. A change of is_hidden needs MARKETPLACE_MODERATE and changes nothing else (hidden_at, hidden_by set here); every other change is the owner''s (sold_at and updated_at are the database clock; the description is one of the owner''s fields). Past its expiry a listing's status no longer moves (23514, ERR-054): a sold one stays sold, an expired one is not marked sold. A cascade and the retention job pass.';
 comment on function nestly.purge_expired_listings() is
   'BR-090, §13.4 (Afik §10.6): deletes every active listing whose 60 days have passed and that has no open report (the report holds it until it is closed); a sold listing is kept (BR-091). Returns the number deleted. Images unlink and go with the media job a day later; conversations and reports keep their rows without the link. SECURITY INVOKER, EXECUTE app_jobs only; run daily with the other purges.';
 comment on policy marketplace_listings_select_expiry_jobs on nestly.marketplace_listings is

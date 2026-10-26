@@ -823,8 +823,8 @@ written by the invoker trigger `account_deletion_record()` under a policy that h
 ## Marketplace part B (I12-B, Afik §10.5–§10.6)
 
 Built by `20261026600000_marketplace_b.sql` (down script refuses once a listing or product uses "electrical" or a listing has a description).
-`marketplace_listings.description` (NULL or 1-1,000 code points, not blank; owner INSERT/UPDATE, readers SELECT); category `electrical` on both category
-CHECKs; the update guard adds the description to the owner's fields and refuses sold -> active once `expires_at` passed (23514, ERR-054).
+`marketplace_listings.description` (NULL or 1-1,000 code points, not only white space; owner INSERT/UPDATE, readers SELECT); category `electrical` on both category
+CHECKs; the update guard adds the description to the owner's fields and refuses any status change once `expires_at` passed (23514, ERR-054: no return to sale, no escape from the purge by marking sold).
 Retention (BR-090): `purge_expired_listings()` invoker, EXECUTE app_jobs only — deletes active listings past `expires_at` with no open report;
 `marketplace_listings_select_expiry_jobs` / `_delete_expiry_jobs` TO app_jobs, grants SELECT (status, expires_at) and DELETE. Sold listings are kept
 (BR-091). Images unlink (SET NULL) and go with the media job's 24-hour orphan rule. pgTAP file 120.
