@@ -60,12 +60,12 @@ select is(pg_temp.pg($q$ select relrowsecurity::text || relforcerowsecurity::tex
   'truetrue', '[F9.1-a c1 · I9 §16.4 rule 8] account_deletion_events: RLS enabled and forced');
 select is(pg_temp.pg($q$ select string_agg(column_name, ',' order by ordinal_position) from information_schema.columns
                          where table_schema = 'nestly' and table_name = 'account_deletion_events' $q$),
-  'id,account_id,account_type,kind,due_at,created_at', '[I9 §16.4] the deletion record holds kind, account id and type, time and due date only (no email, name, reason or content)');
+  'id,account_id,account_type,kind,due_at,created_at,auth_removed_at', '[I9 §16.4] the deletion record holds kind, account id and type, time and due date only (no email, name, reason or content); since §22.6 the time the job removed the Auth user (file 114)');
 select is(pg_temp.pg($q$ select string_agg(polname || ':' || polcmd::text || ':' || (select string_agg(rolname, '+') from pg_roles where oid = any (polroles)), ', ' order by polname)
                          from pg_policy where polrelid = 'nestly.account_deletion_events'::regclass $q$),
-  'account_deletion_events_delete_jobs:d:app_jobs, account_deletion_events_insert_jobs:a:app_jobs, account_deletion_events_insert_own:a:authenticated, '
-  || 'account_deletion_events_select_admin:r:authenticated, account_deletion_events_select_jobs:r:app_jobs, account_deletion_events_select_own_execute:r:authenticated',
-  '[I9 §16.4 rule 6] exactly these policies: the Admin reads, an identity its own execute row, the trigger and the job write, the job purges; no UPDATE');
+  'account_deletion_events_delete_jobs:d:app_jobs, account_deletion_events_insert_enforcement:a:authenticated, account_deletion_events_insert_jobs:a:app_jobs, account_deletion_events_insert_own:a:authenticated, '
+  || 'account_deletion_events_select_admin:r:authenticated, account_deletion_events_select_jobs:r:app_jobs, account_deletion_events_select_own_execute:r:authenticated, account_deletion_events_update_jobs:w:app_jobs',
+  '[I9 §16.4 rule 6] exactly these policies: the Admin reads, an identity its own execute row, the trigger and the job write, the job purges; the only UPDATE is the job''s Auth stamp and the staff cancel comes from the trigger (§22.4, §22.6: file 114)');
 select is(pg_temp.pg($q$ select string_agg(p.proname || ':' || r.rolname, ',' order by p.proname, r.rolname)
                          from pg_proc p cross join (values ('anon'), ('authenticated'), ('app_server'), ('app_jobs'), ('app_media_jobs')) as r(rolname)
                         where p.pronamespace = 'nestly'::regnamespace and p.proname in ('execute_account_deletions', 'purge_deleted_accounts', 'account_deletion_record')
@@ -85,7 +85,7 @@ select is(pg_temp.pg($q$ select string_agg(x, ', ' order by x) from (
                                    'enforcement_records', 'user_enforcements', 'audit_log', 'messages', 'legal_consents')
                              and a.attnum > 0 and not a.attisdropped and not has_table_privilege('app_jobs', c.oid, p.p)
                              and has_column_privilege('app_jobs', c.oid, a.attnum, p.p)) s $q$),
-  'account_deletion_events.account_id=INSERT, account_deletion_events.account_type=INSERT, account_deletion_events.due_at=INSERT, account_deletion_events.kind=INSERT, '
+  'account_deletion_events.account_id=INSERT, account_deletion_events.account_type=INSERT, account_deletion_events.auth_removed_at=UPDATE, account_deletion_events.due_at=INSERT, account_deletion_events.kind=INSERT, '
   || 'account_deletion_events=DELETE, account_deletion_events=SELECT, audit_log.id=SELECT, audit_log.target_id=SELECT, audit_log.target_kind=SELECT, audit_log=DELETE, '
   || 'conversations.a_status=SELECT, conversations.b_status=SELECT, conversations.id=SELECT, conversations.user_a=SELECT, conversations.user_a=UPDATE, conversations.user_b=SELECT, conversations.user_b=UPDATE, conversations=DELETE, '
   || 'enforcement_records.id=SELECT, enforcement_records.user_id=SELECT, enforcement_records=DELETE, messages.conversation_id=SELECT, messages.id=SELECT, recovery_events.id=SELECT, recovery_events.user_id=SELECT, recovery_events=DELETE, '

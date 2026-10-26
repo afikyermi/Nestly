@@ -819,3 +819,14 @@ messages_select_deletion_jobs (ids and owners only: is one under an open report?
 security_events, recovery_events, enforcement_records, user_enforcements, audit_log, plus reports_select_ / reports_delete_deletion_jobs — each limited to accounts whose
 execute row is 90 days old. `audit_log_append_only()` lets exactly that app_jobs DELETE through (BR-073; listed for Afik to confirm). The record row is
 written by the invoker trigger `account_deletion_record()` under a policy that holds only inside a trigger (pg_trigger_depth() > 0).
+
+Afik 26.10.2026 (`20261026500000_account_deletion_rules.sql`, decisions-in-force §22.4–§22.6, BR-085, pgTAP file 114): staff suspend or ban a
+`deletion_scheduled` account as an active one (`users_status_guard()` and `user_enforcements_apply()` replaced); the deletion is cancelled and the cancel
+row written in the staff transaction under `account_deletion_events_insert_enforcement` (inside the trigger only, for the account the caller just
+suspended or banned out of deletion_scheduled). At the execution the report text copy (`reports.target_text`) goes: by the invoker trigger
+`reports_text_gone_with_account()` on the FK SET NULL of a target deleted in a transaction holding an execute row of that moment (only the job
+writes one), and for the kept "deleted user" comments by the job itself (`reports_select_ / reports_update_deletion_text_jobs`, TO app_jobs, update
+of `target_text` to NULL only). `account_deletion_events.auth_removed_at` (execute rows only): the job (`apps/server/src/jobs/account-deletion.ts`)
+claims one execute row FOR UPDATE SKIP LOCKED, calls the Auth admin DELETE once (`deleteAuthUser`, recovery/auth-admin.ts) and stamps it under
+`account_deletion_events_update_jobs` (TO app_jobs). The job runs as app_jobs via `set local role`: bootstrap 01 must grant app_jobs to
+app_media_jobs (SET only) — Afik.
