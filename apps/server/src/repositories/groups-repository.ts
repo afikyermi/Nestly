@@ -44,6 +44,8 @@ const detailRow = summaryRow.extend({
   muteReason: z.enum(GROUP_ENFORCEMENT_REASONS).nullable(),
   muteReasonText: z.string().nullable(),
   highlightThreshold: z.number().nullable(),
+  /** A Group Moderator or Admin whose management the database pauses while they are muted (their rank answers a member's: OP-070). */
+  managementPaused: z.boolean(),
 });
 export type GroupDetailRow = z.infer<typeof detailRow>;
 
@@ -92,7 +94,8 @@ export async function readGroupDetail(tx: IdentityTx, id: string): Promise<Group
            to_char(mu.mute_until at time zone 'UTC', ${isoMs}) as "muteUntil", mu.reason_key as "muteReason", mu.reason_text as "muteReasonText",
            case when a.role is null then null
                 else nestly.group_highlight_threshold((select count(*) from nestly.group_members m where m.group_id = g.id and m.member_status = 'active')::int)
-           end as "highlightThreshold"
+           end as "highlightThreshold",
+           coalesce(a.role in ('admin', 'moderator') and nestly.my_group_rank(g.id) < nestly.group_role_rank(a.role), false) as "managementPaused"
     from nestly.groups g
     left join lateral (
       select e.mute_until, e.reason_key, e.reason_text from nestly.group_member_enforcements e

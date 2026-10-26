@@ -34,7 +34,7 @@ import {
   type CommentRow,
 } from '../repositories/comments-repository.js';
 import { readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
-import { readMutedHere } from '../repositories/group-rules-repository.js';
+import { readManagementPausedForComment, readMutedHere } from '../repositories/group-rules-repository.js';
 import { readPost } from '../repositories/posts-repository.js';
 
 /** The caller cannot comment or read a thread: a stopped account (ERR-037), or an Admin or Moderator account (DR-1: a Professional may). */
@@ -53,7 +53,7 @@ export type RepliesOutcome =
   | { readonly kind: 'comment_unavailable' }
   | { readonly kind: 'cursor_invalid' }
   | CommentRefusal;
-export type RemoveOutcome = { readonly kind: 'deleted' } | { readonly kind: 'not_found' } | CommentRefusal;
+export type RemoveOutcome = { readonly kind: 'deleted' } | { readonly kind: 'not_found' } | { readonly kind: 'muted' } | CommentRefusal;
 
 /** More than one row for one primary key (or none after an insert) cannot happen; seeing it means a policy is wrong. */
 export class CommentsFault extends Error {
@@ -204,6 +204,8 @@ export async function removeComment(database: Database, identity: Identity, id: 
   return inIdentityTransaction(database, identity, async (tx): Promise<RemoveOutcome> => {
     const refusal = await classifyViewer(tx);
     if (refusal !== undefined) return refusal;
-    return (await deleteComment(tx, id)) > 0 ? { kind: 'deleted' } : { kind: 'not_found' };
+    if ((await deleteComment(tx, id)) > 0) return { kind: 'deleted' };
+    // a muted Group Moderator or Admin removes nothing until the mute ends (OP-070): told so, not "not found"
+    return (await readManagementPausedForComment(tx, id)) ? { kind: 'muted' } : { kind: 'not_found' };
   });
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
-import { groupRoleRank, type GroupDetail, type GroupEnforcementRecord, type GroupPendingInvitation, type GroupPerson } from '@nestly/shared';
+import { type GroupDetail, type GroupEnforcementRecord, type GroupPendingInvitation, type GroupPerson } from '@nestly/shared';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -51,6 +51,7 @@ import {
   UNBLOCKED_STATUS,
 } from './groups-texts';
 import { useGroupsCall } from './use-groups-call';
+import { managingRank } from './managing-rank';
 
 export interface GroupManageProps {
   group: GroupDetail;
@@ -67,7 +68,9 @@ export interface GroupManageProps {
 export function GroupManage({ group, onUpdated, onDeleted, onChanged }: GroupManageProps) {
   const call = useGroupsCall();
   const ids = useId();
-  const rank = groupRoleRank(group.myRole);
+  // a muted Group Moderator or Admin manages nothing until the mute ends (OP-070): only the history, which they still read, is shown
+  const rank = managingRank(group);
+  const manages = rank >= 2;
   const [requests, setRequests] = useState<GroupPerson[] | null>(null);
   const [bans, setBans] = useState<GroupPerson[] | null>(null);
   const [awaiting, setAwaiting] = useState<GroupPendingInvitation[] | null>(null);
@@ -82,10 +85,10 @@ export function GroupManage({ group, onUpdated, onDeleted, onChanged }: GroupMan
     await Promise.all([
       rank >= 3 ? call((token) => listRequests(token, group.id)).then((r) => setRequests(r.kind === 'ok' ? r.value : [])) : null,
       rank >= 3 ? call((token) => listAwaitingInvitations(token, group.id)).then((i) => setAwaiting(i.kind === 'ok' ? i.value : [])) : null,
-      call((token) => listBans(token, group.id)).then((b) => setBans(b.kind === 'ok' ? b.value : [])),
+      manages ? call((token) => listBans(token, group.id)).then((b) => setBans(b.kind === 'ok' ? b.value : [])) : null,
       call((token) => listEnforcements(token, group.id)).then((h) => setHistory(h.kind === 'ok' ? h.value : [])),
     ]);
-  }, [call, group.id, rank]);
+  }, [call, group.id, rank, manages]);
 
   useEffect(() => {
     void load();
@@ -226,18 +229,20 @@ export function GroupManage({ group, onUpdated, onDeleted, onChanged }: GroupMan
           )}
         </section>
       ) : null}
-      <section aria-labelledby={`${ids}-bans`} className="flex flex-col gap-3 rounded-lg bg-card p-4 shadow-card">
-        <h2 id={`${ids}-bans`} className="text-h3">
-          {BANS_TITLE}
-        </h2>
-        {bans === null
-          ? null
-          : people(bans, NO_BANS_TEXT, (p) => (
-              <Button variant="soft" pending={busyId === p.userId} onClick={() => void lift(p)}>
-                {UNBLOCK_LABEL}
-              </Button>
-            ))}
-      </section>
+      {manages ? (
+        <section aria-labelledby={`${ids}-bans`} className="flex flex-col gap-3 rounded-lg bg-card p-4 shadow-card">
+          <h2 id={`${ids}-bans`} className="text-h3">
+            {BANS_TITLE}
+          </h2>
+          {bans === null
+            ? null
+            : people(bans, NO_BANS_TEXT, (p) => (
+                <Button variant="soft" pending={busyId === p.userId} onClick={() => void lift(p)}>
+                  {UNBLOCK_LABEL}
+                </Button>
+              ))}
+        </section>
+      ) : null}
       <section aria-labelledby={`${ids}-history`} className="flex flex-col gap-3 rounded-lg bg-card p-4 shadow-card">
         <h2 id={`${ids}-history`} className="text-h3">
           {HISTORY_TITLE}
