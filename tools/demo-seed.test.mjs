@@ -505,10 +505,10 @@ test('the role walk: GET only, every screen of every persona, a non-200 or an em
 
 test('the shift checks the deferred constraints before the end: a dry run meets a commit refusal and names only schema names', async () => {
   for (const apply of [false, true]) {
-    const refused = fakeDb({ deferredRefusal: { code: '42501', table_name: 'posts', constraint_name: 'posts_anonymous_author_fkey', routine: 'check_enable_rls' } });
+    const refused = fakeDb({ deferredRefusal: { code: '42501', table_name: 'posts', constraint_name: 'posts_anonymous_author_fkey', routine: 'check_enable_rls', where: 'PL/pgSQL function nestly.guard_x() line 4 at RAISE' } });
     const report = await runShift({ db: refused.db, content, emails, anchor: NOW, apply, log: silent });
     assert.equal(report.ok, false);
-    assert.equal(report.reason, 'the shift failed and was rolled back (SQLSTATE 42501 table posts constraint posts_anonymous_author_fkey routine check_enable_rls)');
+    assert.equal(report.reason, 'the shift failed and was rolled back (SQLSTATE 42501 table posts constraint posts_anonymous_author_fkey routine check_enable_rls function nestly.guard_x at deferred constraints)');
     assert.equal(refused.log.at(-1), 'rollback');
   }
 });

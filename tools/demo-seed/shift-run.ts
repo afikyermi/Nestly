@@ -72,6 +72,7 @@ const text = (value: unknown): string => (typeof value === 'string' ? value : ''
 
 export async function runShift(input: ShiftInput): Promise<ShiftReport> {
   const report: ShiftReport = { ok: false, statements: 0, rows: 0, missingPersonas: [], empty: [], triggersOff: [] };
+  let phase = 'statements';
   try {
     await input.db.transaction(async (tx) => {
       await tx.run("set local lock_timeout = '10s'");
@@ -125,12 +126,14 @@ export async function runShift(input: ShiftInput): Promise<ShiftReport> {
       // The deferred constraints are checked here, not at commit: a dry run then meets what would refuse the commit, and a refusal is
       // reported while its statement is known. row_security goes back on first: a constraint check runs as the table's owner, which has no
       // BYPASSRLS, and with row_security off a check that RLS would touch is refused (42501); postgres itself still bypasses RLS.
+      phase = 'deferred constraints';
       await tx.run('set local row_security = on');
       await tx.run('set constraints all immediate');
       if (input.apply && report.empty.length > 0) {
         throw new Refused(`${report.empty.length} statements moved no row (marked "0 ROWS" above); nothing was changed. Allow-list them only if that content is meant to be missing`);
       }
       if (!input.apply) throw new Rollback('dry run');
+      phase = 'commit';
     });
     report.ok = true;
   } catch (error) {
@@ -143,7 +146,11 @@ export async function runShift(input: ShiftInput): Promise<ShiftReport> {
         return typeof value === 'string' && /^[A-Za-z0-9_]{1,63}$/.test(value) ? value : '';
       };
       // only schema names (table, constraint, server routine) beside the SQLSTATE: never the message, which may quote a value
-      const where = ['table_name', 'constraint_name', 'routine'].map((n) => (part(n) === '' ? '' : ` ${n.replace('_name', '')} ${part(n)}`)).join('');
+      const names = ['table_name', 'constraint_name', 'routine'].map((n) => (part(n) === '' ? '' : ` ${n.replace('_name', '')} ${part(n)}`)).join('');
+      // the PL/pgSQL context names the function that raised ("PL/pgSQL function nestly.f() line 4 at RAISE"); only that name is kept
+      const context: unknown = typeof error === 'object' && error !== null ? Reflect.get(error, 'where') : undefined;
+      const fn = typeof context === 'string' ? (/function ([a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*)\(/i.exec(context)?.[1] ?? '') : '';
+      const where = `${names}${fn === '' ? '' : ` function ${fn}`} at ${phase}`;
       report.reason = error instanceof Refused ? error.message : `the shift failed and was rolled back${part('code') === '' ? '' : ` (SQLSTATE ${part('code')}${where})`}`;
     }
   }
