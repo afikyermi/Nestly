@@ -175,7 +175,7 @@ const APPROVED_I6: ColumnShape[] = [
 // I12 (migration 20261022600000): the Marketplace listings and Sponsored Products, as Drizzle declares them.
 const APPROVED_I12: ColumnShape[] = [
   col('marketplace_listings', 'id', 'uuid', true), col('marketplace_listings', 'owner_id', 'uuid', true), col('marketplace_listings', 'owner_account_type', 'text', true),
-  col('marketplace_listings', 'owner_status', 'text', true), col('marketplace_listings', 'title', 'text', true), col('marketplace_listings', 'category', 'text', true),
+  col('marketplace_listings', 'owner_status', 'text', true), col('marketplace_listings', 'title', 'text', true), col('marketplace_listings', 'description', 'text', false), col('marketplace_listings', 'category', 'text', true),
   col('marketplace_listings', 'item_condition', 'text', true), col('marketplace_listings', 'price', 'integer', false), col('marketplace_listings', 'city', 'text', true),
   col('marketplace_listings', 'status', 'text', true), col('marketplace_listings', 'sold_at', TZ, false), col('marketplace_listings', 'is_hidden', 'boolean', true),
   col('marketplace_listings', 'hidden_at', TZ, false), col('marketplace_listings', 'hidden_by', 'uuid', false), col('marketplace_listings', 'expires_at', TZ, true),

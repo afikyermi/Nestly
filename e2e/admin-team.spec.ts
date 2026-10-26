@@ -212,7 +212,7 @@ async function stubTeam(page: Page): Promise<TeamNet> {
       },
       groups: { active: { public: 3, private: 1 }, created: 1, publicMembers: 12, publicJoins: 4, publicPosts: 6, publicComments: 9 },
       professionals: { active: 2, byField: [{ field: 'doula', count: 2 }], follows: 5, chatStarts: 3, reviews: 1 },
-      marketplace: { active: 4, byCategory: [{ category: 'strollers', count: 4 }], created: 2, sold: 1, chats: 2 },
+      marketplace: { active: 4, byCategory: [{ category: 'strollers', count: 4 }], created: 2, sold: 1, chats: 2, soldByDay: days },
       usage: { dailyLogins: days, profileViews: days, postViews: days },
       promotions: { running: { profile: 2, post: 1, listing: 3 }, purchases: days, impressions: days, clicks: days, sampleRevenueIls: 147 },
     });
@@ -294,7 +294,7 @@ test.describe('[I14] the Moderators team', () => {
     await expect(page.getByText('הסיבה נוספה')).toBeVisible();
   });
 
-  test('[I14 FR-ADMIN-010 AC-071 BR-058] "נתונים": numbers per period, no names', async ({ page }) => {
+  test('[I14 FR-ADMIN-010 AC-071 BR-058 AC-206] "נתונים": numbers per period, no names', async ({ page }) => {
     const net = await openAdmin(page, 'נתונים');
     await expect.poll(() => pathOf(page)).toBe('/admin/analytics');
     await expect(page.getByRole('heading', { level: 3, name: 'חשבונות' })).toBeVisible();
@@ -304,6 +304,8 @@ test.describe('[I14] the Moderators team', () => {
     for (const name of ['קבוצות', 'בעלי מקצוע', 'Marketplace']) await expect(page.getByRole('heading', { level: 3, name, exact: true })).toBeVisible();
     await expect(page.getByText('חשבונות מקצועיים פעילים', { exact: true })).toBeVisible();
     await expect(page.getByText('מודעות מוצגות עכשיו', { exact: true })).toBeVisible();
+    // I12-B (Afik §10.6, AC-206): the Admin's graph of the listings marked sold/given, by day
+    await expect(page.getByRole('img', { name: 'מודעות שסומנו "נמכר/נמסר" לפי יום' })).toBeVisible();
     // I13 (OP-039, AC-071): usage by day, and the Admin's Promotions domain
     for (const name of ['שימוש', 'קידום']) await expect(page.getByRole('heading', { level: 3, name, exact: true })).toBeVisible();
     await expect(page.getByRole('img', { name: 'חשבונות שנכנסו' })).toBeVisible();

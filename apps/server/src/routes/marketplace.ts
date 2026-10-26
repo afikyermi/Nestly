@@ -4,11 +4,11 @@
 //   POST   /api/marketplace { q, category, city, condition, free, maxPrice, sort } → 200 { listings, sponsored } (FR-MKT-001, FR-ALG-006; a POST so
 //          the typed text never rides in an address or a log line, as the global search's)
 //   GET    /api/marketplace/mine                                         → 200 { listings } (the caller's own, every state)
-//   POST   /api/marketplace/listings { title, category, condition, price, city, imageIds } → 201 { id } · 403 not_allowed (not a Regular)
+//   POST   /api/marketplace/listings { title, description, category, condition, price, city, imageIds } → 201 { id } · 403 not_allowed (not a Regular)
 //   GET    /api/marketplace/listings/:id                                 → 200 the listing page · 404 unavailable (FR-MKT-005)
 //   PUT    /api/marketplace/listings/:id { …listing }                    → 204 · 404 unavailable (the owner only)
 //   DELETE /api/marketplace/listings/:id                                 → 204 · 404 unavailable (deleted at once)
-//   POST   /api/marketplace/listings/:id/status { status }               → 204 · 404 unavailable (sold/given, or back)
+//   POST   /api/marketplace/listings/:id/status { status }               → 204 · 404 unavailable (sold/given, or back) · 409 expired (ERR-054)
 //   DELETE /api/marketplace/listings/:id/images/:imageId                 → 204 · 404 unavailable
 //   POST   /api/marketplace/listings/:id/contact { text }                → 200 { conversationId } · 404 unavailable · 403 not_allowed (FR-MKT-005, AC-059)
 //   staff (MARKETPLACE_MODERATE / SPONSORED_PRODUCT_MANAGE; 403 forbidden without the key):
@@ -68,6 +68,7 @@ const USER_STATUS: Record<MarketRefusal['kind'], [number, string]> = {
   not_allowed: [403, 'not_allowed'],
   already_done: [409, 'already_done'],
   forbidden: [403, 'not_allowed'],
+  expired: [409, 'expired'],
 };
 /** The admin screens read the admin codes (forbidden, not_found, invalid). */
 const STAFF_STATUS: Record<MarketRefusal['kind'], [number, string]> = {
@@ -76,6 +77,7 @@ const STAFF_STATUS: Record<MarketRefusal['kind'], [number, string]> = {
   not_allowed: [403, 'forbidden'],
   already_done: [400, 'invalid'],
   forbidden: [403, 'forbidden'],
+  expired: [400, 'invalid'],
 };
 
 async function answer<T>(

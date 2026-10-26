@@ -6,6 +6,7 @@ import {
   CHAT_TEXT_MAX,
   LISTING_CATEGORIES,
   LISTING_CONDITIONS,
+  LISTING_DESCRIPTION_MAX,
   LISTING_MAX_IMAGES,
   LISTING_PRICE_MAX,
   LISTING_PRICE_MIN,
@@ -49,19 +50,34 @@ const textOf = (max: number, code: string) =>
     .refine((value) => value.trim() !== '' && !value.includes('\u0000') && codePointLength(value.trim()) <= max, code)
     .transform((value) => value.trim());
 
-export const MARKETPLACE_ERROR_CODES = ['title_length', 'category_required', 'condition_required', 'price_invalid', 'city_required', 'too_many_images'] as const;
+export const MARKETPLACE_ERROR_CODES = ['title_length', 'category_required', 'condition_required', 'price_invalid', 'city_required', 'too_many_images', 'description_too_long'] as const;
 export type MarketplaceErrorCode = (typeof MARKETPLACE_ERROR_CODES)[number];
 
 /** A path id: `guid`, so Postgres' cast cannot fail; else 400 before any query. */
 export const listingIdParams = z.object({ id: uuid });
 
-/** POST /api/marketplace/listings and PUT /api/marketplace/listings/:id (FR-MKT-002): no description field (§3.11). */
+/** POST /api/marketplace/listings and PUT /api/marketplace/listings/:id (FR-MKT-002; Afik §10.6: a description, price 0 to 100,000). */
 export const listingSchema = z.strictObject({
   title: nameOf(LISTING_TITLE_MIN, LISTING_TITLE_MAX, 'title_length'),
   category: z.enum(LISTING_CATEGORIES, { error: 'category_required' }),
   condition: z.enum(LISTING_CONDITIONS, { error: 'condition_required' }),
-  /** Whole shekels; null is "למסירה" (to give away). */
-  price: z.number({ error: 'price_invalid' }).int('price_invalid').min(LISTING_PRICE_MIN, 'price_invalid').max(LISTING_PRICE_MAX, 'price_invalid').nullable(),
+  /** VAL-013: an optional description, at most 1,000 characters; empty or blank is none. */
+  description: z
+    .string()
+    .max(4 * LISTING_DESCRIPTION_MAX, 'description_too_long')
+    .transform((value) => value.trim())
+    .refine((value) => !value.includes('\u0000') && codePointLength(value) <= LISTING_DESCRIPTION_MAX, 'description_too_long')
+    .transform((value) => (value === '' ? null : value))
+    .nullable()
+    .default(null),
+  /** Whole shekels, 0 to 100,000 (VAL-013); 0 (or null, as before) is "למסירה" (to give away), kept as no price. */
+  price: z
+    .number({ error: 'price_invalid' })
+    .int('price_invalid')
+    .min(LISTING_PRICE_MIN, 'price_invalid')
+    .max(LISTING_PRICE_MAX, 'price_invalid')
+    .nullable()
+    .transform((value) => (value === 0 ? null : value)),
   city: z.enum(PROFESSIONAL_AREAS, { error: 'city_required' }),
   /** New images to attach, in order (the caller's own unattached listing images); on an edit they follow the images already there. */
   imageIds: z.array(uuid).max(LISTING_MAX_IMAGES, 'too_many_images').default([]),
@@ -149,6 +165,8 @@ export const myListingsResponse = z.strictObject({ listings: z.array(listingCard
 /** GET /api/marketplace/listings/:id (FR-MKT-005): the listing page. `conversationId`: the caller's existing conversation with the seller. */
 export const listingPage = listingCard.extend({
   sellerId: z.guid(),
+  /** VAL-013: the seller's description, or null. */
+  description: z.string().nullable(),
   images: z.array(mediaImage),
   updatedAt: z.iso.datetime(),
   conversationId: z.guid().nullable(),
@@ -160,7 +178,7 @@ export const listingContactResponse = z.strictObject({ conversationId: z.guid() 
 
 // ---- Sponsored Products (FR-ADMIN-009; SPONSORED_PRODUCT_MANAGE, Admin Only) -----------------------------------------------------------
 
-/** POST /api/admin/sponsored and PATCH /api/admin/sponsored/:id. A demo coupon is an ordinary product whose text says "דוגמה" (OP-023). */
+/** POST /api/admin/sponsored and PATCH /api/admin/sponsored/:id. A demo coupon is an ordinary product marked "ממומן", without "דוגמה", deleted before launch (OP-023; Afik §10.6). */
 export const sponsoredSchema = z.strictObject({
   sponsorName: nameOf(SPONSOR_NAME_MIN, SPONSOR_NAME_MAX, 'sponsor_length'),
   title: nameOf(SPONSORED_TITLE_MIN, SPONSORED_TITLE_MAX, 'title_length'),

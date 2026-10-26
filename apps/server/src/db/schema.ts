@@ -591,6 +591,8 @@ export const marketplaceListings = nestly.table('marketplace_listings', {
   ownerAccountType: text('owner_account_type', { enum: [REGULAR] }).notNull().default(REGULAR),
   ownerStatus: text('owner_status', { enum: ACCOUNT_STATUSES }).notNull().default('active'),
   title: text('title').notNull(),
+  /** VAL-013 (I12-B): optional, 1 to 1,000 characters. */
+  description: text('description'),
   category: text('category', { enum: LISTING_CATEGORIES }).notNull(),
   itemCondition: text('item_condition', { enum: LISTING_CONDITIONS }).notNull(),
   price: integer('price'),

@@ -30,6 +30,7 @@ const SPONSORED_UNITS = 3;
 const listingRow = z.object({
   id: z.guid(),
   title: z.string(),
+  description: z.string().nullable(),
   category: z.enum(LISTING_CATEGORIES),
   condition: z.enum(LISTING_CONDITIONS),
   price: z.number().int().nullable(),
@@ -47,7 +48,7 @@ const listingRow = z.object({
 export type ListingRow = z.infer<typeof listingRow>;
 
 const listingColumns = sql`
-  l.id, l.title, l.category, l.item_condition as condition, l.price, l.city, l.status, l.is_hidden as "isHidden",
+  l.id, l.title, l.description, l.category, l.item_condition as condition, l.price, l.city, l.status, l.is_hidden as "isHidden",
   (l.expires_at <= now()) as "isExpired", (l.owner_id = (select auth.uid())) as "isMine", l.owner_id as "sellerId", n.full_name as "sellerName",
   ${iso(sql.raw('l.created_at'))} as "createdAt", ${iso(sql.raw('l.expires_at'))} as "expiresAt", ${iso(sql.raw('l.updated_at'))} as "updatedAt"`;
 
@@ -210,8 +211,8 @@ export async function deleteListingImage(tx: IdentityTx, listingId: string, imag
 export async function insertListing(tx: IdentityTx, listing: ListingWrite): Promise<string> {
   const [row] = z.array(z.object({ id: z.guid() })).parse(
     await tx.execute(sql`
-      insert into nestly.marketplace_listings (title, category, item_condition, price, city)
-      values (${listing.title}, ${listing.category}, ${listing.condition}, ${listing.price}, ${listing.city})
+      insert into nestly.marketplace_listings (title, description, category, item_condition, price, city)
+      values (${listing.title}, ${listing.description}, ${listing.category}, ${listing.condition}, ${listing.price}, ${listing.city})
       returning id`),
   );
   if (row === undefined) throw new Error('the listing insert returned no row');
@@ -222,7 +223,7 @@ export async function insertListing(tx: IdentityTx, listing: ListingWrite): Prom
 export async function updateListing(tx: IdentityTx, id: string, listing: ListingWrite): Promise<number> {
   const rows = await tx.execute(sql`
     update nestly.marketplace_listings
-    set title = ${listing.title}, category = ${listing.category}, item_condition = ${listing.condition}, price = ${listing.price}, city = ${listing.city}
+    set title = ${listing.title}, description = ${listing.description}, category = ${listing.category}, item_condition = ${listing.condition}, price = ${listing.price}, city = ${listing.city}
     where id = ${id}::uuid
     returning id`);
   return rows.length;

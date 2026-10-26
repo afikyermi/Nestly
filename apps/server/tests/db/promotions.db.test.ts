@@ -79,6 +79,7 @@ const profile: ProfessionalProfileWrite = {
 };
 const listing = (over: Partial<ListingWrite> = {}): ListingWrite => ({
   title: `מנשא ${tag}`,
+  description: null,
   category: 'feeding',
   condition: 'like_new',
   price: 200,

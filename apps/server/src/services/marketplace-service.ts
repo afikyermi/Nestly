@@ -62,7 +62,8 @@ export type MarketRefusal =
   | { readonly kind: 'unavailable' }
   | { readonly kind: 'not_allowed' }
   | { readonly kind: 'already_done' }
-  | { readonly kind: 'forbidden' };
+  | { readonly kind: 'forbidden' }
+  | { readonly kind: 'expired' };
 export type MarketOutcome<T> = ({ readonly kind: 'ok' } & T) | MarketRefusal;
 
 /** A database refusal by SQLSTATE; undefined for anything else (a fault, rethrown). */
@@ -243,7 +244,7 @@ export async function readListingPage(database: Database, identity: Identity, st
   const { row } = read;
   return {
     kind: 'ok',
-    page: { ...card(row, images), sellerId: row.sellerId, images: row.isMine ? images : images.filter((image) => image.state === 'ready'), updatedAt: row.updatedAt, conversationId: row.conversationId },
+    page: { ...card(row, images), sellerId: row.sellerId, description: row.description, images: row.isMine ? images : images.filter((image) => image.state === 'ready'), updatedAt: row.updatedAt, conversationId: row.conversationId },
   };
 }
 
@@ -278,9 +279,18 @@ export async function removeListingImage(database: Database, identity: Identity,
   return inTx(database, identity, async (tx): Promise<MarketOutcome<object>> => ((await deleteListingImage(tx, id, imageId)) ? { kind: 'ok' } : { kind: 'unavailable' }));
 }
 
-/** POST /api/marketplace/listings/:id/status: sold/given, or back (decisions §3 item 11). */
+/**
+ * POST /api/marketplace/listings/:id/status: sold/given, or back (decisions §3 item 11). A sold listing past its 60 days stays sold (ERR-054,
+ * `expired`): back on sale it would be deleted at the next daily run (BR-090). The guard refuses it too.
+ */
 export async function changeListingStatus(database: Database, identity: Identity, id: string, status: 'active' | 'sold'): Promise<MarketOutcome<object>> {
-  return inTx(database, identity, async (tx): Promise<MarketOutcome<object>> => ((await setListingStatus(tx, id, status)) === 0 ? { kind: 'unavailable' } : { kind: 'ok' }));
+  return inTx(database, identity, async (tx): Promise<MarketOutcome<object>> => {
+    if (status === 'active') {
+      const listing = await readListing(tx, id);
+      if (listing?.isMine === true && listing.status === 'sold' && listing.isExpired) return { kind: 'expired' };
+    }
+    return (await setListingStatus(tx, id, status)) === 0 ? { kind: 'unavailable' } : { kind: 'ok' };
+  });
 }
 
 /**

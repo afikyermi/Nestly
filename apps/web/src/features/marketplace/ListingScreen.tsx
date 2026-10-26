@@ -32,8 +32,10 @@ import {
   DELETE_CONFIRM_TEXT,
   DELETE_CONFIRM_TITLE,
   DELETE_LABEL,
+  DESCRIPTION_HEADING,
   EDIT_LABEL,
   EXPIRED_BADGE,
+  EXPIRED_DELETE_NOTE,
   HIDDEN_BADGE,
   LISTING_GONE,
   LOAD_FAILED,
@@ -50,12 +52,15 @@ import {
   RETRY,
   SELLER_LABEL,
   SOLD_BADGE,
+  SOLD_EXPIRED_NOTE,
+  SOLD_KEPT_NOTE,
   categoryText,
   cityText,
   conditionText,
   contactDraft,
   expiresText,
   imageAltOf,
+  ownerExpiresText,
   priceText,
   sellerText,
 } from '@/lib/marketplace-texts';
@@ -65,7 +70,7 @@ type View = { kind: 'loading' } | { kind: 'failed' } | { kind: 'gone' } | { kind
 
 const dateOf = (iso: string): string => new Date(iso).toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem', day: 'numeric', month: 'numeric', year: 'numeric' });
 
-// One listing (FR-MKT-005, PG-019): its pictures, title, price or "למסירה", category, condition, city and seller; no purchase or payment action
+// One listing (FR-MKT-005, PG-019): its pictures, title, price or "למסירה", category, condition, city, seller and description (I12-B); no purchase or payment action
 // (BR-069, AC-097). A reader writes to the seller in a Marketplace conversation (FR-CHAT-002, AC-059) or reports the listing; the owner edits it,
 // marks it sold/given (or back) and deletes it. What the database does not allow comes back as a refusal; nothing here decides it.
 export function ListingScreen({ listingId }: { listingId: string }) {
@@ -202,9 +207,21 @@ export function ListingScreen({ listingId }: { listingId: string }) {
           <bdi dir="auto">{sellerText(page.sellerName)}</bdi>
         </dd>
       </dl>
+      {page.description === null ? null : (
+        <section aria-label={DESCRIPTION_HEADING}>
+          <h2 className="text-label">{DESCRIPTION_HEADING}</h2>
+          <p className="mt-1 whitespace-pre-wrap wrap-anywhere" dir="auto">
+            {page.description}
+          </p>
+        </section>
+      )}
       <p className="text-small text-muted-foreground">
-        <PublishedTime iso={page.createdAt} /> · {expiresText(dateOf(page.expiresAt))} · {NO_PURCHASE_NOTE}
+        <PublishedTime iso={page.createdAt} />
+        {/* BR-090/091: the seller sees when a live listing is deleted, and that a sold one is kept; a reader sees until when it shows */}
+        {page.status === 'sold' ? null : <> · {(page.isMine ? ownerExpiresText : expiresText)(dateOf(page.expiresAt))}</>} · {NO_PURCHASE_NOTE}
       </p>
+      {page.isMine && page.status === 'sold' ? <p className="text-small">{page.isExpired ? SOLD_EXPIRED_NOTE : SOLD_KEPT_NOTE}</p> : null}
+      {page.isMine && page.status === 'active' && page.isExpired ? <p className="text-small">{EXPIRED_DELETE_NOTE}</p> : null}
       {error === '' ? null : <InlineAlert>{error}</InlineAlert>}
       {page.isMine ? (
         <div className="flex flex-wrap gap-3">
@@ -215,7 +232,7 @@ export function ListingScreen({ listingId }: { listingId: string }) {
             <Button pending={busy} disabled={busy} onClick={() => void changeStatus('sold')}>
               {MARK_SOLD_LABEL}
             </Button>
-          ) : (
+          ) : page.isExpired ? null : (
             <Button variant="soft" pending={busy} disabled={busy} onClick={() => void changeStatus('active')}>
               {MARK_ACTIVE_LABEL}
             </Button>

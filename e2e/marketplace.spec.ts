@@ -78,7 +78,7 @@ test.describe('[I12 FR-MKT-002 AC-019] a new listing', () => {
     await main(page).getByRole('button', { name: 'פרסום', exact: true }).click();
     await expect.poll(() => pathOf(page)).toBe(`/marketplace/${MINE}`);
     expect(net.sent).toContainEqual(
-      expect.objectContaining({ method: 'POST', path: '/api/marketplace/listings', body: { title: 'כיסא אוכל', category: 'feeding', condition: 'good', price: 120, city: 'center', imageIds: [] } }),
+      expect.objectContaining({ method: 'POST', path: '/api/marketplace/listings', body: { title: 'כיסא אוכל', description: null, category: 'feeding', condition: 'good', price: 120, city: 'center', imageIds: [] } }),
     );
   });
 });
@@ -144,5 +144,79 @@ test.describe('[I12 FR-ADMIN-009 AC-058] Sponsored Products (Admin)', () => {
         body: { sponsorName: 'בייבי סטור', title: 'קופון 10% לעגלות', description: 'דוגמה: קופון לדוגמה בלבד', category: 'strollers', linkUrl: 'https://example.com/coupon', imageId: null },
       }),
     );
+  });
+});
+
+// I12 part B (Afik §10.5–§10.6): the form's new fields, the description on the page, a sold listing past its 60 days, and a Professional's "חנות".
+test.describe('[I12-B FR-MKT-002 VAL-013 AC-200 AC-201 AC-204] the listing form', () => {
+  test('"מכשירי חשמל", a description of up to 1,000 characters, and a price of 0 shown as "למסירה"', async ({ page }) => {
+    const net = await setupMarketplace(page);
+    await signIn(page);
+    await page.goto('/marketplace/new');
+    await main(page).getByLabel('כותרת', { exact: true }).fill('מחמם בקבוקים');
+    await main(page).getByLabel('קטגוריה', { exact: true }).selectOption({ label: 'מכשירי חשמל' });
+    await main(page).getByLabel('מצב', { exact: true }).selectOption('like_new');
+    const price = main(page).getByLabel(/^מחיר/);
+    await price.fill('0');
+    await expect(main(page).getByText('המודעה תוצג "למסירה"')).toBeVisible();
+    await main(page).getByLabel('עיר או אזור', { exact: true }).selectOption('haifa');
+    const description = main(page).getByLabel(/^תיאור/);
+    await description.fill('ש'.repeat(1001));
+    await main(page).getByRole('button', { name: 'פרסום', exact: true }).click();
+    await expect(main(page).getByText('תיאור עד 1,000 תווים')).toBeVisible();
+    expect(net.sent.some((s) => s.path === '/api/marketplace/listings')).toBe(false);
+    await description.fill('עובד מצוין, עם קופסה');
+    await main(page).getByRole('button', { name: 'פרסום', exact: true }).click();
+    await expect.poll(() => pathOf(page)).toBe(`/marketplace/${MINE}`);
+    expect(net.sent).toContainEqual(
+      expect.objectContaining({
+        method: 'POST',
+        path: '/api/marketplace/listings',
+        body: { title: 'מחמם בקבוקים', description: 'עובד מצוין, עם קופסה', category: 'electrical', condition: 'like_new', price: null, city: 'haifa', imageIds: [] },
+      }),
+    );
+  });
+
+  test('a reader sees the description on the listing page', async ({ page }) => {
+    await setupMarketplace(page);
+    await signIn(page);
+    await page.goto(`/marketplace/${STROLLER}`);
+    await expect(main(page).getByRole('region', { name: 'תיאור' })).toContainText('מתקפלת, עם גגון. איסוף מתל אביב.');
+  });
+});
+
+test.describe('[I12-B AC-202 BR-091 ERR-054] a sold listing past its 60 days', () => {
+  test('stays sold: no "החזרה למכירה", and the seller is told why', async ({ page }) => {
+    await setupMarketplace(page, { mineStatus: 'sold', mineExpired: true });
+    await signIn(page);
+    await page.goto(`/marketplace/${MINE}`);
+    await expect(main(page).getByText('אי אפשר להחזיר את המודעה למכירה')).toBeVisible();
+    await expect(main(page).getByRole('button', { name: 'החזרה למכירה' })).toHaveCount(0);
+    await page.goto('/marketplace/mine');
+    const mine = main(page).getByRole('list', { name: 'המודעות שלי' });
+    await expect(mine).toContainText('נמכר/נמסר');
+    await expect(mine).not.toContainText('פגה');
+  });
+});
+
+test.describe('[I12-B AC-205 FR-MKT-001 FR-MENU-001 §10.5] a Professional\'s "חנות"', () => {
+  test('opens from its menu, views and contacts, and is never offered to publish', async ({ page }) => {
+    const net = await setupMarketplace(page, { accountKind: 'professional' });
+    await signIn(page);
+    await expect(page.getByRole('navigation', { name: 'ניווט ראשי' }).getByRole('link', { name: 'חנות' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'פתיחת התפריט' }).click();
+    await page.getByRole('dialog', { name: 'תפריט' }).getByRole('link', { name: 'חנות', exact: true }).click();
+    await expect.poll(() => pathOf(page)).toBe('/marketplace');
+    await expect(main(page).getByRole('list', { name: 'מודעות' })).toContainText('עגלת תינוק כחולה');
+    await expect(main(page).getByText('פרסום מודעות פתוח לחשבונות הורים בלבד')).toBeVisible();
+    await expect(main(page).getByRole('link', { name: 'פרסום מודעה' })).toHaveCount(0);
+    await expect(main(page).getByRole('link', { name: 'המודעות שלי' })).toHaveCount(0);
+    await main(page).getByRole('list', { name: 'מודעות' }).getByRole('link', { name: 'עגלת תינוק כחולה' }).click();
+    await main(page).getByRole('button', { name: 'שליחת הודעה' }).click();
+    await expect.poll(() => pathOf(page)).toBe(`/chat/${CONV}`);
+    expect(net.sent).toContainEqual(expect.objectContaining({ method: 'POST', path: `/api/marketplace/listings/${STROLLER}/contact` }));
+    await page.goto('/marketplace/new');
+    await expect(main(page).getByText('רק חשבון הורה יכול לפרסם מודעה')).toBeVisible();
+    await expect(main(page).getByRole('button', { name: 'פרסום', exact: true })).toHaveCount(0);
   });
 });
