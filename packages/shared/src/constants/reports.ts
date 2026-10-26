@@ -49,7 +49,7 @@ export const CUSTOM_REPORT_REASON = /^custom_[0-9a-f]{8}$/;
 
 /**
  * The longest report text, in code points (VAL-048). Afik 21.10.2026 (§11.9): every report everywhere offers "אחר" and a free text of up to 500
- * characters (was 1,000). The database still caps it at 1,000 (reports_details_length_check, the older bound); the server and the web hold 500.
+ * characters (was 1,000). The database holds 500 too (reports_details_length_check; a report created before 2026-10-26 keeps the older 1,000).
  */
 export const REPORT_DETAILS_MAX = 500;
 
