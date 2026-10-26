@@ -26,14 +26,9 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      # A runner's apt sometimes hangs (26.10): a step limit and one fresh retry, as in ci.yml.
-      - id: install
-        continue-on-error: true
-        timeout-minutes: 6
-        run: npx playwright install --with-deps chrome
-      - if: steps.install.outcome == 'failure'
-        timeout-minutes: 6
-        run: npx playwright install --with-deps chrome
+      # Slow on some runners (26.10: the Azure Ubuntu mirror, 6.5 to 15 min): the job limit leaves room for it; never cut it short,
+      # a killed apt keeps the dpkg lock and a retry fails (run 40365878428).
+      - run: npx playwright install --with-deps chrome
       - run: npm run build-storybook
       - run: npx playwright test --project=chrome --update-snapshots --grep "visual:"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
