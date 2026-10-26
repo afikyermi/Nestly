@@ -293,24 +293,30 @@ select is(pg_temp.n('c', format($q$ select nestly.delete_comment(%L)::text $q$, 
 select is(pg_temp.n('f', format($q$ select nestly.delete_post(%L)::text $q$, pg_temp.g('bpost'))), '0', '[I10 c8] a member removes nobody''s post');
 
 -- ---- block from the Group (GroupMemberEnforcement) ----------------------------------------------------------------------------
-select is(pg_temp.dml('c', format($q$ insert into nestly.group_bans (group_id, user_id) values (%L, %L) $q$, pg_temp.g('pub'), pg_temp.id('b'))), 'ERR:42501',
+-- Since the I10 follow-up (20261026400000) a block and an unblock are made only through their enforcement record (remove_block /
+-- unblock, file 113 asserts that a direct group_bans write is refused); the rank rules below are the same.
+create function pg_temp.ban(p_who text, p_whom text, p_kind text) returns text language sql as $f$
+  select pg_temp.dml(p_who, format($q$ insert into nestly.group_member_enforcements (group_id, user_id, kind, reason_key) values (%L, %L, %L, %L) $q$,
+    pg_temp.g('pub'), pg_temp.id(p_whom), p_kind, case when p_kind = 'remove_block' then 'spam' end))
+$f$;
+select is(pg_temp.ban('c', 'b', 'remove_block'), 'ERR:42501',
   '[I10 c9 ERR-019] a Group Moderator does not block the Owner');
-select is(pg_temp.dml('c', format($q$ insert into nestly.group_bans (group_id, user_id) values (%L, %L) $q$, pg_temp.g('pub'), pg_temp.id('f'))), 'OK:1',
+select is(pg_temp.ban('c', 'f', 'remove_block'), 'OK:1',
   '[I10 c9] a Group Moderator blocks a member');
 select is(pg_temp.role_of('pub', 'f'), '-', '[I10 c9] the block removes the member in the same statement');
 select is(pg_temp.join('f', 'pub'), 'ERR:42501', '[I10 c9] a blocked user cannot join again');
 select is(pg_temp.n('c', format($q$ select count(*)::text from nestly.regular_names where user_id = %L $q$, pg_temp.id('f'))), '1',
   '[I10 c9] the Group''s Moderators read the blocked user''s name (to unblock)');
-select is(pg_temp.dml('f', format($q$ insert into nestly.group_bans (group_id, user_id) values (%L, %L) $q$, pg_temp.g('pub'), pg_temp.id('c'))), 'ERR:42501',
+select is(pg_temp.ban('f', 'c', 'remove_block'), 'ERR:42501',
   '[I10 c9] a non-member blocks nobody');
-select is(pg_temp.dml('c', format($q$ delete from nestly.group_bans where group_id = %L and user_id = %L $q$, pg_temp.g('pub'), pg_temp.id('f'))), 'OK:1',
+select is(pg_temp.ban('c', 'f', 'unblock'), 'OK:1',
   '[I10 c9] a Group Moderator unblocks');
 select is(pg_temp.join('f', 'pub'), 'OK:1', '[I10 c9] and the user may join again');
-select is(pg_temp.dml('b', format($q$ insert into nestly.group_bans (group_id, user_id) values (%L, %L) $q$, pg_temp.g('pub'), pg_temp.id('e'))), 'OK:1',
+select is(pg_temp.ban('b', 'e', 'remove_block'), 'OK:1',
   '[I10 c9] the Owner blocks a non-member');
-select is(pg_temp.dml('c', format($q$ delete from nestly.group_bans where group_id = %L and user_id = %L $q$, pg_temp.g('pub'), pg_temp.id('e'))), 'OK:0',
+select is(pg_temp.ban('c', 'e', 'unblock'), 'ERR:42501',
   '[I10 c9 ERR-019] a Group Moderator does not lift a block made by a higher Role');
-select is(pg_temp.dml('b', format($q$ delete from nestly.group_bans where group_id = %L and user_id = %L $q$, pg_temp.g('pub'), pg_temp.id('e'))), 'OK:1',
+select is(pg_temp.ban('b', 'e', 'unblock'), 'OK:1',
   '[I10 c9] the Owner lifts it');
 
 -- ---- invitations (FR-GRP-002) -------------------------------------------------------------------------------------------------
