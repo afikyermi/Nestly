@@ -62,8 +62,8 @@ select is(
 select is(
   (select string_agg(i.indexname, ', ' order by i.indexname) from pg_catalog.pg_indexes i
     where i.schemaname = 'nestly' and i.tablename = 'friendships'),
-  'friendships_addressee_id_idx, friendships_pair_live_key, friendships_pkey, friendships_requester_id_addressee_id_key, friendships_requester_id_idx',
-  '[F2.4-a c3 c4] friendships has exactly its pkey, the two list indexes and the two unique partial indexes');
+  'friendships_addressee_id_idx, friendships_addressee_id_requester_id_accepted_idx, friendships_pair_live_key, friendships_pkey, friendships_requester_id_addressee_id_accepted_idx, friendships_requester_id_addressee_id_key, friendships_requester_id_idx',
+  '[F2.4-a c3 c4] friendships has exactly its pkey, the two list indexes, the two unique partial indexes and the two accepted-only partial indexes');
 
 select is(
   (select count(*) from pg_catalog.pg_index x join pg_catalog.pg_class c on c.oid = x.indrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
