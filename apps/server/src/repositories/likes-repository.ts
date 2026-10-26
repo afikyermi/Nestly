@@ -54,6 +54,24 @@ export async function readCommentCounts(tx: IdentityTx, postIds: readonly string
   return new Map(commentCountRows.parse(rows).map((row) => [row.targetId, row.commentCount]));
 }
 
+const postCountRows = z.array(z.object({ targetId: z.guid(), likeCount: z.number().int().nonnegative(), commentCount: z.number().int().nonnegative() }));
+
+/**
+ * readLikeCounts('post') and readCommentCounts in one statement (performance plan ט'1): per given post, the same two counts as correlated
+ * sub-selects with the same predicates, so the same numbers (a post the caller cannot read counts 0 in both, as an absent row did). Still a
+ * count statement only: no status, no time, no identity, no like-state.
+ */
+export async function readPostCounts(tx: IdentityTx, postIds: readonly string[]): Promise<Map<string, { likeCount: number; commentCount: number }>> {
+  if (postIds.length === 0) return new Map();
+  const rows = await tx.execute(sql`
+    select t.id as "targetId",
+           (select count(*)::int from nestly.reactions r where r.post_id = t.id) as "likeCount",
+           (select count(*)::int from nestly.comments c
+             where c.post_id = t.id and (c.parent_id is null or exists (select 1 from nestly.comments p where p.id = c.parent_id))) as "commentCount"
+    from unnest(${uuidArray(postIds)}) as t(id)`);
+  return new Map(postCountRows.parse(rows).map(({ targetId, likeCount, commentCount }) => [targetId, { likeCount, commentCount }]));
+}
+
 /** The like-state statement: which of the given targets the caller has liked. The policy returns the caller's own rows only. */
 export async function readLikedTargetIds(tx: IdentityTx, ids: readonly string[]): Promise<Set<string>> {
   if (ids.length === 0) return new Set();

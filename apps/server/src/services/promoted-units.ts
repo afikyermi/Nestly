@@ -104,7 +104,8 @@ export async function promotedListings(tx: IdentityTx, query: MarketplaceQuery, 
 
 /**
  * The feed's promoted posts (§11.2): relevant to the viewer's search topics (Afik, 23.10.2026; Stage targeting deferred), not already on the page; one after every `gap`
- * organic posts, `gap` from 4 to 7 by the last 48 hours' volume. No matching topic, no promoted post; no Stage data is read.
+ * organic posts, `gap` from 4 to 7 by the last 48 hours' volume. No matching topic, no promoted post; no Stage data is read. `seesAds`: the
+ * caller already read the viewer's own account type in this transaction (the feed: a Regular or a Professional), so it is not read again.
  */
 export async function promotedPosts(
   tx: IdentityTx,
@@ -113,8 +114,9 @@ export async function promotedPosts(
   organicCount: number,
   laterPage: boolean,
   onSkip: OnSkip = skipLog,
+  known: { readonly seesAds?: boolean } = {},
 ): Promise<{ promotionId: string; postId: string; afterIndex: number }[]> {
-  if (organicCount === 0 || !(await viewerSeesAds(tx))) return [];
+  if (organicCount === 0 || !(known.seesAds ?? (await viewerSeesAds(tx)))) return [];
   const candidates = (await readPromotedCandidates(tx, 'post')).filter((c) => !onPage.has(c.targetId));
   if (candidates.length === 0) return [];
   if (patterns.length === 0) {
