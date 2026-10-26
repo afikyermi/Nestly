@@ -19,7 +19,7 @@ export interface Net {
   role: 'admin' | 'moderator';
   permissions: readonly string[];
   queue: Array<{ targetKind: 'post' | 'comment' | 'user'; targetId: string; reportCount: number; priority: number; topReasonLabel: string; isRising: boolean; firstReportedAt: string; autoHidden?: boolean; autoHiddenReasonLabel?: string; autoHiddenReporters?: number }>;
-  userStatus: 'active' | 'suspended' | 'banned';
+  userStatus: 'active' | 'suspended' | 'banned' | 'deletion_scheduled';
   history: Array<{ kind: string; reason: string; createdAt: string; stepSkipped: boolean }>;
   auditPages: number;
   /** I5: the image approval queue's items (ids). */

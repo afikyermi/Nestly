@@ -1,4 +1,4 @@
-// Stable image read addresses (Afik 25.10.2026, approved change; lifetime 15/10 awaiting Afik, S-68): the browser reuses an image it already downloaded only while
+// Stable image read addresses (Afik 25.10.2026, approved change; lifetime 15/10 approved by Afik 26.10.2026, decisions-in-force §21.5 and §22.7, S-68): the browser reuses an image it already downloaded only while
 // its address stays the same, so an address signed for one request is kept here and handed out again while enough of its lifetime remains.
 // Per function instance, in memory, lost on a cold start (conventions: a cache that may be lost); another instance signs its own.
 //

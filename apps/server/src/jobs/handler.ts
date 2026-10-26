@@ -1,12 +1,15 @@
 // The background job's entry (I5; Afik 20.10.2026, decisions-in-force.md §7): POST or GET /api/jobs/media-check with
 // `Authorization: Bearer <the job secret>` (Vercel cron sends GET daily: the full run; the upload route and a queue decision send POST: the
 // short run, media-check.ts). Anything else is 401 with no
-// work. Connects as app_media_jobs with its own connection string, one connection, closed when the run ends. Answers counts only.
+// work. The daily (GET) run first executes the due account deletions and removes their Auth users (I9, account-deletion.ts, §22.6),
+// so the image purge of the same run already finds their images. Connects as app_media_jobs with its own connection string, one connection, closed when the run ends. Answers counts only.
 
 import { timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import postgres from 'postgres';
 import { noErrorMonitor, type ErrorMonitor } from '../lib/error-monitoring.js';
+import { deleteAuthUser } from '../recovery/auth-admin.js';
+import { createAccountDeletionDb, runAccountDeletion, type AccountDeletionReport } from './account-deletion.js';
 import { createJobStorage } from '../media/storage-admin.js';
 import { readJobsConfig } from './config.js';
 import { runMediaJob } from './media-check.js';
@@ -44,8 +47,19 @@ export async function handleJobRequest(req: IncomingMessage, res: ServerResponse
   }
   const sql = postgres(config.databaseUrl, { max: 1, prepare: false, onnotice: () => undefined });
   try {
-    const report = await runMediaJob({ db: createJobDb(sql), blockList: createBlockListDb(sql), storage, model: loadNudeNet, config, timeLeft: () => BUDGET_MS - (Date.now() - started), full: req.method === 'GET' });
-    send(res, 200, report);
+    const timeLeft = (): number => BUDGET_MS - (Date.now() - started);
+    let accountDeletion: AccountDeletionReport | 'unavailable' | undefined;
+    if (req.method === 'GET') {
+      try {
+        accountDeletion = await runAccountDeletion({ db: createAccountDeletionDb(sql), removeAuthUser: (userId) => deleteAuthUser({ userId }), timeLeft });
+      } catch (error) {
+        // not bootstrapped yet (the job's role cannot act as app_jobs) or the database refused: the images still run
+        monitor.capture(error, { route: '/api/jobs/media-check', method: 'GET', status: 503, surface: 'jobs' });
+        accountDeletion = 'unavailable';
+      }
+    }
+    const report = await runMediaJob({ db: createJobDb(sql), blockList: createBlockListDb(sql), storage, model: loadNudeNet, config, timeLeft, full: req.method === 'GET' });
+    send(res, 200, accountDeletion === undefined ? report : { ...report, accountDeletion });
   } catch (error) {
     monitor.capture(error, { route: '/api/jobs/media-check', method: req.method ?? 'unknown', status: 500, surface: 'jobs' });
     send(res, 500, { error: 'internal' });
