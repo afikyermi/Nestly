@@ -13,7 +13,8 @@ export interface Screen {
   filled?: boolean;
 }
 
-/** The screens each kind opens first (the bottom navigation and the menu). */
+/** The screens each kind opens first (the bottom navigation and the menu), by their GET reads. The Marketplace search is a POST and is left
+ * out; a Professional has no parent profile (its page is the professional home). */
 export const SCREENS: Readonly<Record<PersonaKind, readonly Screen[]>> = {
   regular: [
     { path: '/api/profile' },
@@ -23,17 +24,15 @@ export const SCREENS: Readonly<Record<PersonaKind, readonly Screen[]>> = {
     { path: '/api/notifications' },
     { path: '/api/friends' },
     { path: '/api/chat' },
-    { path: '/api/marketplace/listings', filled: true },
+    { path: '/api/marketplace/mine' },
     { path: '/api/professionals', filled: true },
   ],
   professional: [
-    { path: '/api/profile' },
     { path: '/api/professional/home' },
     { path: '/api/feed', filled: true },
     { path: '/api/notifications' },
     { path: '/api/chat' },
     { path: '/api/outreach' },
-    { path: '/api/marketplace/listings', filled: true },
   ],
 };
 
