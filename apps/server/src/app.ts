@@ -40,6 +40,7 @@ import { registerStoriesRoutes } from './routes/stories.js';
 import { registerMediaQueueRoutes } from './routes/media-queue.js';
 import { processUpload } from './media/image-processing.js';
 import { createJobKick } from './media/job-kick.js';
+import { reuseSignedUrls } from './media/signed-url-cache.js';
 import { createMediaStorage } from './media/storage-admin.js';
 import type { MediaDependencies } from './services/media-service.js';
 import { registerAccountDeletionRoutes } from './routes/account-deletion.js';
@@ -171,7 +172,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerAccountDeletionRoutes(app, { database, clock });
   registerFriendsRoutes(app, { database });
   const media: MediaDependencies = {
-    storage: deps.media?.storage ?? createMediaStorage(),
+    storage: reuseSignedUrls(deps.media?.storage ?? createMediaStorage()),
     kick: deps.media?.kick ?? createJobKick(),
     process: deps.media?.process ?? processUpload,
   };
