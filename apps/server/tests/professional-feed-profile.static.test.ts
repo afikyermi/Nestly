@@ -122,7 +122,9 @@ describe('[professional-posting c5 R1] the account type is read to choose a prof
     expect(code(read('../src/repositories/feed-repository.ts'))).not.toMatch(/account_?type/i);
   });
 
-  it('[professional-posting c5] the feed service reads it once, in classifyViewer, to choose the profile', () => {
-    expect([...code(read('../src/services/feed-service.ts')).matchAll(/readOwnAccounts\(/g)]).toHaveLength(1);
+  it('[professional-posting c5] the feed service reads it once (the page prelude), used in classifyViewer to choose the profile', () => {
+    const service = code(read('../src/services/feed-service.ts'));
+    expect([...service.matchAll(/readFeedPrelude\(/g)]).toHaveLength(1);
+    expect(service).not.toMatch(/readOwnAccounts|readOwnAccountType/);
   });
 });
