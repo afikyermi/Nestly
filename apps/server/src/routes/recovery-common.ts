@@ -2,6 +2,7 @@
 // a fixed line and the SQLSTATE, never the body, the email, an answer, a password, a token, a handle or an address
 // (NFR-PRIV-001): a driver or parser message can quote the request.
 
+import { noteFailure } from '../lib/failure-report.js';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
 import { PasswordStateBusy } from '../db/password-lock.js';
@@ -55,6 +56,7 @@ export function replyDatabaseFailure(
   }
   const fault = readDatabaseFault(error);
   request.log.error({ sqlstate: fault?.code }, line);
+  noteFailure(request, error);
   if (policyRefusedIs403 && fault?.code === POLICY_REFUSED) return reply.code(403).send({ error: 'forbidden' });
   if (isTransientFailure(error)) return replyUnavailable(reply);
   return reply.code(500).send({ error: 'internal' });

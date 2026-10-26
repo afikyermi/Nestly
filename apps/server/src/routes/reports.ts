@@ -7,6 +7,7 @@
 //   all:   401/503 session guard · 503 · 500 server_error. Any other method → 405 with Allow. No GET, PATCH or DELETE: a report is never read back.
 // Logs carry a fixed line and the SQLSTATE, never a target id, a reporter or the text (NFR-PRIV-001, S-35).
 
+import { noteFailure } from '../lib/failure-report.js';
 import { checkCreateReport } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
@@ -24,6 +25,7 @@ function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unkno
   const refused = replySessionRefused(reply, error);
   if (refused !== undefined) return refused;
   request.log.error({ sqlstate: readDatabaseFault(error)?.code }, 'report failed');
+  noteFailure(request, error);
   if (isConnectionFailure(error)) return reply.code(503).send({ error: 'unavailable' });
   const fault = reportFaultReply(error);
   if (fault !== undefined) return reply.code(fault.status).send({ error: fault.error });

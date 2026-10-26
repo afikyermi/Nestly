@@ -9,6 +9,7 @@
 //   DELETE /api/profile/photo                    → 204
 //   all: 401/503 session guard · 500. Logs carry a fixed line and the SQLSTATE, never an id or a byte of the image (NFR-PRIV-001).
 
+import { noteFailure } from '../lib/failure-report.js';
 import { MEDIA_UPLOAD_MAX_BYTES, MEDIA_UPLOAD_TYPES, mediaKindParam, mediaUploadResponse, profilePhotoBody } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -31,6 +32,7 @@ function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unkno
   }
   const code = readDatabaseFault(error)?.code;
   request.log.error({ sqlstate: code }, line);
+  noteFailure(request, error);
   if (code === '42501' || code === '23503') return reply.code(403).send({ error: 'not_allowed' });
   if (isTransientFailure(error)) return reply.code(503).send({ error: 'unavailable' });
   return reply.code(500).send({ error: 'internal' });

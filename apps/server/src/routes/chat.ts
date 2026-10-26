@@ -13,6 +13,7 @@
 //   all: 400 invalid · 401/503 session guard · 409 request_pending · 429 rate_limited · 503 · 500 server_error. Other methods → 405 with Allow.
 // Logs carry a fixed line and the SQLSTATE, never an id or a text (NFR-PRIV-001, BR-052).
 
+import { noteFailure } from '../lib/failure-report.js';
 import { chatIdParams, chatMessageSchema, chatStartSchema } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
@@ -50,6 +51,7 @@ export function replyChatFailure(request: FastifyRequest, reply: FastifyReply, e
   const refused = replySessionRefused(reply, error);
   if (refused !== undefined) return refused;
   request.log.error({ sqlstate: readDatabaseFault(error)?.code }, line);
+  noteFailure(request, error);
   if (isTransientFailure(error)) return reply.code(503).send({ error: 'unavailable' });
   return reply.code(500).send({ error: 'server_error' });
 }

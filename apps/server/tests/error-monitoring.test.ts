@@ -5,6 +5,10 @@ import type { ServerConfig } from '../src/lib/config.js';
 import { ACCOUNT_A, AUDIENCE, ISSUER, newKey, startFakeDb, startJwks, token, type FakeDb, type JwksServer, type TestKey } from './helpers/identity-fixtures.js';
 import { NO_DATA_COLLECTION, noErrorMonitor, sentryOptions, startErrorMonitor, withoutTracing, type ErrorMonitor, type ErrorReport } from '../src/lib/error-monitoring.js';
 import { scrubServerEvent } from '../src/lib/scrub-error-event.js';
+import { noteFailure, reportableFailure } from '../src/lib/failure-report.js';
+import { DrizzleQueryError } from 'drizzle-orm';
+import postgres from 'postgres';
+import { z } from 'zod';
 
 // SRS §12 "Error monitoring" (Afik 17.10 and 24.10.2026): Sentry, errors only, no personal data sent. These tests hold the privacy
 // promise, not the code: whatever the request or the error carries, the report that leaves holds none of it.
@@ -228,5 +232,78 @@ describe('[§12 Error monitoring] the error handler reports every 500 once, with
     expect(response.json()).toEqual({ error: 'internal' });
     expect(reports.map((r) => r.report)).toEqual([{ route: '/_t/:id', method: 'GET', status: 500, surface: 'api' }]);
     expect(statuses).toEqual([]);
+  });
+});
+
+/** A driver error as postgres.js builds one (its constructor takes the server's fields; the typings say a message only). */
+class TestPgError extends postgres.PostgresError {
+  constructor(message: string, fields: Partial<postgres.PostgresError>) {
+    super(message);
+    this.message = message;
+    Object.assign(this, fields);
+  }
+}
+const pgError = (message: string, fields: Partial<postgres.PostgresError>): postgres.PostgresError => new TestPgError(message, fields);
+
+describe('[§12 Error monitoring, plan א ש.4] a failure a route caught is reported as its error, without database values', () => {
+  const driverError = () =>
+    pgError('permission denied for function is_active_account', { code: '42501', constraint_name: 'notifications_select_own', routine: 'ExecCheckPermissions', detail: `Key (email)=(${EMAIL})`, where: HEBREW });
+
+  it('a wrapped driver error keeps its SQLSTATE, constraint and routine; never the statement, its parameters, detail or message', () => {
+    const wrapped = new DrizzleQueryError('select * from nestly.users where email = $1', [EMAIL, UUID], driverError());
+    const out = reportableFailure(wrapped);
+    expect(out.name).toBe('PostgresError');
+    expect(out.message).toBe('sqlstate=42501 constraint=notifications_select_own routine=ExecCheckPermissions message=permission denied for function is_active_account');
+    for (const marker of MARKERS) expect(`${out.message}\n${out.stack ?? ''}`).not.toContain(marker);
+    expect(out.stack).toContain('at ');
+  });
+
+  it('a ZodError keeps the codes and paths of its issues, never the input', () => {
+    const failed = z.strictObject({ items: z.array(z.strictObject({ targetKind: z.enum(['post']) })) }).safeParse({ items: [{ targetKind: EMAIL }] });
+    expect(failed.success).toBe(false);
+    const out = reportableFailure(failed.error);
+    expect(out.name).toBe('ZodError');
+    expect(out.message).toBe('invalid_value@items.#.targetKind');
+    for (const marker of MARKERS) expect(`${out.message}\n${out.stack ?? ''}`).not.toContain(marker);
+  });
+
+  it('a wrapped statement whose connection failed keeps only the code', () => {
+    const cause = Object.assign(new Error(`connect to ${EMAIL}`), { code: 'CONNECTION_CLOSED' });
+    const out = reportableFailure(new DrizzleQueryError('select $1', [EMAIL], cause));
+    expect(out.name).toBe('DrizzleQueryError');
+    expect(out.message).toBe('code=CONNECTION_CLOSED');
+  });
+
+  it('the hook reports a noted 500 and a noted 503 with capture, once each; an un-noted 5xx stays a status', T, async () => {
+    const reports: Array<{ error: unknown; report: ErrorReport }> = [];
+    const statuses: ErrorReport[] = [];
+    const fakeMonitor: ErrorMonitor = {
+      enabled: true,
+      capture: (error, report) => reports.push({ error, report }),
+      captureStatus: (report) => statuses.push(report),
+      flush: () => Promise.resolve(),
+    };
+    const app = buildApp({ config, errorMonitor: fakeMonitor });
+    app.get('/_noted/:code', (request, reply) => {
+      const status = Reflect.get(request.params ?? {}, 'code') === '503' ? 503 : 500;
+      if (status === 500) noteFailure(request, new DrizzleQueryError('select $1', [EMAIL], driverError()));
+      else noteFailure(request, Object.assign(new Error('closed'), { code: 'CONNECTION_CLOSED' }));
+      return reply.code(status).send({ error: status === 500 ? 'internal' : 'unavailable' });
+    });
+    app.get('/_plain', (_request, reply) => reply.code(503).send({ error: 'unavailable' }));
+    for (const path of ['/_noted/500', '/_noted/503', '/_plain']) await app.inject({ method: 'GET', url: path, headers: { authorization: bearer } });
+    await app.close();
+    expect(reports.map((r) => [r.report.status, ...(r.error instanceof Error ? [r.error.name, r.error.message] : [])])).toEqual([
+      [500, 'PostgresError', 'sqlstate=42501 constraint=notifications_select_own routine=ExecCheckPermissions message=permission denied for function is_active_account'],
+      [503, 'Error', 'closed'],
+    ]);
+    expect(statuses.map((s) => s.route)).toEqual(['/_plain']);
+  });
+});
+
+describe('[§12 Error monitoring, plan א ש.4] a constraint failure never carries its message', () => {
+  it('23505 keeps code and constraint only', () => {
+    const out = reportableFailure(pgError(`duplicate key ${EMAIL}`, { code: '23505', constraint_name: 'users_email_key' }));
+    expect(out.message).toBe('sqlstate=23505 constraint=users_email_key');
   });
 });
