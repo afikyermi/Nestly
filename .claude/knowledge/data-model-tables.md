@@ -387,7 +387,7 @@ a caller without a readable own `regular_profiles` row → 42501 first; then eve
 not active, **own post**, FR-FEED-006) → `NS002`. **Hide** (`post_hides_insert_guard`, replaced): caller gate 42501; post neither readable nor already
 hidden by the hider → `NS004` (unknown uuid included: no 23503 oracle); own post → `NS003`; a repeat hide reaches the PK (`on conflict do nothing` → 0).
 **Share immutable**: `posts_update_share_guard` (new, BEFORE UPDATE OF audience, body, stage_tag WHEN old.is_share) → `NS005` on any change; status and
-the author_status cascade unaffected. **Report text**: `reports_details_length_check` ≤ 1000 code points. SQLSTATE class `NS` is the project's own
+the author_status cascade unaffected. **Report text**: `reports_details_length_check` ≤ 1000 code points (≤ 500 since `20261026200000_reports_details_500.sql`, rows created before 2026-10-26 keep 1,000). SQLSTATE class `NS` is the project's own
 (`NS001` profile_view); the server maps by code (`lib/pg-error.ts`). Down: restores the two functions verbatim from F3.0a, drops the guard and the CHECK; data-free, no refuse guard.
 I3 PR-A3 (`20261019400000_professional_posting.sql`; `.work/professional-posting/schema.md`, Afik 19.10 DR-1..3): **Professionals post, comment
 and like.** RLS helper `caller_account_type()` (new; language sql, STABLE, SECURITY INVOKER, `search_path ''`, EXECUTE authenticated only): the
@@ -785,7 +785,7 @@ duplicate reviews its data step deleted). No new table, no new SECURITY DEFINER,
   `professional_reviews_delete_reviewer` (the writer; open reports expire). `conversation_id` stays unique (one conversation per pair).
 - `report_reasons.scope` community | reviewed_professional; four core rows (review_offensive 2, review_false 4, review_personal_info 2, review_other 4).
   `reports_insert_check()`: the reviewed Professional on a review about itself uses a reviewed_professional reason, everyone else a community one (23514);
-  `reports_other_details_check` also asks a text for review_other. `reports_details_length_check` still 1,000 (500 after the code on main holds 500).
+  `reports_other_details_check` also asks a text for review_other. `reports_details_length_check` 500 since `20261026200000_reports_details_500.sql` (validated; a row created before 2026-10-26 00:00 UTC keeps 1,000, so no data changed and old reports still close).
 
 ## Account deletion (I9)
 
