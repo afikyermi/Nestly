@@ -9,6 +9,7 @@ import {
   GROUPS_PAGE_SIZE,
   type CreateGroupBody,
   type GroupDetail,
+  type GroupRole,
   type GroupSummary,
   type UpdateGroupBody,
 } from '@nestly/shared';
@@ -26,6 +27,7 @@ import { answerInvitation,
   readGroupPostExists,
   readGroupSummaries,
   updateGroup,
+  type GroupDetailRow,
   type GroupSummaryRow,
 } from '../repositories/groups-repository.js';
 import { classifyMember, classifyReader, isRefusal, type MemberRefusal } from './membership.js';
@@ -139,7 +141,21 @@ export async function detailIn(tx: IdentityTx, id: string): Promise<GroupDetail 
     createdAt: row.createdAt,
     myMute: row.muteUntil === null || row.muteReason === null ? null : { until: row.muteUntil, reason: row.muteReason, reasonText: row.muteReasonText },
     highlightThreshold: row.highlightThreshold,
+    managementPaused: row.managementPaused && row.muteUntil !== null ? { until: row.muteUntil } : null,
   };
+}
+
+/**
+ * The Role the caller manages with now: a Group Moderator or Admin who is muted manages nothing until the mute ends (OP-070) — the database
+ * refuses it either way; this only lets a management read answer `muted` instead of an empty list. `myRole` stays the Role held.
+ */
+export function managingRole(row: GroupDetailRow): GroupRole | null {
+  return row.managementPaused ? 'member' : row.myRole;
+}
+
+/** A management action or read refused for the caller's Role: `muted` while a muted manager's management is paused, else `not_allowed`. */
+export function notManaging(row: GroupDetailRow): GroupFailure {
+  return row.managementPaused ? fail('muted') : fail('not_allowed');
 }
 
 /** GET /api/groups/:id */

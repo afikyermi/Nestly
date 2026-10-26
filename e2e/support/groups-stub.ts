@@ -33,6 +33,7 @@ const detailOf = (g: StubGroup) => ({
   createdAt: '2026-06-01T09:00:00.000Z',
   myMute: g.myMute ?? null,
   highlightThreshold: g.myRole === null ? null : 3,
+  managementPaused: (g.myRole === 'admin' || g.myRole === 'moderator') && g.myMute !== undefined && g.myMute !== null ? { until: g.myMute.until } : null,
 });
 const summaryOf = (g: StubGroup) => ({ id: g.id, name: g.name, description: g.description, privacy: g.privacy, memberCount: g.memberCount, myRole: g.myRole, state: g.state });
 

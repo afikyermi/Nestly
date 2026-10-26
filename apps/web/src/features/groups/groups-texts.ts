@@ -159,6 +159,8 @@ export const muteBanner = (until: string, reason: string): string => `קיבלת
 export const ROLE_CHANGED_STATUS = 'התפקיד עודכן';
 export const REMOVED_STATUS = 'ההסרה והחסימה בוצעו';
 export const MUTED_TEXT = 'בזמן ההשתקה אפשר רק לקרוא';
+/** FR-GRP-003, OP-070: a muted Group Moderator or Admin, on the Group page. */
+export const managementPausedLine = (until: string): string => `בזמן ההשתקה פעולות הניהול בקבוצה מושהות עד ${until}`;
 export const ROLE_NOT_ALLOWED_TEXT = 'אין הרשאה לפעולה הזו מול התפקיד הזה';
 export const NO_NAME = 'חבר בקבוצה';
 
@@ -184,7 +186,7 @@ export const HISTORY_KIND: Record<'warn_mute' | 'remove_block' | 'unblock', stri
 export const MY_HISTORY_TITLE = 'האכיפה כלפיי בקבוצה';
 export const muteUntilLine = (until: string): string => `עד ${until}`;
 export const highlightRule = (threshold: number): string =>
-  `פוסט נכנס לעיקרי הדברים ולפיד הראשי של החברים כשהוא מגיע ל-${threshold} לייקים ותגובות של אחרים`;
+  `פוסט נכנס לעיקרי הדברים ולפיד הראשי של החברים כש-${threshold} אנשים שונים, מלבד מי שכתב אותו, סימנו לייק או הגיבו עליו (כל אדם נספר פעם אחת)`;
 export const BANS_TITLE = 'חסומים בקבוצה';
 export const NO_BANS_TEXT = 'אין חסומים';
 export const UNBLOCK_LABEL = 'ביטול החסימה';

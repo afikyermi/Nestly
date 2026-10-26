@@ -67,6 +67,7 @@ import {
   MORE_LABEL,
   MORE_MENU_LABEL,
   MUTED_TEXT,
+  managementPausedLine,
   muteBanner,
   NO_DESCRIPTION_TEXT,
   NO_FRIENDS_TEXT,
@@ -100,6 +101,7 @@ import {
   VIEW_OPTIONS,
 } from './groups-texts';
 import { useGroupsCall } from './use-groups-call';
+import { managingRank } from './managing-rank';
 
 type Tab = 'discussion' | 'members' | 'about' | 'manage';
 type Load = { phase: 'loading' } | { phase: 'failed' } | { phase: 'gone' } | { phase: 'ready'; group: GroupDetail };
@@ -167,7 +169,9 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
     );
 
   const { group } = load;
-  const rank = groupRoleRank(group.myRole);
+  // the rank the caller manages with now (a muted Group Moderator or Admin manages nothing: OP-070); the Role held opens the history
+  const rank = managingRank(group);
+  const heldRank = groupRoleRank(group.myRole);
   const isMember = group.myRole !== null;
   const canSee = group.privacy === 'public' || isMember;
   const regular = right === 'allowed';
@@ -289,7 +293,7 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
     { key: 'discussion', label: TAB_DISCUSSION },
     ...(reviewing ? [] : [{ key: 'members' as const, label: TAB_MEMBERS }]),
     { key: 'about', label: TAB_ABOUT },
-    ...(rank >= 2 ? [{ key: 'manage' as const, label: TAB_MANAGE }] : []),
+    ...(heldRank >= 2 ? [{ key: 'manage' as const, label: TAB_MANAGE }] : []),
   ];
 
   const friendsSheet = sheet !== null && (sheet.kind === 'invite' || sheet.kind === 'recommend') ? sheet : null;
@@ -318,6 +322,11 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
         {group.myMute !== null ? (
           <p role="note" className="rounded-md bg-muted p-3 text-small">
             {muteBanner(formatPostTime(group.myMute.until), group.myMute.reason === 'other' && group.myMute.reasonText !== null ? group.myMute.reasonText : REASON_LABEL[group.myMute.reason])}
+          </p>
+        ) : null}
+        {group.managementPaused !== null ? (
+          <p role="note" className="rounded-md bg-muted p-3 text-small">
+            {managementPausedLine(formatPostTime(group.managementPaused.until))}
           </p>
         ) : null}
         {alert !== '' ? <InlineAlert>{alert}</InlineAlert> : null}
@@ -408,7 +417,7 @@ export function GroupScreen({ groupId, discussion }: GroupScreenProps) {
             {reviewing ? null : <GroupMyHistory groupId={group.id} />}
           </div>
         ) : null}
-        {tab === 'manage' && rank >= 2 ? (
+        {tab === 'manage' && heldRank >= 2 ? (
           <GroupManage
             group={group}
             onUpdated={(next, said) => update(next, said)}

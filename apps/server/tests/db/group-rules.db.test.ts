@@ -309,6 +309,31 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     expect(feed.first.suggestedGroups, 'staff gets no Group unit').toBeUndefined();
   });
 
+  it('[FR-GRP-003 OP-070 AC-185] a muted Group Admin: the Group says management is paused until the mute ends; management answers "muted"; the history stays', T, async () => {
+    const paused = await createGroup(owner, 'ניהול בהפסקה', 'public');
+    for (const who of [a, b, c]) expect((await call('PUT', `/api/groups/${paused}/membership`, who)).statusCode).toBe(200);
+    expect((await call('PATCH', `/api/groups/${paused}/members/${a}`, owner, { role: 'admin' })).statusCode).toBe(200);
+    expect((await call('PATCH', `/api/groups/${paused}/members/${b}`, owner, { role: 'moderator' })).statusCode).toBe(200);
+    expect((await call('POST', `/api/groups/${paused}/enforcements`, owner, { userId: a, kind: 'warn_mute', reason: 'spam', muteHours: 24 })).statusCode).toBe(204);
+    const muted = groupDetail.parse(body(await call('GET', `/api/groups/${paused}`, a)));
+    expect(muted.myRole, 'the Role held is unchanged').toBe('admin');
+    expect(muted.managementPaused, 'paused until the mute ends').toEqual({ until: muted.myMute?.until });
+    expect(groupDetail.parse(body(await call('GET', `/api/groups/${paused}`, b))).managementPaused, 'an unmuted Moderator manages').toBeNull();
+    expect(groupDetail.parse(body(await call('GET', `/api/groups/${paused}`, c))).managementPaused, 'a member has nothing to pause').toBeNull();
+    expect(groupDetail.parse(body(await call('GET', `/api/groups/${paused}`, owner))).managementPaused).toBeNull();
+    for (const path of ['requests', 'bans', 'invitations']) {
+      const res = await call('GET', `/api/groups/${paused}/${path}`, a);
+      expect([res.statusCode, body(res)], `${path}: refused as muted, not an empty list`).toEqual([403, { error: 'muted' }]);
+    }
+    const enforce = await call('POST', `/api/groups/${paused}/enforcements`, a, { userId: c, kind: 'warn_mute', reason: 'spam', muteHours: 24 });
+    expect([enforce.statusCode, body(enforce)]).toEqual([403, { error: 'muted' }]);
+    const history = groupEnforcementsResponse.parse(body(await call('GET', `/api/groups/${paused}/enforcements`, a)));
+    expect(history.records.map((r) => [r.kind, r.userId]), 'OP-070: the muted manager still reads the history').toEqual([['warn_mute', a]]);
+    expect((await call('GET', `/api/groups/${paused}/bans`, b)).statusCode, 'the unmuted Moderator reads the blocked list').toBe(200);
+    const plain = await call('GET', `/api/groups/${paused}/bans`, c);
+    expect([plain.statusCode, body(plain)], 'a plain member: not allowed, as before').toEqual([403, { error: 'not_allowed' }]);
+  });
+
   it('[#147 strict query] the Group page\'s query, as Vercel\'s rewrite sends it, is accepted after the adapter', T, async () => {
     const path = withoutRewriteParam(`/api/groups/${pub}/posts?view=highlights&path=groups/${pub}/posts`);
     expect(path).toBe(`/api/groups/${pub}/posts?view=highlights`);

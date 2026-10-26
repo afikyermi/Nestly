@@ -36,7 +36,7 @@ import {
 } from '../repositories/groups-repository.js';
 
 
-import { asMember, detailIn, fail, ok, refusalOf, type GroupResult } from './groups-service.js';
+import { asMember, detailIn, fail, managingRole, notManaging, ok, refusalOf, type GroupResult } from './groups-service.js';
 
 export async function listMembers(database: Database, identity: Identity, id: string): Promise<GroupResult<GroupMember[]>> {
   return asMember(database, identity, async (tx) => {
@@ -73,7 +73,7 @@ export async function listRequests(database: Database, identity: Identity, id: s
   return asMember(database, identity, async (tx) => {
     const group = await readGroupDetail(tx, id);
     if (group === undefined) return fail('group_unavailable');
-    if (group.myRole !== 'owner' && group.myRole !== 'admin') return fail('not_allowed');
+    if (managingRole(group) !== 'owner' && managingRole(group) !== 'admin') return notManaging(group);
     return ok(await readPendingRequests(tx, id, GROUP_MEMBERS_PAGE_SIZE));
   });
 }
@@ -96,7 +96,8 @@ export async function listBans(database: Database, identity: Identity, id: strin
   return asMember(database, identity, async (tx) => {
     const group = await readGroupDetail(tx, id);
     if (group === undefined) return fail('group_unavailable');
-    if (group.myRole === null || group.myRole === 'member') return fail('not_allowed');
+    const role = managingRole(group);
+    if (role === null || role === 'member') return notManaging(group);
     return ok(await readBans(tx, id, GROUP_MEMBERS_PAGE_SIZE));
   });
 }

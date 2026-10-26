@@ -7,7 +7,7 @@ import { GroupScreen } from '@/features/groups/GroupScreen';
 import { DISCUSSION_HEADING, GROUPS_TITLE } from '@/features/groups/groups-texts';
 import { documentTitle } from '@/lib/document-title';
 import { groupIdOfPath } from '@/lib/group-link';
-import { groupRoleRank } from '@nestly/shared';
+import { managingRank } from '@/features/groups/managing-rank';
 
 // One Group's page (PG-034, PG-035; I10), `/groups/<id>`. The page composes the Group's screen with the feed's screen over the Group's posts
 // (the same cards, composer, comments and likes; feed-source.ts), so the two features never import each other.
@@ -16,7 +16,8 @@ export function GroupPage() {
   const groupId = groupIdOfPath(normalizePath(pathname));
   if (groupId === null) return null;
   const discussion = (group: GroupDetail, onPin: (postId: string | null) => void, view: GroupPostView) => {
-    const rank = groupRoleRank(group.myRole);
+    // a muted Group Moderator or Admin removes and pins nothing until the mute ends (OP-070)
+    const rank = managingRank(group);
     return (
       <FeedSourceContext
         value={{

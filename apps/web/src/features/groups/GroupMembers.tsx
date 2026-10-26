@@ -31,6 +31,7 @@ import {
   YOU_LABEL,
 } from './groups-texts';
 import { useGroupsCall } from './use-groups-call';
+import { managingRank } from './managing-rank';
 
 type Confirm = { kind: 'owner'; member: GroupMember; saving: boolean } | null;
 type Enforce = { kind: 'warn_mute' | 'remove_block'; member: GroupMember; saving: boolean; failure: string | null } | null;
@@ -52,7 +53,8 @@ export function GroupMembers({ group, onChanged }: { group: GroupDetail; onChang
   const [enforce, setEnforce] = useState<Enforce>(null);
   const [status, setStatus] = useState('');
   const [failure, setFailure] = useState<string | null>(null);
-  const myRank = groupRoleRank(group.myRole);
+  // a muted Group Moderator or Admin manages no one until the mute ends (OP-070)
+  const myRank = managingRank(group);
 
   const load = useCallback(async () => {
     const result = await call((token) => listMembers(token, group.id));
