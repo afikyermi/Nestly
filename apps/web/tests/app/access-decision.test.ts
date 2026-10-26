@@ -229,3 +229,23 @@ describe('shape and purity (12)', () => {
     }
   });
 });
+
+// I9 part 2 (PG-061, AC-187): the three public documents render in every session state and every hold — a Guest, a signed-in account (the
+// account kind does not take part in this decision; e2e/legal-documents.spec.ts opens them as Regular, Professional and staff), the
+// completion of a registration, the recovery-questions hold, the new-password hold and the scheduled deletion.
+describe('the public documents open everywhere (I9 part 2, PG-061)', () => {
+  const DOCUMENTS = ['/terms', '/privacy', '/accessibility'];
+  const CASES: ReadonlyArray<[string, () => (path: string) => unknown]> = [
+    ['a Guest', () => (path) => decideAccess('signed-out', path)],
+    ['a signed-in account', () => (path) => decideAccess('signed-in', path)],
+    ['a registration completion', () => (path) => decideAccess('signed-in-no-account', path)],
+    ['the recovery-questions hold', () => (path) => decideAccess('signed-in', path, false, true, false)],
+    ['the new-password hold', () => (path) => decideAccess('signed-in', path, false, false, true)],
+    ['the scheduled deletion', () => (path) => decideAccess('signed-in', path, false, true, true, { deletionScheduled: true })],
+  ];
+  for (const [who, decide] of CASES) {
+    it.each(DOCUMENTS)(`[AC-187 PG-061] ${who} may open %s`, (path) => {
+      expect(decide()(path)).toEqual({ kind: 'render' });
+    });
+  }
+});

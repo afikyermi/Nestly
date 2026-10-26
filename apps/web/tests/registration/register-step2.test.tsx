@@ -70,7 +70,10 @@ describe('F1.4 criterion 4 [FR-REG-004 · AC-084 · AC-088 · BR-068] step 2 fie
       expect(link).toHaveAttribute('target', '_blank');
       expect(link.getAttribute('rel') ?? '').toMatch(/noopener/);
       expect(link.getAttribute('rel') ?? '').toMatch(/noreferrer/);
+      // WCAG 3.2.5 (I9 part 2): a screen reader is told the link opens a new tab; the link's name and the checkbox's name are unchanged
+      expect(link).toHaveAccessibleDescription('נפתח בכרטיסייה חדשה');
     }
+    expect(consentBox()).toHaveAccessibleName('אישור תנאי השימוש ומדיניות הפרטיות, והצהרה על גיל 18 ומעלה');
     expect(screen.getAllByRole('checkbox')).toHaveLength(1);
   });
 
