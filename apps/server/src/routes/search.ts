@@ -6,6 +6,7 @@
 //     · 403 account_unavailable | forbidden · 401/503 session guard · 500.
 // The typed text is never logged or stored; only the topic the fixed rules detect (the Intent Signal).
 
+import { noteFailure } from '../lib/failure-report.js';
 import { checkSearchQuery, searchResponse } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
@@ -22,6 +23,7 @@ function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unkno
   const refused = replySessionRefused(reply, error);
   if (refused !== undefined) return refused;
   request.log.error({ sqlstate: readDatabaseFault(error)?.code }, 'search failed');
+  noteFailure(request, error);
   if (isTransientFailure(error)) return reply.code(503).send({ error: 'unavailable' });
   return reply.code(500).send({ error: 'internal' });
 }

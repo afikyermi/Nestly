@@ -11,6 +11,7 @@
 //   all: 401/503 session guard · 503 · 500 server_error. Any other method → 405 with Allow.
 // Logs carry a fixed line and the SQLSTATE, never the body or an id (NFR-PRIV-001).
 
+import { noteFailure } from '../lib/failure-report.js';
 import { checkCreateComment, commentPathParams, parseCommentCursor } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
@@ -33,6 +34,7 @@ function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unkno
   const refused = replySessionRefused(reply, error);
   if (refused !== undefined) return refused;
   request.log.error({ sqlstate: readDatabaseFault(error)?.code }, line);
+  noteFailure(request, error);
   const fault = commentFaultReply(error, operation);
   if (fault !== undefined) return reply.code(fault.status).send({ error: fault.error });
   if (isConnectionFailure(error)) return reply.code(503).send({ error: 'unavailable' });

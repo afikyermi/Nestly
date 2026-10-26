@@ -6,6 +6,7 @@
 //        (not an active Regular account) · 401/503 session guard · 503 · 500 server_error. Any other method → 405 with Allow.
 // Logs carry a fixed line, and the SQLSTATE only for an unexpected fault: never the text, an id, or why an original was refused (NFR-PRIV-001).
 
+import { noteFailure } from '../lib/failure-report.js';
 import { checkCreateShare, postPathParams } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
@@ -33,6 +34,7 @@ function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unkno
     return reply.code(fault.status).send({ error: fault.error });
   }
   request.log.error({ sqlstate: readDatabaseFault(error)?.code }, 'share create failed');
+  noteFailure(request, error);
   return reply.code(500).send({ error: 'server_error' });
 }
 

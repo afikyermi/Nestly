@@ -23,7 +23,7 @@ export const POST_MAX_IMAGES = 4;
 export const STORIES_PER_DAY = 10;
 /** VAL-042: the optional Story text (TBD in the SRS; the recommended default until Afik decides). */
 export const STORY_CAPTION_MAX = 200;
-/** How long a signed image address works (seconds). The page asks again after that. */
+/** How long a signed image address works at least, from the answer that carries it (seconds). The page asks again after that. */
 export const MEDIA_URL_TTL_SECONDS = 600;
 /** The image queue answers at most this many images, oldest first; the screen asks again when it has decided a full page. */
 export const MEDIA_QUEUE_PAGE = 50;

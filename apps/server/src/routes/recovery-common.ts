@@ -2,6 +2,7 @@
 // a fixed line and the SQLSTATE, never the body, the email, an answer, a password, a token, a handle or an address
 // (NFR-PRIV-001): a driver or parser message can quote the request.
 
+import { noteFailure } from '../lib/failure-report.js';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
 import { PasswordStateBusy } from '../db/password-lock.js';
@@ -33,6 +34,7 @@ export function replyRateLimited(reply: FastifyReply, retryAfterSeconds: number,
 export function recoveryErrorHandler(error: { statusCode?: number | undefined; code?: string | undefined }, request: FastifyRequest, reply: FastifyReply): void {
   const status = typeof error.statusCode === 'number' && error.statusCode >= 400 ? error.statusCode : 500;
   request.log.warn({ status, code: error.code }, 'recovery request failed');
+  if (status >= 500) noteFailure(request, error);
   reply.code(status).send({ error: status < 500 ? 'bad_request' : 'internal' });
 }
 
@@ -55,6 +57,7 @@ export function replyDatabaseFailure(
   }
   const fault = readDatabaseFault(error);
   request.log.error({ sqlstate: fault?.code }, line);
+  noteFailure(request, error);
   if (policyRefusedIs403 && fault?.code === POLICY_REFUSED) return reply.code(403).send({ error: 'forbidden' });
   if (isTransientFailure(error)) return replyUnavailable(reply);
   return reply.code(500).send({ error: 'internal' });

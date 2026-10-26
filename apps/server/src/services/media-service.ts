@@ -25,10 +25,11 @@ export class StorageUnavailable extends Error {
   }
 }
 
-/** Read addresses for the rows the caller read: a refused image never gets one. */
+/** Read addresses for the rows the caller read: a refused image never gets one. An address signed for an earlier request may come back
+ *  (media/signed-url-cache.ts) so the browser reuses the image it already has; which rows get one is still this request's own read. */
 export async function withUrls<T extends ImageRow>(storage: MediaStorage, rows: readonly T[]): Promise<Map<string, MediaImage>> {
   const visible = rows.filter((row) => stateOf(row.status) !== 'rejected').map((row) => row.id);
-  const urls = await storage.signedUrls([...new Set(visible)], MEDIA_URL_TTL_SECONDS);
+  const urls = await storage.signedUrls([...new Set(visible)], MEDIA_URL_TTL_SECONDS, { reuse: true });
   return new Map(
     rows.map((row) => {
       const state = stateOf(row.status);
