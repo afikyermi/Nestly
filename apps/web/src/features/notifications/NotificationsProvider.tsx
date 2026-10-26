@@ -9,8 +9,10 @@ import {
   type ReactNode,
 } from "react";
 import type { BellCountsResponse, NotificationItem } from "@nestly/shared";
-import { BellPollContext, type BellPoll } from "@/hooks/use-bell-poll";
+import { useAccountKind } from "@/hooks/use-account-kind";
+import { BellPollContext, BellRefreshContext, type BellPoll } from "@/hooks/use-bell-poll";
 import { useSessionAccount } from "@/hooks/use-session-account";
+import { useStaffAccess } from "@/hooks/use-staff-access";
 import { useTabVisibility } from "@/hooks/use-tab-visibility";
 import {
   fetchBellCounts,
@@ -84,7 +86,16 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const stateKind = useRef(state.kind);
   stateKind.current = state.kind;
   const visibility = useTabVisibility();
-  const stopped = state.kind === "unavailable";
+  // An Admin or Moderator account, as the shell's own account-kind and staff-access answers already tell: no notifications request is sent for
+  // it once known (the server would refuse it, 403), and the poll stops then. The first load never waits for them: until one says staff, the
+  // bell loads as before (a staff account may still send one refused request at open). Outside the shell both read as not staff.
+  const kind = useAccountKind();
+  const staffAccess = useStaffAccess();
+  const staffAccount = kind === "staff" || staffAccess.kind === "staff";
+  const stopped = state.kind === "unavailable" || staffAccount;
+  useEffect(() => {
+    if (staffAccount) setState({ kind: "unavailable" });
+  }, [staffAccount]);
 
   const token = useCallback(
     async (): Promise<string | null> =>
@@ -153,6 +164,17 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     else if (outcome.kind === "unauthenticated" || outcome.kind === "account-unavailable") void account?.recheck();
     else if (stateKind.current !== "ready") await refresh({ poll: true });
   }, [token, account, refresh]);
+
+  // The Chat badge's ask on a screen change (a thread just read): the counters alone; the list follows on the next poll if they changed.
+  const askCounts = useCallback(async () => {
+    const accessToken = await token();
+    if (accessToken === null) return;
+    const outcome = await fetchBellCounts(accessToken);
+    if (outcome.kind === "counts") setPoll((current) => ({ chatUnread: outcome.data.chatUnread, seq: (current?.seq ?? 0) + 1 }));
+    else if (outcome.kind === "forbidden") setState({ kind: "unavailable" });
+    else if (outcome.kind === "unauthenticated" || outcome.kind === "account-unavailable") void account?.recheck();
+  }, [token, account]);
+  const bellRefresh = useCallback(() => void askCounts(), [askCounts]);
 
   useEffect(() => {
     if (stopped) return;
@@ -244,7 +266,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   );
   return (
     <Context.Provider value={value}>
-      <BellPollContext.Provider value={poll}>{children}</BellPollContext.Provider>
+      <BellRefreshContext.Provider value={stopped ? null : bellRefresh}>
+        <BellPollContext.Provider value={poll}>{children}</BellPollContext.Provider>
+      </BellRefreshContext.Provider>
     </Context.Provider>
   );
 }

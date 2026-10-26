@@ -85,7 +85,7 @@ async function startFeed(page: Page, items: Unit[], dev: Device = { clipboard: '
   return net;
 }
 /** API calls the sheet could have caused: the shell refreshes the Chat badge (I8) on its own, so it is not counted. */
-const ownCalls = (net: ShareNet): number => net.apiPaths.filter((path) => path !== "/api/chat/unread").length;
+const ownCalls = (net: ShareNet): number => net.apiPaths.filter((path) => path !== "/api/chat/unread" && path !== "/api/notifications/counts").length;
 async function openSheet(page: Page, card: Locator): Promise<Locator> {
   await linkButton(card).click();
   const box = sheetOf(page);

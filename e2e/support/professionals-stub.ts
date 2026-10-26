@@ -4,6 +4,7 @@
 // record what was sent. The auth, /api/me, /api/profile and /api/feed stubs repeat chat-stub.ts.
 import type { Page } from '@playwright/test';
 import { CORS, EMAIL, NOW, json, session } from './journeys-stub';
+import { tokenFor } from './feed-stub';
 
 export const PID = (n: number): string => `b1100000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 export const ME = 'f0000000-0000-4000-8000-0000000000f1';
@@ -68,7 +69,8 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
   await page.route('https://e2e-stub.invalid/auth/v1/**', async (route) => {
     const req = route.request();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
-    if (req.url().includes('/token')) return json(route, 200, session(far));
+    // A token that names ME: the web reads the own user id from it (no Auth /user call).
+    if (req.url().includes('/token')) return json(route, 200, { ...session(far), access_token: tokenFor(ME), user: { ...session(far).user, id: ME } });
     if (req.url().includes('/logout')) return route.fulfill({ status: 204, headers: CORS });
     if (req.method() === 'GET' && req.url().includes('/auth/v1/user')) return json(route, 200, { id: ME, email: EMAIL, app_metadata: { provider: 'email' } });
     return json(route, 404, { error: 'unstubbed' });
@@ -109,6 +111,10 @@ export async function setupProfessionals(page: Page, start: Partial<ProNet> = {}
   );
   await page.route('**/api/chat/unread', (route) =>
     route.request().method() === 'OPTIONS' ? route.fulfill({ status: 204, headers: CORS }) : json(route, 200, { count: net.unread }),
+  );
+  // The Chat badge's count comes from the bell's light poll; /api/chat/unread above is its fallback only.
+  await page.route('**/api/notifications/counts', (route) =>
+    route.request().method() === 'OPTIONS' ? route.fulfill({ status: 204, headers: CORS }) : json(route, 200, { unreadCount: 0, chatUnread: net.unread, latestId: null }),
   );
 
   await page.route(

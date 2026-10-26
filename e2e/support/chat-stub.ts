@@ -70,6 +70,11 @@ export async function setupChat(page: Page, start: Partial<ChatNet> = {}): Promi
     route.request().method() === 'OPTIONS' ? route.fulfill({ status: 204, headers: CORS }) : json(route, 200, { items: [], next: null }),
   );
 
+  // The Chat badge's count comes from the bell's light poll (GET /api/notifications/counts); /api/chat/unread below is its fallback only.
+  await page.route('**/api/notifications/counts', (route) =>
+    route.request().method() === 'OPTIONS' ? route.fulfill({ status: 204, headers: CORS }) : json(route, 200, { unreadCount: 0, chatUnread: net.incoming ? 2 : 1, latestId: null }),
+  );
+
   const record = (method: string, path: string, raw: unknown) => {
     const body: Record<string, unknown> = typeof raw === 'object' && raw !== null ? Object.fromEntries(Object.entries(raw)) : {};
     net.sent.push({ method, path, body });
