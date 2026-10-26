@@ -3,7 +3,7 @@
 // It connects as app_server through Supabase's pooler in transaction mode (port 6543). That mode keeps no session
 // state between transactions, so prepared statements are off, and every identity setting is transaction-local
 // (identity-transaction.ts). One connection per function instance by default keeps the pooler's client count at the number of
-// live instances; DB_POOL_MAX (1–3, Afik 26.10.2026, decisions-in-force §21.2) lets an environment allow more, after the Preview
+// live instances; DB_POOL_MAX (1–3, Afik 26.10.2026, decisions-in-force §21.2) sets it per environment (2 on a Preview, 1 elsewhere, §23.1), after the Preview
 // measured that requests waited for the one connection (Server-Timing acq), not for the database. With more than one connection
 // the clock's acq/conn split is approximate (it assumes one connection); dbwait itself stays exact. Nothing here runs a query outside an
 // identity transaction: use `inIdentityTransaction`.
@@ -22,10 +22,14 @@ export interface Database {
   close(): Promise<void>;
 }
 
-/** The most connections one instance holds: DB_POOL_MAX when it is 1, 2 or 3, else 1 (an unset, empty or other value changes nothing). */
+/**
+ * The most connections one instance holds: DB_POOL_MAX when it is 1, 2 or 3; otherwise 2 on a Vercel Preview and 1 everywhere else,
+ * Production included (Afik 26.10.2026, decisions-in-force §23.1: set per environment in code, no Vercel variable needed).
+ */
 export function poolMaxOf(env: Readonly<Record<string, string | undefined>>): number {
   const raw = env.DB_POOL_MAX?.trim();
-  return raw === '2' ? 2 : raw === '3' ? 3 : 1;
+  if (raw === '1' || raw === '2' || raw === '3') return Number(raw);
+  return env.VERCEL_ENV?.trim() === 'preview' ? 2 : 1;
 }
 
 /** postgres-js connects lazily: creating the client opens nothing until the first query. */
