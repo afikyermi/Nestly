@@ -55,7 +55,8 @@ test.describe.serial('I13 Monetization on the Preview [FR-MKT-004 FR-ALG-007 NFR
     await main(page).getByLabel('כותרת', { exact: true }).fill(title);
     await main(page).getByLabel('קטגוריה', { exact: true }).selectOption('feeding');
     await main(page).getByLabel('מצב', { exact: true }).selectOption('good');
-    await main(page).getByRole('checkbox', { name: 'למסירה, בלי מחיר' }).check();
+    // I12 ב': price 0 replaced the "למסירה" box
+    await main(page).getByLabel(/^מחיר/).fill('0');
     await main(page).getByLabel('עיר או אזור', { exact: true }).selectOption('center');
     const [created] = await Promise.all([
       page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/marketplace/listings'),
