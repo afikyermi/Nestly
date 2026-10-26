@@ -156,6 +156,8 @@ export const ANALYTICS_MARKET_ACTIVE = 'מודעות מוצגות עכשיו';
 export const ANALYTICS_MARKET_CREATED = 'מודעות חדשות בתקופה';
 export const ANALYTICS_MARKET_SOLD = 'מודעות שסומנו כנמכרו בתקופה';
 export const ANALYTICS_MARKET_CHATS = 'שיחות על מודעות בתקופה';
+/** I12-B (Afik §10.6, AC-206): the Admin's graph of sold listings. */
+export const ANALYTICS_MARKET_SOLD_CHART = 'מודעות שסומנו "נמכר/נמסר" לפי יום';
 export const ANALYTICS_MARKET_BY_CATEGORY = 'מודעות מוצגות לפי קטגוריה';
 export const ANALYTICS_WAITING_HEADING = 'תחומים שעוד לא נמדדים';
 export const ANALYTICS_WAITING = 'איכות ההמלצות תוצג כשהאירועים שלה ייאספו. מהחיפושים אין ניתוח למנהלים.';

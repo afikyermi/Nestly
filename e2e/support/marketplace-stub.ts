@@ -22,6 +22,10 @@ export interface MarketSent {
 }
 export interface MarketNet {
   mineStatus: 'active' | 'sold';
+  /** I12-B: the own listing's 60 days have passed. */
+  mineExpired: boolean;
+  /** I12-B (Afik §10.5): the signed-in account's kind (a Professional views and contacts only). */
+  accountKind: 'regular' | 'professional';
   hidden: boolean;
   sponsoredStatus: 'draft' | 'published' | 'paused' | 'removed';
   /** I13 (FR-MKT-004): whether the search serves a promoted listing in its own strip. */
@@ -72,7 +76,7 @@ function record(net: MarketNet, route: Route): void {
 }
 
 /** The signed-in Regular account, its session and its shell's reads. */
-async function signedIn(page: Page): Promise<void> {
+async function signedIn(page: Page, kind: 'regular' | 'professional'): Promise<void> {
   await page.clock.setFixedTime(NOW);
   await page.addInitScript(() => {
     Reflect.set(window, 'nestlyRealSession', true);
@@ -96,13 +100,14 @@ async function signedIn(page: Page): Promise<void> {
   await page.route('**/api/feed**', (route) =>
     route.request().method() === 'OPTIONS' ? route.fulfill({ status: 204, headers: CORS }) : json(route, 200, { items: [], nextCursor: null, configVersion: 1 }),
   );
-  await page.route('**/api/account/kind', (route) => (route.request().method() === 'OPTIONS' ? route.fulfill({ status: 204, headers: CORS }) : json(route, 200, { kind: 'regular' })));
+  await page.route('**/api/chat/unread', (route) => (route.request().method() === 'OPTIONS' ? route.fulfill({ status: 204, headers: CORS }) : json(route, 200, { count: 0 })));
+  await page.route('**/api/account/kind', (route) => (route.request().method() === 'OPTIONS' ? route.fulfill({ status: 204, headers: CORS }) : json(route, 200, { kind })));
 }
 
 /** The Marketplace endpoints. With `account`, the Regular session and shell reads too (the staff specs bring theirs from admin-stub.ts). */
 export async function setupMarketplace(page: Page, start: Partial<MarketNet> = {}, account = true): Promise<MarketNet> {
-  const net: MarketNet = { mineStatus: 'active', hidden: false, sponsoredStatus: 'draft', promotedListing: false, sent: [], ...start };
-  if (account) await signedIn(page);
+  const net: MarketNet = { mineStatus: 'active', mineExpired: false, accountKind: 'regular', hidden: false, sponsoredStatus: 'draft', promotedListing: false, sent: [], ...start };
+  if (account) await signedIn(page, net.accountKind);
   await page.route(
     (url) => url.pathname.startsWith('/api/marketplace') || url.pathname.startsWith('/api/admin/listings') || url.pathname.startsWith('/api/admin/sponsored'),
     async (route) => {
@@ -122,10 +127,17 @@ export async function setupMarketplace(page: Page, start: Partial<MarketNet> = {
       if (path === '/api/marketplace/mine') return json(route, 200, { listings: [listingCard(MINE, 'כיסא אוכל', { category: 'feeding', isMine: true, status: net.mineStatus, sellerName: 'נועה לוי' })] });
       if (path === '/api/marketplace/listings' && method === 'POST') return json(route, 201, { id: MINE });
       if (path === `/api/marketplace/listings/${STROLLER}`) {
-        return json(route, 200, { ...listingCard(STROLLER, 'עגלת תינוק כחולה'), sellerId: SELLER, images: [], updatedAt: AT, conversationId: null });
+        return json(route, 200, { ...listingCard(STROLLER, 'עגלת תינוק כחולה'), sellerId: SELLER, description: 'מתקפלת, עם גגון. איסוף מתל אביב.', images: [], updatedAt: AT, conversationId: null });
       }
       if (path === `/api/marketplace/listings/${MINE}`) {
-        return json(route, 200, { ...listingCard(MINE, 'כיסא אוכל', { category: 'feeding', isMine: true, status: net.mineStatus, sellerName: 'נועה לוי' }), sellerId: ME, images: [], updatedAt: AT, conversationId: null });
+        return json(route, 200, {
+          ...listingCard(MINE, 'כיסא אוכל', { category: 'feeding', isMine: true, status: net.mineStatus, isExpired: net.mineExpired, sellerName: 'נועה לוי' }),
+          sellerId: ME,
+          description: null,
+          images: [],
+          updatedAt: AT,
+          conversationId: null,
+        });
       }
       if (path === `/api/marketplace/listings/${STROLLER}/contact`) return json(route, 200, { conversationId: CONV });
       if (path === `/api/marketplace/listings/${MINE}/status`) {
