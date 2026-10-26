@@ -7,7 +7,8 @@
 // (the Preview server's date), well inside VAL-044's window so the server's own check cannot differ from the browser's.
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
-import { AFTER_ANSWERS_MS, createAccount, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
+import { keepSession, resumeSession } from './support/session.ts';
+import { AFTER_ANSWERS_MS, createAccount } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -39,14 +40,9 @@ function userOf(project: string): TestUser {
   }
   return u;
 }
-async function signIn(page: Page, u: TestUser): Promise<void> {
-  await page.goto('/login');
-  await emailField(page).fill(u.email);
-  await passwordField(page).fill(u.password);
-  await submitSignIn(page);
-  await expect(page).toHaveURL(/\/feed$/, { timeout: SIGN_IN_MS });
-  await page.goto('/profile');
-}
+// The later tests of each group continue with the session its sign-up made (T4); none of them checks the sign-in itself.
+const sessionA = (project: string) => `journeys-a:${project}`;
+const sessionB1 = (project: string) => `journeys-b1:${project}`;
 
 test.describe.serial('F2.2a journeys and children on the Preview [c1 c2 c3 c7 c8]', () => {
   test('[F2.2a c2] fresh planning user: "המסע שלי" reads "מתכננים", no child, and "הוספת ילד"', async ({ page }, info) => {
@@ -73,10 +69,11 @@ test.describe.serial('F2.2a journeys and children on the Preview [c1 c2 c3 c7 c8
     expect(text).toContain('המסע שלי');
     expect(text).toContain('מתכננים');
     expect(text).not.toContain('יש לנו ילד או ילדה');
+    await keepSession(page, sessionA(info.project.name));
   });
 
   test('[F2.2a c3 c7] add the first child: POST answers 2xx; after a reload the child and "יש לנו ילד או ילדה" are shown', async ({ page }, info) => {
-    await signIn(page, userOf(info.project.name));
+    await resumeSession(page, sessionA(info.project.name), '/profile');
     await addButton(page).click();
     await fillChild(page, 'נועה', 'בת', ['4', '5', '2023']);
     const [response] = await Promise.all([
@@ -88,10 +85,11 @@ test.describe.serial('F2.2a journeys and children on the Preview [c1 c2 c3 c7 c8
     await page.reload();
     await expect(childEdit(page, 'נועה · בת · 04.05.2023')).toHaveCount(1);
     expect(await viewText(page)).toContain('יש לנו ילד או ילדה');
+    await keepSession(page, sessionA(info.project.name));
   });
 
   test('[F2.2a c8 c3] edit it and add a second: the edit survives a reload in the same place, the new child is last', async ({ page }, info) => {
-    await signIn(page, userOf(info.project.name));
+    await resumeSession(page, sessionA(info.project.name), '/profile');
     await childEdit(page, 'נועה · בת · 04.05.2023').click();
     await expect(nameInput(page)).toHaveValue('נועה');
     await fillChild(page, 'נועה רות', 'עוד לא ידוע', ['5', '6', '2023']);
@@ -179,10 +177,11 @@ test.describe.serial('F2.2b1 pregnancy add and due-date edit on the Preview [c14
     const text = await viewText(page);
     expect(text.indexOf(line)).toBeLessThan(text.indexOf('יש לנו ילד או ילדה'));
     await expect(addPregnancy(page)).toHaveCount(0);
+    await keepSession(page, sessionB1(info.project.name));
   });
 
   test('[F2.2b c14] edit the due date (PUT 200), reload: the new date; clear all three, reload: "לא צוין"', async ({ page }, info) => {
-    await signIn(page, b1UserOf(info.project.name));
+    await resumeSession(page, sessionB1(info.project.name), '/profile');
     const later = inDays(200);
     await childEdit(page, 'בהריון').click();
     await expect(dueGroup(page)).toBeVisible();
