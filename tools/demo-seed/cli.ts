@@ -5,6 +5,8 @@
 //   node tools/demo-seed/cli.ts run  <seed|stories> <preview|production>
 //        env: DEMO_BASE_URL (preview: the deployment URL; production: https://nestly-blue.vercel.app), DEMO_ACCOUNTS (JSON, a secret),
 //             SUPABASE_PUBLISHABLE_KEY, VERCEL_AUTOMATION_BYPASS_SECRET (preview only), DEMO_ALLOW_SIGNUP=1 to create missing accounts
+//   node tools/demo-seed/cli.ts walk preview                  the role walk after the seed: every persona signs in and reads its first
+//        screens (GET only); the env of run, without DEMO_ALLOW_SIGNUP. Preview only: on production Afik walks it signed in himself.
 //   node tools/demo-seed/cli.ts make-accounts <email template with {key}> <out file>
 //        writes a fresh DEMO_ACCOUNTS value (random passwords) to a new file outside the repository, to paste into the secret.
 //
@@ -20,6 +22,7 @@ import { Api, Auth } from './http.ts';
 import { buildPlan, type Mode } from './plan.ts';
 import { createContext, dryRun, runPlan } from './runner.ts';
 import { checkTarget, type Target } from './target.ts';
+import { walk } from './walk.ts';
 
 const log = (line: string) => process.stdout.write(`${line}\n`);
 const fail = (line: string): never => {
@@ -74,6 +77,32 @@ async function run(args: string[]): Promise<void> {
   if (report.failed.length > 0) process.exit(1);
 }
 
+async function walkPreview(args: string[]): Promise<void> {
+  if (args[0] !== 'preview') return fail('the walk runs on preview only');
+  const checked = checkTarget('preview', process.env['DEMO_BASE_URL']);
+  if (!checked.ok) return fail(checked.reason);
+  const data = content();
+  const accounts = parseAccounts(process.env['DEMO_ACCOUNTS'], [...data.regulars, ...data.professionals].map((p) => p.key));
+  if (!accounts.ok) return fail(accounts.reason);
+  maskAccounts(accounts.accounts, (l) => process.stdout.write(l), process.env['GITHUB_ACTIONS'] === 'true');
+  const key = process.env['SUPABASE_PUBLISHABLE_KEY'] ?? '';
+  if (key.trim() === '' || key.startsWith('sb_secret_')) return fail('SUPABASE_PUBLISHABLE_KEY is missing or is not a publishable key');
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+  const report = await walk({
+    api: new Api({ baseUrl: checked.baseUrl, fetch, bypassSecret: process.env['VERCEL_AUTOMATION_BYPASS_SECRET'], sleep }),
+    auth: new Auth({ supabaseUrl: checked.supabaseUrl, publishableKey: key.trim(), fetch, sleep }),
+    accounts: accounts.accounts,
+    personas: [
+      ...data.regulars.map((p) => ({ key: p.key, kind: 'regular' as const })),
+      ...data.professionals.map((p) => ({ key: p.key, kind: 'professional' as const })),
+    ],
+    log,
+  });
+  log(`demo-seed walk: ${report.screens} screens, failed ${report.failed.length}`);
+  for (const f of report.failed) log(`  failed: ${f}`);
+  if (report.failed.length > 0) process.exit(1);
+}
+
 function makeAccounts(args: string[]): void {
   const [template, out] = args;
   if (template === undefined || out === undefined) return fail('make-accounts <email template with {key}> <out file>');
@@ -93,8 +122,10 @@ if (command === 'plan') {
   dryRun(steps, log);
 } else if (command === 'run') {
   await run(rest);
+} else if (command === 'walk') {
+  await walkPreview(rest);
 } else if (command === 'make-accounts') {
   makeAccounts(rest);
 } else {
-  fail('usage: cli.ts plan [seed|stories] | run <seed|stories> <preview|production> | make-accounts <template> <out>');
+  fail('usage: cli.ts plan [seed|stories] | run <seed|stories> <preview|production> | walk preview | make-accounts <template> <out>');
 }

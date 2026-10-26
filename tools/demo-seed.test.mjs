@@ -14,6 +14,7 @@ import { checkContent } from './demo-seed/check.ts';
 import { loadContent } from './demo-seed/content.ts';
 import { Api, Auth } from './demo-seed/http.ts';
 import { illustrationPng, knownMotif } from './demo-seed/illustration.ts';
+import { firstListLength, SCREENS, walk } from './demo-seed/walk.ts';
 import { buildPlan, describeStep } from './demo-seed/plan.ts';
 import { createContext, dryRun, runPlan } from './demo-seed/runner.ts';
 import { buildShift, SHIFT_COLUMNS, touchedTables } from './demo-seed/shift.ts';
@@ -460,4 +461,43 @@ test('the workflow: by hand only, from main, production behind its own environme
   }
   assert.ok(!/PREVIEW_DB_ADMIN_URL/.test(JSON.stringify(wf.jobs.production)), 'production never reads the preview credential');
   assert.ok(!/PRODUCTION_DB_ADMIN_URL/.test(JSON.stringify(wf.jobs.preview)));
+});
+
+test('the role walk: GET only, every screen of every persona, a non-200 or an empty filled list fails, nothing secret is logged', async () => {
+  assert.equal(firstListLength([1, 2]), 2);
+  assert.equal(firstListLength({ next: null, items: [1] }), 1);
+  assert.equal(firstListLength({ name: 'x' }), null);
+  const calls = [];
+  const fetch = async (url, init) => {
+    calls.push({ url, method: init.method, auth: init.headers.authorization });
+    if (url.includes('/auth/v1/token')) {
+      const { email } = JSON.parse(init.body);
+      if (email === 'nestly-demo-bad@gmail.com') return { status: 400, headers: { get: () => null }, text: async () => '{}' };
+      return { status: 200, headers: { get: () => null }, text: async () => JSON.stringify({ access_token: `tok-${email}`, user: { id: 'u' } }) };
+    }
+    if (url.endsWith('/api/outreach')) return { status: 500, headers: { get: () => null }, text: async () => '{}' };
+    if (url.endsWith('/api/feed')) return { status: 200, headers: { get: () => null }, text: async () => JSON.stringify({ items: url.includes('x') ? [1] : [] }) };
+    return { status: 200, headers: { get: () => null }, text: async () => JSON.stringify({ items: [1, 2] }) };
+  };
+  const lines = [];
+  const accounts = new Map([
+    ['michal', { email: 'nestly-demo-michal@gmail.com', password: 'secret-pw-1' }],
+    ['inbal', { email: 'nestly-demo-inbal@gmail.com', password: 'secret-pw-2' }],
+    ['bad', { email: 'nestly-demo-bad@gmail.com', password: 'secret-pw-3' }],
+  ]);
+  const report = await walk({
+    api: new Api({ baseUrl: 'https://nestly-abc123-afikyermis-projects.vercel.app', fetch, sleep: async () => undefined }),
+    auth: new Auth({ supabaseUrl: 'https://xmihorrkegrdlbhpktny.supabase.co', publishableKey: 'k', fetch }),
+    accounts,
+    personas: [{ key: 'michal', kind: 'regular' }, { key: 'inbal', kind: 'professional' }, { key: 'bad', kind: 'regular' }, { key: 'nobody', kind: 'regular' }],
+    log: (l) => lines.push(l),
+  });
+  assert.equal(report.screens, SCREENS.regular.length + SCREENS.professional.length);
+  assert.ok(calls.filter((c) => c.url.includes('/api/')).every((c) => c.method === 'GET'));
+  assert.ok(report.failed.includes('inbal /api/outreach: HTTP 500'));
+  assert.ok(report.failed.includes('michal /api/feed: empty'));
+  assert.ok(report.failed.some((f) => f.startsWith('bad: sign-in invalid_credentials')));
+  assert.ok(report.failed.includes('nobody: no demo account'));
+  const logged = [...lines, ...report.failed].join('\n');
+  assert.ok(!/secret-pw|@gmail|tok-/.test(logged));
 });
