@@ -76,6 +76,8 @@ export interface AppDependencies {
   readonly errorMonitor?: ErrorMonitor;
   /** The Server-Timing header (lib/server-timing.ts). Defaults to on for a Vercel Preview or Production deployment (VERCEL_ENV). */
   readonly serverTiming?: boolean;
+  /** Fetch Auth's signing keys when the app is built, not on the first request (lib/token-verifier.ts). Defaults to off; the deployed function passes true. */
+  readonly prefetchSigningKeys?: boolean;
 }
 
 export function buildApp(deps: AppDependencies = {}): FastifyInstance {
@@ -137,7 +139,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
 
   const recovery = createRecoveryDependencies(deps.recovery);
   registerAuthentication(app, {
-    verifier: config.auth === undefined ? undefined : createTokenVerifier(config.auth),
+    verifier: config.auth === undefined ? undefined : createTokenVerifier(config.auth, { prefetch: deps.prefetchSigningKeys === true }),
     database,
     ...(database === undefined ? {} : { linkGate: linkGateFor(database, recovery) }),
   });
