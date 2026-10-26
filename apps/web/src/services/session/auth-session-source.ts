@@ -322,7 +322,6 @@ export function createAuthSessionSource({ auth, accountState, now, events, rando
     googleAccount: async () => (auth.readGoogleAccount === undefined ? null : auth.readGoogleAccount()),
     recheck,
     getAccessToken: () => auth.getAccessToken(),
-    getUserId: async () => (auth.getUserId === undefined ? null : auth.getUserId()),
     clearNotice: () => {
       apply(state, null);
     },

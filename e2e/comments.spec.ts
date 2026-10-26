@@ -258,7 +258,7 @@ test.describe('F3.3 c19 [FR-FEED-001] paging, states and errors', () => {
     await expect(list(page)).toBeVisible();
     await postLike(page).click();
     await expect(btn(region(page), 'לייק, 1')).toBeVisible();
-    expect(net.stray.filter((c) => c !== 'GET /api/feed' && c !== 'GET /api/admin/access' && c !== 'GET /api/stories' && c !== 'GET /api/notifications' && c !== 'GET /api/chat/unread' && c !== 'GET /api/account/kind')).toEqual([]); // the login lands on the feed first (with its Stories tray, I5); the shell asks for staff access, the bell's notifications (I7), the Chat badge (I8) and the account kind (I11)
+    expect(net.stray.filter((c) => c !== 'GET /api/feed' && c !== 'GET /api/admin/access' && c !== 'GET /api/stories' && c !== 'GET /api/notifications' && c !== 'GET /api/chat/unread' && c !== 'GET /api/notifications/counts' && c !== 'GET /api/account/kind')).toEqual([]); // the login lands on the feed first (with its Stories tray, I5); the shell asks for staff access, the bell's notifications (I7), the Chat badge (I8) and the account kind (I11)
   });
 });
 

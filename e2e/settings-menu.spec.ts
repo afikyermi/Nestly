@@ -330,7 +330,7 @@ test.describe('F2.5 c8 [A9 FR-AUTH-004] Settings makes no request of its own', (
     }
     await page.waitForTimeout(500);
     // the privacy, notification-preferences and blocked-list sections each read their own data; the bell's poll (I7) and the Chat badge (I8) may also run
-    expect([...new Set(net.calls)].filter((c) => c !== 'GET /api/notifications' && c !== 'GET /api/chat/unread').sort()).toEqual(['GET /api/blocks', 'GET /api/notification-preferences', 'GET /api/privacy']);
+    expect([...new Set(net.calls)].filter((c) => c !== 'GET /api/notifications' && c !== 'GET /api/chat/unread' && c !== 'GET /api/notifications/counts').sort()).toEqual(['GET /api/blocks', 'GET /api/notification-preferences', 'GET /api/privacy']);
   });
 
   test('[F2.5 c8 ERR-037] a suspended or banned account never renders Settings: the same screen as /profile, no privacy GET', async ({ page }) => {

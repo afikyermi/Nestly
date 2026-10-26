@@ -115,9 +115,14 @@ function classify(error: unknown): TokenRejected {
  * One verifier per server instance. The key set is fetched on first use and cached by `jose`; a token whose key id is
  * unknown triggers at most one refetch per cooldown. With no cached key and the endpoint unreachable, every token is
  * rejected as `unavailable` (criterion 26).
+ *
+ * `prefetch`: start fetching the key set now, at instance start, in parallel with everything else, instead of on the first request. It is
+ * the same fetch `jose` would make on first use (a request that arrives meanwhile waits for it); verification is unchanged, and a failed
+ * prefetch is dropped: the next token fetches again.
  */
-export function createTokenVerifier(config: AuthConfig): TokenVerifier {
+export function createTokenVerifier(config: AuthConfig, options: { readonly prefetch?: boolean } = {}): TokenVerifier {
   const keySet = createRemoteJWKSet(config.jwksUrl);
+  if (options.prefetch === true) void keySet.reload().catch(() => undefined);
 
   return async (token) => {
     let subject: unknown;
