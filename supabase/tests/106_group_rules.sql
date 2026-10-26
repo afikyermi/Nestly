@@ -113,8 +113,8 @@ select is((select count(*) from pg_proc p where p.pronamespace = 'nestly'::regna
   '[F10.3-a c1] no runtime role executes the new trigger functions');
 
 -- ---- c2 the Highlights threshold (§11.17, BR-059, BR-060) ------------------------------------------------------------------------
-select is(pg_temp.n('a', $q$ select string_agg(version || ':' || is_active, ',' order by version) from nestly.group_highlight_configurations $q$), '1:false,2:true',
-  '[F10.3-a c2 BR-059] the threshold is versioned: v2 is the active one, v1 stays as history');
+select is(pg_temp.n('a', $q$ select string_agg(version || ':' || is_active, ',' order by version) from nestly.group_highlight_configurations $q$), '1:false,2:false,3:true',
+  '[F10.3-a c2 BR-059 OP-077] the threshold is versioned: v3 (counted by people, the I10 follow-up) is the active one, v1 and v2 stay as history');
 select is(pg_temp.n('a', $q$ select concat_ws(',', nestly.group_highlight_threshold(0), nestly.group_highlight_threshold(10), nestly.group_highlight_threshold(60),
                                               nestly.group_highlight_threshold(61), nestly.group_highlight_threshold(100), nestly.group_highlight_threshold(399),
                                               nestly.group_highlight_threshold(400), nestly.group_highlight_threshold(401), nestly.group_highlight_threshold(1000),
@@ -256,7 +256,7 @@ select pg_temp.like_post('a', pg_temp.g('hp'));
 select pg_temp.comment('e', pg_temp.g('hp'), 'one');
 select is(tests.fx_grr_highlight(pg_temp.g('hp')), '', '[F10.3-a c6 BR-060] two likes and comments by others, the author''s own like aside: not yet a Highlight (four members: 3)');
 select pg_temp.comment('f', pg_temp.g('hp'), 'two');
-select is(tests.fx_grr_highlight(pg_temp.g('hp')), 'threshold=3 members=4 version=2', '[F10.3-a c6 FR-ALG-010 AC-066 AC-165] at the threshold it is a Highlight, recorded once');
+select is(tests.fx_grr_highlight(pg_temp.g('hp')), 'threshold=3 members=4 version=3', '[F10.3-a c6 FR-ALG-010 AC-066 AC-165] at the threshold it is a Highlight, recorded once');
 select is(pg_temp.count('e', format('nestly.group_highlights where post_id = %L', pg_temp.g('hp'))), '1', '[F10.3-a c6 FR-GRP-001 AC-164] a member reads it (the main feed)');
 select is(pg_temp.count('c', 'nestly.group_highlights'), '0', '[F10.3-a c6 §11.13 AC-164] a non-member reads no Highlight of a Private Group');
 select is(pg_temp.count('c', format('nestly.posts where id = %L', pg_temp.g('hp'))), '0', '[F10.3-a c6 §11.13] nor its post');
@@ -265,7 +265,7 @@ select is(pg_temp.dml('a', format($q$ delete from nestly.group_members where gro
   '[F10.3-a c6 fixture] (a member removes no one)');
 select pg_temp.dml('e', format($q$ delete from nestly.group_members where group_id = %L and user_id = %L $q$, pg_temp.g('quiet'), pg_temp.id('e')));
 select pg_temp.dml('f', format($q$ delete from nestly.group_members where group_id = %L and user_id = %L $q$, pg_temp.g('quiet'), pg_temp.id('f')));
-select is(tests.fx_grr_highlight(pg_temp.g('hp')), 'threshold=3 members=4 version=2', '[F10.3-a c6 ⭐ OP-048 OP-068 AC-165] a Highlight stays when members later leave');
+select is(tests.fx_grr_highlight(pg_temp.g('hp')), 'threshold=3 members=4 version=3', '[F10.3-a c6 ⭐ OP-048 OP-068 AC-165] a Highlight stays when members later leave');
 select is(pg_temp.count('e', 'nestly.group_highlights'), '0', '[F10.3-a c6] and one who left no longer reads it');
 
 select * from finish();
