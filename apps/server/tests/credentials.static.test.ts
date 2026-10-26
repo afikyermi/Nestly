@@ -211,6 +211,26 @@ describe('[F1.6-b c15 FR-AUTH-003] the Auth admin key and the pepper are named i
     }
   });
 
+  // I9 (decisions-in-force §22.6, Afik 26.10.2026): the exception grows by exactly one call — the DELETE of an Auth user, from the
+  // deletion job only. The method is named once in auth-admin.ts (inside deleteAuthUser), and deleteAuthUser is used by the job alone.
+  it('[I9 §22.6 AC-191] the Auth DELETE exists once, in deleteAuthUser, and only the deletion job calls it (never the request server)', SLOW, () => {
+    const serverSrc = scanned().filter((f) => f.path.startsWith('apps/server/src/') || f.path.startsWith('apps/server/api/') || f.path.startsWith('api/'));
+    const admin = serverSrc.find((f) => f.path === AUTH_ADMIN_MODULE);
+    expect(admin, 'auth-admin.ts is scanned').toBeDefined();
+    expect(admin?.text.match(/method:\s*'DELETE'/g) ?? []).toHaveLength(1);
+    const body = admin?.text.slice(admin.text.indexOf('export async function deleteAuthUser')) ?? '';
+    expect(body).toMatch(/^export async function deleteAuthUser[\s\S]*?method: 'DELETE'/);
+    const users = serverSrc
+      .filter((f) => f.path !== AUTH_ADMIN_MODULE && /\bdeleteAuthUser\b/.test(f.text))
+      .map((f) => f.path)
+      .sort();
+    expect(users).toContain('apps/server/src/jobs/handler.ts');
+    expect(users.filter((path) => !path.startsWith('apps/server/src/jobs/'))).toEqual([]);
+    // and the account-deletion step is wired into the job only (the request server never imports the job: the I5 fence below)
+    const importsStep = /from\s+['"][^'"]*jobs\/account-deletion\.js['"]/;
+    expect(serverSrc.filter((f) => importsStep.test(f.text) && !f.path.startsWith('apps/server/src/jobs/')).map((f) => f.path)).toEqual([]);
+  });
+
   it('neither secret name appears anywhere under .github/ (CI uses a stub; Afik sets both on the host only)', SLOW, () => {
     const files: string[] = [];
     const dir = join(repoRoot, '.github');

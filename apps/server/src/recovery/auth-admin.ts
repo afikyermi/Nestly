@@ -24,7 +24,10 @@
 //     setUserPassword        the forced new password (c7), the change after two answers (c10), the F1.8 first password (c11).
 //   An admin password set ends every session of the user, the caller's included (Gate 2 A6): it is the revocation of the
 //   clear, c7 and c10, so no separate sign-out call is made.
-// The user id is always the JWT subject of the request, never a body field.
+//   I9 (decisions-in-force §22.6, the one more admin operation Afik approved on 26.10.2026):
+//     deleteAuthUser         one DELETE of the Auth user of an account whose deletion was executed, called only by the deletion job
+//                            (src/jobs/account-deletion.ts), once per account; the id comes from the deletion record, never a request.
+// The user id is always the JWT subject of the request, never a body field (deleteAuthUser: the deletion record's account id).
 //
 // Nothing is logged here, and no error text of Auth is kept: the outcome is a word the caller audits.
 
@@ -290,4 +293,32 @@ export async function setUserPassword(
 /** The S-01 clear: a random password nobody knows replaces the earlier registrant's. Never returned or kept. Never throws. */
 export function cancelPassword(input: { readonly userId: string }, env: Env = process.env): Promise<PasswordSetOutcome> {
   return setUserPassword({ userId: input.userId, password: randomBytes(48).toString('base64url') }, env);
+}
+
+// ---- I9 (decisions-in-force §22.6, BR-073) -----------------------------------------------------------------------------
+
+/** `removed`: Auth confirmed the user is gone (deleted now, or already absent). `failed`: not confirmed; the job tries again next run. */
+export type AuthUserRemoval = 'removed' | 'failed';
+
+/**
+ * The account deletion's last step (§22.6): one DELETE of one Auth user, after the deletion job has executed that account's deletion
+ * (the Nestly row is already gone: the anchor FK is RESTRICT, so Auth refuses an earlier call). Called by the deletion job only
+ * (src/jobs/account-deletion.ts; tests/credentials.static.test.ts fences it), once per account per run. Auth's user_not_found means the
+ * user is already gone, which is the goal. Never throws; nothing of Auth's answer is kept but that code.
+ */
+export async function deleteAuthUser(input: { readonly userId: string }, env: Env = process.env): Promise<AuthUserRemoval> {
+  const target = readTarget(env, NEEDS.admin);
+  if (target === undefined || !UUID.test(input.userId)) return 'failed';
+  try {
+    const total = AbortSignal.timeout(CALL_TIMEOUT_MS);
+    const removal = await call(target, total, `/admin/users/${input.userId}`, { key: 'secret', method: 'DELETE' });
+    if (removal.ok) {
+      await removal.body?.cancel();
+      return 'removed';
+    }
+    // only Auth's own "no such user" is the goal reached; any other 404 (a wrong address) is a failure, tried again next run
+    return removal.status === 404 && (await errorCodeOf(removal)) === 'user_not_found' ? 'removed' : 'failed';
+  } catch {
+    return 'failed';
+  }
 }
