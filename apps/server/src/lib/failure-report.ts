@@ -4,6 +4,7 @@
 // driver error's `detail` and `where` may quote a row. Kept: the error's type, the SQLSTATE, the constraint and the routine; for a
 // ZodError the paths and codes of its issues (never the input); the stack of the original.
 
+import { scrubText } from '@nestly/shared';
 import { DrizzleQueryError } from 'drizzle-orm';
 import postgres from 'postgres';
 import { ZodError } from 'zod';
@@ -34,12 +35,19 @@ function chain(error: unknown): Error[] {
   return out;
 }
 
-function described(name: string, message: string, stack: string | undefined): Error {
+/** A V8 stack frame line: `at fn (location)` or `at location`, the location a path, a file URL or a Node built-in. */
+const FRAME = /^\s+at (?:[^(]* \()?(?:file:|node:|\/|[A-Za-z]:[\\/]|<anonymous>|native)/;
+
+function described(name: string, message: string, original: Error | undefined): Error {
   const error = new Error(message);
   error.name = name;
-  // The stack's first line repeats the original message; only the frames are kept.
-  const frames = stack?.split('\n').filter((line) => line.trimStart().startsWith('at '));
-  error.stack = [`${name}: ${message}`, ...(frames ?? [])].join('\n');
+  // The original stack starts with the original message, which may hold values and line breaks: only what follows it is read, and only
+  // lines that are real frames are kept (a message line that happens to start with "at " is not one).
+  const stack = original?.stack ?? '';
+  const header = original === undefined ? '' : String(original);
+  const rest = stack.startsWith(header) ? stack.slice(header.length) : '';
+  const frames = rest.split('\n').filter((line) => FRAME.test(line));
+  error.stack = [`${name}: ${message}`, ...frames].join('\n');
   return error;
 }
 
@@ -53,22 +61,24 @@ export function reportableFailure(error: unknown): Error {
     if (driver.constraint_name) parts.push(`constraint=${driver.constraint_name}`);
     if (driver.routine) parts.push(`routine=${driver.routine}`);
     // Class 42 (a privilege, a missing function or column) names schema objects only, never a row: its message says which one
-    if (driver.code.startsWith('42')) parts.push(`message=${driver.message}`);
-    return described('PostgresError', parts.join(' '), outer?.stack);
+    if (typeof driver.code === 'string' && driver.code.startsWith('42')) parts.push(`message=${driver.message}`);
+    return described('PostgresError', parts.join(' '), outer);
   }
   const zod = errors.find((item) => item instanceof ZodError);
   if (zod instanceof ZodError) {
     const issues = zod.issues.slice(0, MAX_ISSUES).map((issue) => `${issue.code}@${issue.path.map((key) => (typeof key === 'number' ? '#' : String(key))).join('.') || '(root)'}`);
     const more = zod.issues.length > MAX_ISSUES ? ` +${zod.issues.length - MAX_ISSUES}` : '';
-    return described('ZodError', `${issues.join(' ')}${more}`, zod.stack);
+    return described('ZodError', `${issues.join(' ')}${more}`, zod);
   }
   if (outer === undefined) return described('NonError', typeof error, undefined);
   // A wrapped statement without a driver error (the connection failed): the code of the innermost error; never the wrapper's message,
   // which quotes the statement and its parameters
   if (errors.some((item) => item instanceof DrizzleQueryError)) {
     const code: unknown = Reflect.get(errors.at(-1) ?? outer, 'code');
-    return described('DrizzleQueryError', typeof code === 'string' ? `code=${code}` : 'failed', outer.stack);
+    return described('DrizzleQueryError', typeof code === 'string' ? `code=${code}` : 'failed', outer);
   }
-  // Any other error (a TypeError in the server's own code): kept as it is; the event scrubber still cleans its message
-  return outer;
+  // Any other error (a TypeError in the server's own code, a failed connection): its type and its own code, else the first line of its
+  // message, scrubbed; never its cause or its other properties
+  const code: unknown = Reflect.get(outer, 'code');
+  return described(outer.name || 'Error', typeof code === 'string' ? `code=${code}` : scrubText(outer.message.split('\n')[0] ?? ''), outer);
 }

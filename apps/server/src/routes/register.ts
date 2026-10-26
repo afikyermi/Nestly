@@ -60,6 +60,7 @@ export function registerRegistrationRoute(app: FastifyInstance, deps: RegisterRo
     errorHandler: (error, request, reply) => {
       const status = typeof error.statusCode === 'number' && error.statusCode >= 400 ? error.statusCode : 500;
       request.log.warn({ status, code: error.code }, 'register request failed');
+      if (status >= 500) noteFailure(request, error);
       reply.code(status).send({ error: status < 500 ? 'bad_request' : 'internal' });
     },
     handler: (request, reply) => register(request, reply, deps),

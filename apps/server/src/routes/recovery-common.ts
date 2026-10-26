@@ -34,6 +34,7 @@ export function replyRateLimited(reply: FastifyReply, retryAfterSeconds: number,
 export function recoveryErrorHandler(error: { statusCode?: number | undefined; code?: string | undefined }, request: FastifyRequest, reply: FastifyReply): void {
   const status = typeof error.statusCode === 'number' && error.statusCode >= 400 ? error.statusCode : 500;
   request.log.warn({ status, code: error.code }, 'recovery request failed');
+  if (status >= 500) noteFailure(request, error);
   reply.code(status).send({ error: status < 500 ? 'bad_request' : 'internal' });
 }
 

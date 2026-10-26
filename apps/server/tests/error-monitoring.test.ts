@@ -295,7 +295,7 @@ describe('[§12 Error monitoring, plan א ש.4] a failure a route caught is repo
     await app.close();
     expect(reports.map((r) => [r.report.status, ...(r.error instanceof Error ? [r.error.name, r.error.message] : [])])).toEqual([
       [500, 'PostgresError', 'sqlstate=42501 constraint=notifications_select_own routine=ExecCheckPermissions message=permission denied for function is_active_account'],
-      [503, 'Error', 'closed'],
+      [503, 'Error', 'code=CONNECTION_CLOSED'],
     ]);
     expect(statuses.map((s) => s.route)).toEqual(['/_plain']);
   });
@@ -305,5 +305,24 @@ describe('[§12 Error monitoring, plan א ש.4] a constraint failure never carri
   it('23505 keeps code and constraint only', () => {
     const out = reportableFailure(pgError(`duplicate key ${EMAIL}`, { code: '23505', constraint_name: 'users_email_key' }));
     expect(out.message).toBe('sqlstate=23505 constraint=users_email_key');
+  });
+});
+
+describe('[§12 Error monitoring, plan א ש.4] the stack of a rebuilt failure holds frames only', () => {
+  const frameLines = (stack: string | undefined) => (stack ?? '').split('\n').slice(1);
+
+  it('a parameter with a line break that starts with "at " never becomes a frame', () => {
+    const out = reportableFailure(new DrizzleQueryError('insert into nestly.messages values ($1)', [`hi\n  at 5pm call ${PHONE} ${EMAIL}`], pgError('x', { code: '23514' })));
+    for (const marker of MARKERS) expect(out.stack).not.toContain(marker);
+    expect(frameLines(out.stack).length).toBeGreaterThan(0);
+    for (const line of frameLines(out.stack)) expect(line).toMatch(/^\s+at /);
+    expect(out.stack).not.toContain('5pm');
+  });
+
+  it('any other error keeps its type and the scrubbed first line of its message; never its cause or later lines', () => {
+    const out = reportableFailure(new TypeError(`cannot read ${EMAIL}\n  at ${PHONE}`, { cause: new Error(HEBREW) }));
+    expect(out.name).toBe('TypeError');
+    expect(out.cause).toBeUndefined();
+    for (const marker of MARKERS) expect(`${out.message}\n${out.stack ?? ''}`).not.toContain(marker);
   });
 });
