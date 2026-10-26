@@ -6,6 +6,7 @@
 //   all:   401/503 session guard · 503 · 500 server_error. Any other method → 405 with Allow.
 // Logs carry a fixed line, the SQLSTATE and, for a configuration fallback, its version and class: never the cursor text or a post id.
 
+import { noteFailure } from '../lib/failure-report.js';
 import { parseFeedCursor } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
@@ -27,6 +28,7 @@ function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unkno
   const refused = replySessionRefused(reply, error);
   if (refused !== undefined) return refused;
   request.log.error({ sqlstate: readDatabaseFault(error)?.code }, 'feed read failed');
+  noteFailure(request, error);
   if (isConnectionFailure(error)) return reply.code(503).send({ error: 'unavailable' });
   return reply.code(500).send({ error: 'server_error' });
 }

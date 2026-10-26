@@ -21,6 +21,8 @@ import {
 
 /** The bell polls while the app is open (the MVP polls; realtime comes later). */
 export const POLL_MS = 30_000;
+/** After a failed list, the background refresh of the list waits 60 s, then 120 s, 240 s, at most 5 min; the counts keep their 30 s. */
+export const LIST_BACKOFF_MS = [60_000, 120_000, 240_000, 300_000] as const;
 
 export type NotificationsState =
   | { kind: "loading" }
@@ -71,6 +73,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const account = useSessionAccount();
   const [state, setState] = useState<NotificationsState>({ kind: "loading" });
   const runs = useRef(0);
+  /** The list's own failures in a row, when the background may ask for it again, and whether a list request is still open. */
+  const listFailures = useRef(0);
+  const nextListAt = useRef(0);
+  const listOpen = useRef(false);
   const [poll, setPoll] = useState<BellPoll | null>(null);
   /** What the list last fetched says the server has: the unread count and the newest notification's id. */
   const seen = useRef<{ unread: number; latest: string | null } | null>(null);
@@ -89,10 +95,23 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   );
 
   const refresh = useCallback(async ({ poll = false }: { readonly poll?: boolean } = {}) => {
+    // the background never stacks a list on an open one, nor asks again before the wait after a failure (a list someone opened does)
+    if (poll && (listOpen.current || Date.now() < nextListAt.current)) return;
     const run = (runs.current += 1);
     const accessToken = await token();
     if (accessToken === null) return;
-    const outcome = await fetchNotifications(accessToken, null, poll);
+    listOpen.current = true;
+    const outcome = await fetchNotifications(accessToken, null, poll).finally(() => {
+      listOpen.current = false;
+    });
+    if (outcome.kind === "list") {
+      listFailures.current = 0;
+      nextListAt.current = 0;
+    } else if (outcome.kind === "failed") {
+      const wait = LIST_BACKOFF_MS[Math.min(listFailures.current, LIST_BACKOFF_MS.length - 1)] ?? POLL_MS;
+      listFailures.current += 1;
+      nextListAt.current = Date.now() + wait;
+    }
     if (run !== runs.current) return;
     if (outcome.kind === "forbidden") setState({ kind: "unavailable" });
     else if (outcome.kind === "list") {
