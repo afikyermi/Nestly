@@ -75,6 +75,11 @@ export async function rereadGuard(tx: IdentityTx): Promise<SessionGuard> {
 /** What a product transaction may ask for beyond its identity: a stricter isolation level (F3.3: one snapshot for a page's three reads). */
 export interface IdentityTransactionOptions {
   readonly isolationLevel?: 'repeatable read';
+  /**
+   * Best-effort counters written after the answer (plan ח1): the commit does not wait for the write-ahead log to reach the disk
+   * (`synchronous_commit = off`, this transaction only). A crash may lose the last such commits; it never corrupts or half-applies one.
+   */
+  readonly asyncCommit?: boolean;
 }
 
 /** A product transaction. Throws SessionRefused (and rolls back) unless the guard is `ok` or `must_set`. */
@@ -90,6 +95,7 @@ export async function inIdentityTransaction<T>(
     try {
       // Before any query takes the snapshot (the role and the claims are set after it): one snapshot for everything the work reads.
       if (options.isolationLevel === 'repeatable read') await tx.execute(sql`set transaction isolation level repeatable read`);
+      if (options.asyncCommit === true) await tx.execute(sql`set local synchronous_commit = off`);
       const guard = await enter(tx, identity);
       if (guard !== 'ok' && guard !== 'must_set') throw new SessionRefused(guard);
       return await work(tx, guard);

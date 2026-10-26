@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { parseFeedCursor, type FeedPageResponse, type ListingWrite, type ProfessionalProfileWrite } from '@nestly/shared';
 import { createDatabase, type Database } from '../../src/db/client.js';
 import { inIdentityTransaction } from '../../src/db/identity-transaction.js';
@@ -27,7 +28,7 @@ import {
   writeSettings,
 } from '../../src/services/promotions-service.js';
 import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
-import { buildRegisterApp, CLOCK_NOW, EMPTY_DATE, post, validBody } from '../helpers/register-app.js';
+import { afterResponseIdle, buildRegisterApp, CLOCK_NOW, EMPTY_DATE, post, validBody } from '../helpers/register-app.js';
 
 // Monetization (I13; Afik 21.10.2026 §11.1–11.6) through the services against the real database (CI `db` job, as app_server): a Professional
 // buys a promotion of its profile with a simulated payment (FR-SERV-010, NFR-SEC-007, AC-098); the Directory shows it apart from the organic list
@@ -535,6 +536,8 @@ describe('[I13] the rules of a running promotion', () => {
       statements.length = 0;
       const answer = await meApp.inject({ method: 'GET', url: '/api/me', headers: { authorization: `Bearer ${await token({ key, sub: userId })}` } });
       expect(answer.statusCode).toBe(200);
+      // plan ח1: the login is written after the answer was sent
+      await afterResponseIdle();
       return statements.length;
     };
     const meApp = await buildRegisterApp({ SUPABASE_JWKS_URL: jwks.url, SUPABASE_JWT_ISSUER: ISSUER, SUPABASE_JWT_AUDIENCE: AUDIENCE, DATABASE_URL: url() }, { database: counting, clock: () => CLOCK_NOW });
@@ -543,6 +546,13 @@ describe('[I13] the rules of a running promotion', () => {
       const second = await me();
       expect(second, 'the second call skips the login write (its transaction: the identity and one statement)').toBeLessThanOrEqual(first - 3);
       expect(await ownUsage('daily_login')).toBe(1);
+      // plan ח1: a feed page through the route counts its post views after the answer, in the same rows as before
+      const beforeFeed = await ownUsage('post_view');
+      const feed = await meApp.inject({ method: 'GET', url: '/api/feed', headers: { authorization: `Bearer ${await token({ key, sub: userId })}` } });
+      expect(feed.statusCode, feed.body).toBe(200);
+      const page = z.object({ items: z.array(z.unknown()), promoted: z.array(z.unknown()).optional() }).parse(feed.json());
+      await afterResponseIdle();
+      expect(await ownUsage('post_view')).toBe(beforeFeed + page.items.length + (page.promoted ?? []).length);
     } finally {
       await meApp.close();
     }

@@ -55,6 +55,7 @@ import { registerRegistrationRoute } from './routes/register.js';
 import { registerStripBypassHeader } from './plugins/strip-bypass-header.js';
 import { registerServerTiming, serverTimingEnabled } from './lib/server-timing.js';
 import { noteOf, reportableFailure } from './lib/failure-report.js';
+import { registerAfterResponse } from './lib/after-response.js';
 
 export interface AppDependencies {
   /** Defaults to the process environment. */
@@ -116,6 +117,8 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   // (failure-report.ts), any other 5xx here by status and route
   // template only (`/api/posts/:postId`, never the address). Nothing from the request goes with it.
   const monitor = deps.errorMonitor ?? noErrorMonitor;
+  // Work a route starts after its answer was sent (best-effort counters, plan ח1): its failure goes to the same monitor (lib/after-response.ts)
+  registerAfterResponse(app, monitor);
   const reported = new WeakSet<object>();
   const reportOf = (request: FastifyRequest, status: number): ErrorReport => ({
     route: request.routeOptions.url ?? 'unmatched',
