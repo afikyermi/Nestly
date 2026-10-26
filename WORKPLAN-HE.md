@@ -3,7 +3,7 @@
 סטטוס קצר בלבד; ההיסטוריה ב-git. כללים: `CLAUDE.md` · החלטות: `decisions-in-force.md` · מוצר: `docs/srs/` · באגים לשלב האחרון: `docs/final-stage-HE.md`.
 
 ## איפה אנחנו עומדים
-**נעצר:** 26.10.2026 ~19:00 UTC — Claude, לבקשת אפיק (לקראת סשן לילה). אין builder פעיל, אין migration באמצע; כל migration שמוזג — ב-Preview וב-Production (`20261026500000`, `20261026600000` נוספו היום). main ירוק לפני מיזוג #281 (הריצה של #281 עצמו על main — לבדוק בפתיחה).
+**נעצר:** 26.10.2026 ~19:00 UTC — Claude, לבקשת אפיק (לקראת סשן לילה). אין builder פעיל, אין migration באמצע; כל migration שמוזג — ב-Preview וב-Production (`20261026500000`, `20261026600000` נוספו היום). main ירוק (גם אחרי #281).
 **SRS:** 2.49 על main (2.48 = I9 §22, 2.49 = I12 ב') · **Production:** [nestly-blue.vercel.app](https://nestly-blue.vercel.app)
 - **חיבורים למסד (#276):** 2 ב-Preview, 1 ב-Production — בקוד לפי `VERCEL_ENV`; אין צורך במשתנה ב-Vercel (§23.1).
 - **ריצת Preview אחרי #276 ([40335511977](https://github.com/afikyermi/Nestly/actions/runs/40335511977), 14:00 UTC):** 36 עברו, 5 נכשלו, 4 לא רצו (לפני: 10/5/29). `acq`=0 בכל בקשה עם inflight≤2; עם 3–5 במקביל עדיין 1.6/3.8/11.7 ש׳. סיווג: `group-rules` — באג בטסט (OP-077 סופר אנשים; תוקן #278) · `journeys`, `help-offers-reviews` — Auth של Supabase ענה 422 אחרי 18–22 ש׳ (תשתית) · `marketplace`, `staff-rules` — כנראה איטיות (המתנה 10 ש׳ בזמן עומס על המסד; לא הוכח; `staff-rules` רושם עכשיו את תשובת ההחלטה). חדש: משפט בודד איטי על מסד כמעט ריק — `/api/promotions` s5 4–6 ש׳, `/api/search` s4 20 ש׳ (גם begin 1.7 ש׳ באותו רגע → כנראה עומס על המסד; ב-`.work/plans/performance-plan-HE.md`).
