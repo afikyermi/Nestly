@@ -7,6 +7,7 @@
 //   both:  400 invalid (not a uuid, or a body) · 401/503 session guard · 503 · 500 server_error. Any other method → 405 with Allow.
 // Nothing is returned on success. Logs carry a fixed line and the SQLSTATE, never a post or user id (NFR-PRIV-001, F3.9 c6).
 
+import { noteFailure } from '../lib/failure-report.js';
 import { hidePathParams } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
@@ -24,6 +25,7 @@ function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unkno
   const refused = replySessionRefused(reply, error);
   if (refused !== undefined) return refused;
   request.log.error({ sqlstate: readDatabaseFault(error)?.code }, 'hide change failed');
+  noteFailure(request, error);
   if (isConnectionFailure(error)) return reply.code(503).send({ error: 'unavailable' });
   const fault = hideFaultReply(error);
   if (fault !== undefined) return reply.code(fault.status).send({ error: fault.error });

@@ -11,8 +11,13 @@ if (!checked.ok) throw new Error(`preview-e2e config: ${checked.reason}`);
 // which sits in the runner's temp dir and is never uploaded.
 const reportFile = process.env['PREVIEW_E2E_REPORT_FILE'];
 
+// The flows that also run at 375x812 (performance plan N, T5, Afik 26.10): only those whose steps or assertions depend on the screen size.
+// Every other flow checks data, rules and other users' side, the same at any width, and runs at 1280x800 only. See e2e-preview/README.md.
+export const PHONE_FLOWS: readonly string[] = ['srs-audit'];
+
 // No video, trace or screenshots: they could capture credentials. retries 0: a retry would create another user and mask
-// a flake. One worker, so a project's user and its failed-attempt counter live in one process.
+// a flake. One worker, so a project's user and its failed-attempt counter live in one process. maxFailures 5 (T3): a sick Preview
+// stops the run instead of signing up users for its whole timeout; the pre-check (support/preflight.ts) stops it before any flow.
 export default defineConfig({
   testDir: '.',
   testMatch: '**/*.flow.ts',
@@ -20,13 +25,14 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
+  maxFailures: 5,
   timeout: 90_000,
   expect: { timeout: 10_000 },
-  globalSetup: './support/global-setup.ts',
+  globalSetup: ['./support/global-setup.ts', './support/preflight.ts'],
   reporter: reportFile === undefined || reportFile === '' ? 'list' : [['list'], ['json', { outputFile: reportFile }]],
   use: { baseURL: checked.base, video: 'off', trace: 'off', screenshot: 'off' },
   projects: [
-    { name: 'mobile-375', use: { ...devices['Desktop Chrome'], channel: 'chrome', viewport: { width: 375, height: 812 } } },
+    { name: 'mobile-375', testMatch: PHONE_FLOWS.map((flow) => `**/${flow}.flow.ts`), use: { ...devices['Desktop Chrome'], channel: 'chrome', viewport: { width: 375, height: 812 } } },
     { name: 'desktop-1280', use: { ...devices['Desktop Chrome'], channel: 'chrome', viewport: { width: 1280, height: 800 } } },
   ],
 });

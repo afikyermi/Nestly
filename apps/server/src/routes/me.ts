@@ -5,6 +5,7 @@
 //
 // Logs carry the status and the SQLSTATE, never the token, the ids or the error object (NFR-PRIV-001).
 
+import { noteFailure } from '../lib/failure-report.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client.js';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
@@ -67,6 +68,7 @@ async function me(request: FastifyRequest, reply: FastifyReply, deps: MeRouteDep
     if (refused !== undefined) return refused;
     const fault = readDatabaseFault(error);
     request.log.error({ sqlstate: fault?.code }, 'account state read failed');
+    noteFailure(request, error);
     if (isTransientFailure(error)) return reply.code(503).send({ error: 'unavailable' });
     return reply.code(500).send({ error: 'internal' });
   }

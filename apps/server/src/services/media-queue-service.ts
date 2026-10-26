@@ -1,7 +1,8 @@
 // The image approval queue (I5; Afik 20.10.2026, decisions-in-force.md §2; §3.2 CONTENT_MODERATE, the Admin always). The caller is
 // authenticated; each call is one identity transaction. Who sees the queue and who decides is the database's (media_assets_select_staff,
 // media_assets_update_staff, media_assets_update_guard); the decision is audited by the database in the same transaction (rule 18). A read
-// address is signed only for the queued images the caller's own read returned.
+// address is signed only for the queued images the caller's own read returned, fresh on every read (never reused: these are images under
+// review, and staff addresses are not kept).
 
 import { BLOCKING_LABELS, MEDIA_QUEUE_PAGE, type MediaDecision, type MediaQueueItem, type MatchDecision } from '@nestly/shared';
 import type { Database } from '../db/client.js';

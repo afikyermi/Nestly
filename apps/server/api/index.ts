@@ -5,7 +5,8 @@ import { withoutRewriteParam } from '../src/lib/vercel-rewrite.js';
 
 // Sentry only where SENTRY_DSN is set (Vercel Production and Preview); a no-op everywhere else (lib/error-monitoring.ts).
 const monitor = startErrorMonitor(process.env);
-const app = buildApp({ errorMonitor: monitor });
+// The signing keys are fetched now, in parallel with the instance's start, so the first request does not wait for them (lib/token-verifier.ts).
+const app = buildApp({ errorMonitor: monitor, prefetchSigningKeys: true });
 
 /** The longest the function waits for its answer to finish before flushing anyway (the answer itself is never delayed). */
 const RESPONSE_WAIT_MS = 10_000;

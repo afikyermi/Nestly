@@ -20,6 +20,7 @@ let counts: { unreadCount: number; chatUnread: number; latestId: string | null }
 let items: ReturnType<typeof item>[];
 let calls: string[];
 let countsStatus: number;
+let listStatus: number;
 
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
@@ -29,12 +30,14 @@ beforeEach(() => {
   items = [item(A)];
   calls = [];
   countsStatus = 200;
+  listStatus = 200;
   vi.stubGlobal(
     'fetch',
     vi.fn((input: RequestInfo | URL) => {
       const path = typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
       calls.push(path);
       if (path === '/api/notifications/counts') return Promise.resolve(countsStatus === 200 ? reply(200, counts) : reply(countsStatus, { error: 'forbidden' }));
+      if (listStatus !== 200) return Promise.resolve(reply(listStatus, { error: 'internal' }));
       return Promise.resolve(reply(200, { items, unreadCount: items.filter((i) => !i.isRead).length, nextCursor: null }));
     }),
   );
@@ -123,5 +126,29 @@ describe('[AC-040] the light bell poll', () => {
     expect(screen.getByTestId('unread').textContent).toBe('unavailable');
     await tick();
     expect(countCalls()).toBe(1);
+  });
+});
+
+describe('[plan א ש.5] a failing list backs off; the counters keep their 30 s', () => {
+  it('after a failed list the background asks again after 60 s, then 120 s; a success returns to every change', async () => {
+    listStatus = 500;
+    render(wrap(<Probe />));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(listCalls()).toBe(1); // the first load failed
+    expect(screen.getByTestId('unread').textContent).toBe('failed');
+    await tick(); // 30 s: inside the 60 s wait
+    expect(countCalls()).toBe(1);
+    expect(listCalls()).toBe(1);
+    await tick(); // 60 s: asked again, fails again
+    expect(listCalls()).toBe(2);
+    await tick();
+    await tick();
+    await tick(); // 90–150 s: inside the 120 s wait
+    expect(listCalls()).toBe(2);
+    expect(countCalls()).toBe(5); // the counters never waited
+    listStatus = 200;
+    await tick(); // 180 s: the wait is over
+    expect(listCalls()).toBe(3);
+    expect(screen.getByTestId('unread').textContent).toBe('1');
   });
 });
