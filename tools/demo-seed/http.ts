@@ -2,7 +2,7 @@
 // the publishable key, exactly what the web's own Auth client does). Both take `fetch` from the caller, so the tests run without a
 // network. Nothing here logs a body, a token, an email or a password: a log line names the method, the path and the status.
 
-export type Fetch = (input: string, init: { method: string; headers: Record<string, string>; body?: string | Uint8Array<ArrayBuffer> }) => Promise<{
+export type Fetch = (input: string, init: { method: string; headers: Record<string, string>; body?: string | Uint8Array<ArrayBuffer>; redirect: 'manual' }) => Promise<{
   status: number;
   headers: { get(name: string): string | null };
   text(): Promise<string>;
@@ -58,13 +58,17 @@ export class Api {
     for (let attempt = 0; ; attempt += 1) {
       let result: ApiResult | null = null;
       try {
-        const init = payload === undefined ? { method, headers } : { method, headers, body: payload };
+        // redirect manual: a 3xx (a login wall, a moved host) is answered as it is and fails the step; nothing follows it elsewhere.
+        const init = payload === undefined ? { method, headers, redirect: 'manual' as const } : { method, headers, body: payload, redirect: 'manual' as const };
         const response = await this.#options.fetch(`${this.#options.baseUrl}${path}`, init);
         result = { status: response.status, body: parseJson(await response.text()) };
       } catch {
         result = null;
       }
-      const retryable = result === null || result.status === 429 || result.status === 503;
+      // A 429 was refused before anything was written: any call may repeat it. A 503 or a lost answer may come after a write, so only a
+      // call that is safe to repeat (GET, PUT, DELETE) is retried then; a POST is not, and its step fails instead of writing twice.
+      const idempotent = method === 'GET' || method === 'PUT' || method === 'DELETE';
+      const retryable = result?.status === 429 || (idempotent && (result === null || result.status === 503));
       const delay = delays[attempt];
       if (!retryable || delay === undefined) return result ?? { status: 0, body: null };
       await this.#options.sleep(delay);
@@ -113,6 +117,7 @@ export class Auth {
         method: 'POST',
         headers: { apikey: this.#options.publishableKey, 'content-type': 'application/json' },
         body: JSON.stringify(body),
+        redirect: 'manual',
       });
       const answer = { status: response.status, body: parseJson(await response.text()) };
       const delay = delays[attempt];

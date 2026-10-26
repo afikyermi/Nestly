@@ -1,9 +1,12 @@
 // Runs the time shift (shift.ts) in one transaction over an injected database: the preflight, the demo accounts' ids from their emails,
-// the user triggers of each touched table switched off for the transaction only (the immutable-created_at guards would refuse the move;
-// ALTER TABLE is transactional, so no other session ever sees them off), the UPDATEs, and commit, or rollback in the dry run.
+// then the UPDATEs table by table. Each table is tried first with its triggers on, inside a savepoint; only when a guard refuses the move
+// (the immutable-created_at guards raise 42501 or P0001) is that table's savepoint rolled back and its user triggers switched off for this
+// transaction alone (ALTER TABLE is transactional: no other session ever sees them off) and the table done again. Then commit, or
+// rollback in the dry run. A statement that should move a row and moved none is flagged in the dry run and stops an apply (rollback),
+// unless it is optional (shift.ts) or its label is allow-listed.
 // A log line is a label of content keys and a row count; never an id, an email or a URL.
 import type { Content } from './content.ts';
-import { buildShift, SHIFT_COLUMNS, touchedTables } from './shift.ts';
+import { buildShift, SHIFT_COLUMNS, type Statement, touchedTables } from './shift.ts';
 
 export interface ShiftTx {
   /** One statement; `count` is the number of rows it changed (or returned). */
@@ -23,6 +26,8 @@ export interface ShiftInput {
   anchor: Date;
   apply: boolean;
   log: (line: string) => void;
+  /** Labels (or label prefixes) whose 0 rows do not stop an apply: content the product refused at seed time. */
+  allowEmpty?: readonly string[];
 }
 
 export interface ShiftReport {
@@ -31,15 +36,42 @@ export interface ShiftReport {
   statements: number;
   rows: number;
   missingPersonas: string[];
+  /** Required statements that moved no row. */
+  empty: string[];
+  /** Tables whose triggers had to be switched off. */
+  triggersOff: string[];
 }
 
 class Rollback extends Error {}
+
+const GUARD_CODES = new Set(['42501', 'P0001']);
+
+async function runAll(tx: ShiftTx, statements: readonly Statement[]): Promise<number[]> {
+  const counts: number[] = [];
+  for (const s of statements) counts.push((await tx.run(s.text, s.params)).count);
+  return counts;
+}
+
+/** The table's statements with its triggers on, in a savepoint: the counts, or null when a guard refused (the savepoint rolled back). */
+async function tryTable(tx: ShiftTx, statements: readonly Statement[]): Promise<number[] | null> {
+  await tx.run('savepoint demo_shift_table');
+  try {
+    const counts = await runAll(tx, statements);
+    await tx.run('release savepoint demo_shift_table');
+    return counts;
+  } catch (error) {
+    const code: unknown = typeof error === 'object' && error !== null ? Reflect.get(error, 'code') : undefined;
+    if (typeof code !== 'string' || !GUARD_CODES.has(code)) throw error;
+    await tx.run('rollback to savepoint demo_shift_table');
+    return null;
+  }
+}
 class Refused extends Error {}
 
 const text = (value: unknown): string => (typeof value === 'string' ? value : '');
 
 export async function runShift(input: ShiftInput): Promise<ShiftReport> {
-  const report: ShiftReport = { ok: false, statements: 0, rows: 0, missingPersonas: [] };
+  const report: ShiftReport = { ok: false, statements: 0, rows: 0, missingPersonas: [], empty: [], triggersOff: [] };
   try {
     await input.db.transaction(async (tx) => {
       await tx.run("set local lock_timeout = '10s'");
@@ -70,14 +102,29 @@ export async function runShift(input: ShiftInput): Promise<ShiftReport> {
       for (const k of report.missingPersonas) input.log(`no account yet for ${k}: its rows are not moved`);
 
       const statements = buildShift(input.content, ids, input.anchor);
-      for (const table of touchedTables(statements)) await tx.run(`alter table nestly.${table} disable trigger user`);
-      for (const s of statements) {
-        const result = await tx.run(s.text, s.params);
-        report.statements += 1;
-        report.rows += result.count;
-        input.log(`${String(result.count).padStart(4)}  ${s.label}`);
+      const allowed = (label: string) => (input.allowEmpty ?? []).some((a) => a !== '' && label.startsWith(a));
+      for (const table of touchedTables(statements)) {
+        const mine = statements.filter((s) => s.table === table);
+        let counts = await tryTable(tx, mine);
+        if (counts === null) {
+          await tx.run(`alter table nestly.${table} disable trigger user`);
+          counts = await runAll(tx, mine);
+          await tx.run(`alter table nestly.${table} enable trigger user`);
+          report.triggersOff.push(table);
+          input.log(`triggers off for nestly.${table} inside this transaction (a guard refused the move)`);
+        }
+        mine.forEach((s, i) => {
+          const count = counts?.[i] ?? 0;
+          report.statements += 1;
+          report.rows += count;
+          const flag = count === 0 && s.optional !== true ? (allowed(s.label) ? '  (0 rows, allow-listed)' : '  <- 0 ROWS') : '';
+          if (count === 0 && s.optional !== true && !allowed(s.label)) report.empty.push(s.label);
+          input.log(`${String(count).padStart(4)}  ${s.label}${flag}`);
+        });
       }
-      for (const table of touchedTables(statements)) await tx.run(`alter table nestly.${table} enable trigger user`);
+      if (input.apply && report.empty.length > 0) {
+        throw new Refused(`${report.empty.length} statements moved no row (marked "0 ROWS" above); nothing was changed. Allow-list them only if that content is meant to be missing`);
+      }
       if (!input.apply) throw new Rollback('dry run');
     });
     report.ok = true;

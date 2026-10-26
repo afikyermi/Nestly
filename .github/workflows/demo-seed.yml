@@ -8,7 +8,8 @@
 #   plan           the dry run: the content is checked and every step printed. No secret, no network.
 #   seed           creates the content (accounts first; DEMO_ALLOW_SIGNUP creates missing ones). Safe to run again: skips what exists.
 #   shift-dry-run  the time shift, rolled back: prints the row count per statement.
-#   shift          the time shift, committed. Run once, right after the seed.
+#   shift          the time shift, committed. Run once, right after the seed, off-peak: a table whose guard refuses the move is
+#                  locked (ALTER TABLE) for the few seconds of the transaction. A statement that moves no row stops it (rollback).
 #   stories        the Stories only - on the demo day itself (a Story expires after 24 hours, FR-FEED-008).
 #
 # Secrets and variables (Afik creates them; this file never prints one):
@@ -39,9 +40,13 @@ on:
         type: string
         default: ""
       allow_signup:
-        description: "seed: create the demo accounts that do not exist yet"
+        description: "seed: create the demo accounts that do not exist yet (tick it for the first seed only)"
         type: boolean
-        default: true
+        default: false
+      allow_empty:
+        description: "shift: comma-separated statement labels whose 0 rows may not stop the apply (content the product refused)"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -102,6 +107,7 @@ jobs:
         if: inputs.step == 'shift-dry-run' || inputs.step == 'shift'
         env:
           SHIFT_MODE: ${{ inputs.step == 'shift' && 'apply' || 'dry-run' }}
+          DEMO_SHIFT_ALLOW_EMPTY: ${{ inputs.allow_empty }}
           DEMO_DB_ADMIN_URL: ${{ secrets.PREVIEW_DB_ADMIN_URL }}
           DEMO_ACCOUNTS: ${{ secrets.DEMO_ACCOUNTS }}
         run: node tools/demo-seed/shift-cli.ts preview "$SHIFT_MODE"
@@ -135,6 +141,7 @@ jobs:
         if: inputs.step == 'shift-dry-run' || inputs.step == 'shift'
         env:
           SHIFT_MODE: ${{ inputs.step == 'shift' && 'apply' || 'dry-run' }}
+          DEMO_SHIFT_ALLOW_EMPTY: ${{ inputs.allow_empty }}
           DEMO_DB_ADMIN_URL: ${{ secrets.PRODUCTION_DB_ADMIN_URL }}
           DEMO_ACCOUNTS: ${{ secrets.DEMO_ACCOUNTS }}
         run: node tools/demo-seed/shift-cli.ts production "$SHIFT_MODE"

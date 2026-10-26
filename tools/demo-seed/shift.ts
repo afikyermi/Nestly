@@ -9,6 +9,8 @@ export interface Statement {
   table: string;
   /** What the statement moves (keys only), for the log. */
   label: string;
+  /** A row the seed may legitimately not have written (a friends chat has no request, an opening message lives in its request): 0 rows is fine. */
+  optional?: boolean;
   text: string;
   params: string[];
 }
@@ -35,7 +37,7 @@ export const SHIFT_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   messages: ['conversation_id', 'sender_id', 'body', 'created_at'],
   professional_reviews: ['reviewer_id', 'professional_id', 'created_at'],
   support_requests: ['id', 'user_id', 'topic', 'created_at', 'updated_at'],
-  support_messages: ['support_request_id', 'created_at'],
+  support_messages: ['support_request_id', 'author_kind', 'created_at'],
   reports: ['reporter_id', 'post_id', 'comment_id', 'reported_user_id', 'created_at'],
 };
 
@@ -64,6 +66,9 @@ export function buildShift(content: Content, ids: ReadonlyMap<string, string>, a
   const id = (persona: string): string | undefined => ids.get(persona);
   const add = (table: string, label: string, owner: string | undefined, text: string, ...rest: string[]) => {
     if (owner !== undefined) out.push({ table, label, text, params: [owner, ...rest] });
+  };
+  const addOptional = (table: string, label: string, owner: string | undefined, text: string, ...rest: string[]) => {
+    if (owner !== undefined) out.push({ table, label, text, params: [owner, ...rest], optional: true });
   };
   const allIds = [...ids.values()];
 
@@ -132,12 +137,15 @@ export function buildShift(content: Content, ids: ReadonlyMap<string, string>, a
       }
     }
   }
+  // The posts of the demo accounts, named or anonymous ($1: their ids). A like is moved only when both its owner and its target are demo.
+  const DEMO_POSTS = 'select id from nestly.posts where author_id = any($1::uuid[]) union select post_id from nestly.post_authors where author_id = any($1::uuid[])';
   if (allIds.length > 0) {
     // A like lands a little after what it likes (20 minutes to two days), never after the anchor. Only demo users' likes.
     out.push({
       table: 'reactions',
       label: 'likes of the demo users',
-      text: `update nestly.reactions r set created_at = least($2::timestamptz, coalesce((select created_at from nestly.posts where id = r.post_id), (select created_at from nestly.comments where id = r.comment_id), r.created_at) + make_interval(mins => (20 + mod(abs(hashtext(r.id::text)::bigint), 2860))::int)) where r.id in (select reaction_id from nestly.reaction_owners where user_id = any($1::uuid[]))`,
+      text: `update nestly.reactions r set created_at = least($2::timestamptz, coalesce((select created_at from nestly.posts where id = r.post_id), (select created_at from nestly.comments where id = r.comment_id), r.created_at) + make_interval(mins => (20 + mod(abs(hashtext(r.id::text)::bigint), 2860))::int)) where r.id in (select reaction_id from nestly.reaction_owners where user_id = any($1::uuid[])) and (r.post_id in (${DEMO_POSTS}) or r.comment_id in (select id from nestly.comments where author_id = any($1::uuid[]) or post_id in (${DEMO_POSTS})))`,
+      optional: true,
       params: [`{${allIds.join(',')}}`, anchor.toISOString()],
     });
   }
@@ -149,24 +157,25 @@ export function buildShift(content: Content, ids: ReadonlyMap<string, string>, a
       "update nestly.marketplace_listings set created_at = $3, updated_at = $3, expires_at = $3::timestamptz + interval '60 days', sold_at = case when status = 'sold' then $4::timestamptz else sold_at end where owner_id = $1 and title = $2",
       l.title, at(anchor, l.ageHours, l.key), at(anchor, Math.max(l.ageHours - 72, 1), l.key));
   }
-  const thread = (a: string, b: string, messages: readonly { from: string; ageHours: number; text: string }[], label: string) => {
+  // firstOptional: the opening text may be stored with its request (a chat request, a listing contact) rather than as a message.
+  const thread = (a: string, b: string, messages: readonly { from: string; ageHours: number; text: string }[], label: string, firstOptional: boolean) => {
     const ia = id(a);
     const ib = id(b);
     if (ia === undefined || ib === undefined) return;
-    for (const m of messages) {
+    messages.forEach((m, i) => {
       const sender = id(m.from);
       const other = m.from === a ? ib : ia;
-      add('messages', `${label} message`, sender,
+      (i === 0 && firstOptional ? addOptional : add)('messages', `${label} message ${i + 1}`, sender,
         'update nestly.messages set created_at = $4 where sender_id = $1 and body = $3 and conversation_id in (select id from nestly.conversations where (user_a = $1 and user_b = $2) or (user_a = $2 and user_b = $1))',
         other, m.text, at(anchor, m.ageHours, m.text));
-    }
-    add('conversations', `${label} conversation`, ia,
+    });
+    addOptional('conversations', `${label} conversation`, ia,
       "update nestly.conversations c set created_at = coalesce((select min(m.created_at) from nestly.messages m where m.conversation_id = c.id) - interval '1 minute', c.created_at) where (user_a = $1 and user_b = $2) or (user_a = $2 and user_b = $1)",
       ib);
   };
   for (const c of content.contacts) {
     const owner = content.listings.find((l) => l.key === c.listing)?.owner;
-    if (owner !== undefined) thread(c.from, owner, [{ from: c.from, ageHours: c.ageHours, text: c.text }, ...c.replies], `contact ${c.listing}`);
+    if (owner !== undefined) thread(c.from, owner, [{ from: c.from, ageHours: c.ageHours, text: c.text }, ...c.replies], `contact ${c.listing}`, true);
   }
   for (const h of content.helpOffers) {
     const post = content.posts.find((p) => p.key === h.post);
@@ -175,7 +184,7 @@ export function buildShift(content: Content, ids: ReadonlyMap<string, string>, a
     add('outreach_requests', `offer ${h.professional} on ${h.post}`, id(h.professional),
       `update nestly.outreach_requests set created_at = $4, responded_at = case when responded_at is null then null else $5::timestamptz end where professional_id = $1 and post_id = ${postIdSql(post, '$2', '$3')}`,
       author, post.body, at(anchor, h.ageHours, h.post), at(anchor, h.acceptAgeHours ?? h.ageHours, h.post));
-    thread(post.author, h.professional, h.conversation ?? [], `offer ${h.post}`);
+    thread(post.author, h.professional, h.conversation ?? [], `offer ${h.post}`, false);
     const proId = id(h.professional);
     if (h.review !== undefined && proId !== undefined) add('professional_reviews', `review ${post.author}-${h.professional}`, author, 'update nestly.professional_reviews set created_at = $3 where reviewer_id = $1 and professional_id = $2', proId, at(anchor, h.review.ageHours, h.post));
   }
@@ -183,17 +192,17 @@ export function buildShift(content: Content, ids: ReadonlyMap<string, string>, a
     const [first] = c.messages;
     const to = id(c.to);
     if (first === undefined || to === undefined) continue;
-    add('chat_requests', `chat request ${c.from}-${c.to}`, id(c.from),
+    addOptional('chat_requests', `chat request ${c.from}-${c.to}`, id(c.from),
       'update nestly.chat_requests set created_at = $3, responded_at = case when responded_at is null then null else $4::timestamptz end where requester_id = $1 and target_id = $2',
       to, at(anchor, first.ageHours, first.text), at(anchor, c.acceptAgeHours ?? first.ageHours, c.to));
-    thread(c.from, c.to, c.messages, `chat ${c.from}-${c.to}`);
+    thread(c.from, c.to, c.messages, `chat ${c.from}-${c.to}`, true);
     if (c.review !== undefined) add('professional_reviews', `review ${c.from}-${c.to}`, id(c.from), 'update nestly.professional_reviews set created_at = $3 where reviewer_id = $1 and professional_id = $2', to, at(anchor, c.review.ageHours, c.to));
   }
   content.support.forEach((s, i) => {
     const when = at(anchor, 20 + 26 * i, s.persona);
     add('support_requests', `support ${s.persona}`, id(s.persona), 'update nestly.support_requests set created_at = $3, updated_at = $3 where user_id = $1 and topic = $2', s.topic, when);
-    add('support_messages', `support ${s.persona} message`, id(s.persona),
-      'update nestly.support_messages set created_at = $3 where support_request_id in (select id from nestly.support_requests where user_id = $1 and topic = $2) and created_at > $3::timestamptz', s.topic, when);
+    addOptional('support_messages', `support ${s.persona} message`, id(s.persona),
+      "update nestly.support_messages set created_at = $3 where author_kind = 'user' and support_request_id in (select id from nestly.support_requests where user_id = $1 and topic = $2) and created_at > $3::timestamptz", s.topic, when);
   });
   for (const r of content.userReports) {
     const target = id(r.target);

@@ -36,7 +36,8 @@ export function snippetMatches(snippet: string, body: string): boolean {
 /** Finds `body` written by `actor` through Search (the product has no "my posts" list); null when there is none. */
 async function searchOwn(ctx: Ctx, actor: string, body: string, anonymous: boolean): Promise<string | null> {
   const result = await ctx.call(actor, 'POST', '/api/search', { q: searchText(body), type: 'posts' });
-  if (result.status !== 200) return null;
+  // A failed search is a failure, never "not there": reading it as absent would write the post a second time.
+  if (result.status !== 200) throw new StepError(`search: HTTP ${result.status}`);
   const me = ctx.userId(actor);
   for (const item of list(result.body, 'posts')) {
     const authorId = stringField(item, 'authorId');

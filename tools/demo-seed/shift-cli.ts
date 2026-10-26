@@ -3,7 +3,8 @@
 //
 //   node tools/demo-seed/shift-cli.ts <preview|production> <dry-run|apply>
 //        env: DEMO_DB_ADMIN_URL (postgres of that project, session pooler), DEMO_ACCOUNTS (the emails are read; passwords are not used),
-//             DEMO_SHIFT_ANCHOR (optional ISO time the ages count back from; default now)
+//             DEMO_SHIFT_ANCHOR (optional ISO time the ages count back from; default now),
+//             DEMO_SHIFT_ALLOW_EMPTY (optional, comma-separated statement labels or prefixes whose 0 rows may not stop an apply)
 //
 // dry-run runs every statement and rolls back, printing the row count per statement. It never prints the URL, an id or an email.
 import postgres from 'postgres';
@@ -48,7 +49,8 @@ const db: ShiftDb = {
 };
 
 const emails = new Map([...accounts.accounts].map(([k, a]) => [k, a.email]));
-const report = await runShift({ db, content, emails, anchor, apply: mode === 'apply', log });
+const allowEmpty = (process.env['DEMO_SHIFT_ALLOW_EMPTY'] ?? '').split(',').map((s) => s.trim()).filter((s) => s !== '');
+const report = await runShift({ db, content, emails, anchor, apply: mode === 'apply', log, allowEmpty });
 await sql.end({ timeout: 5 });
 log(`demo-shift: ${report.statements} statements, ${report.rows} rows${mode === 'apply' ? '' : ' (rolled back)'}`);
 if (!report.ok) stop(report.reason ?? 'failed');

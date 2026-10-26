@@ -4,6 +4,12 @@ import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { TEST_EMAIL_REGEX } from '../../e2e-preview/support/test-user.ts';
 
+/**
+ * The one shape a demo account email may have (review of #279): a Gmail username cannot contain "-", so no real mailbox matches, and the
+ * seed and the shift never act on an account outside it. It is not the preview-e2e shape, so the Preview cleanup never deletes one.
+ */
+export const DEMO_EMAIL_REGEX = /^nestly-demo-[a-z0-9]+@gmail.com$/;
+
 export interface DemoAccount {
   email: string;
   password: string;
@@ -41,6 +47,7 @@ export function parseAccounts(raw: string | undefined, personaKeys: readonly str
   for (const [k, a] of accounts) {
     const email = a.email.toLowerCase();
     if (TEST_EMAIL_REGEX.test(email)) return { ok: false, reason: `DEMO_ACCOUNTS ${k}: the email has the preview-e2e test-user shape` };
+    if (!DEMO_EMAIL_REGEX.test(email)) return { ok: false, reason: `DEMO_ACCOUNTS ${k}: the email is not of the demo shape nestly-demo-<key>@gmail.com` };
     const other = emails.get(email);
     if (other !== undefined) return { ok: false, reason: `DEMO_ACCOUNTS ${other} and ${k} share an email` };
     emails.set(email, k);

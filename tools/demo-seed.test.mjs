@@ -166,6 +166,9 @@ test('DEMO_ACCOUNTS: every persona, no stranger, no shared email, never the prev
   assert.match(parseAccounts(JSON.stringify({ ...good, dana: { ...good.dana, email: good.roni.email } }), keys).reason, /share an email/);
   const e2e = { ...good, dana: { ...good.dana, email: 'nestly-e2e-123-1-0123456789abcdef@gmail.com' } };
   assert.match(parseAccounts(JSON.stringify(e2e), keys).reason, /test-user shape/);
+  for (const email of ['afik.yermi@gmail.com', 'nestly-demo-dana@example.com', 'x.nestly-demo-dana@gmail.com', 'nestly-demo-da_na@gmail.com']) {
+    assert.match(parseAccounts(JSON.stringify({ ...good, dana: { ...good.dana, email } }), keys).reason, /not of the demo shape/, email);
+  }
   const bad = parseAccounts(JSON.stringify({ ...good, dana: { email: 'x', password: 'short' } }), keys);
   assert.equal(bad.ok, false);
   assert.ok(!bad.reason.includes(good.dana.password));
@@ -200,6 +203,7 @@ function fakeProduct() {
   let n = 0;
   const reply = (status, body) => ({ status, headers: { get: () => null }, text: async () => (body === undefined ? '' : JSON.stringify(body)) });
   const fetch = async (url, init) => {
+    assert.equal(init.redirect, 'manual', 'a redirect is never followed');
     const u = new URL(url);
     const body = typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
     calls.push(`${init.method} ${u.pathname}`);
@@ -271,7 +275,7 @@ test('without sign-up a missing account fails, and every later step of that pers
   assert.equal(product.users.size, 0);
 });
 
-test('the API client retries a 429 and a network failure, then gives the answer; no retry for a 4xx', async () => {
+test('the API client: a read retries a 429 and a network failure; a POST retries only a 429; a 3xx or a 4xx is never followed or retried', async () => {
   let n = 0;
   const waits = [];
   const fetch = async () => {
@@ -281,8 +285,22 @@ test('the API client retries a 429 and a network failure, then gives the answer;
     return { status: 201, headers: { get: () => null }, text: async () => '{"id":"x"}' };
   };
   const api = new Api({ baseUrl: 'https://h', fetch, sleep: async (ms) => void waits.push(ms), retryDelaysMs: [1, 2, 3] });
-  assert.deepEqual(await api.call('t', 'POST', '/api/posts', {}), { status: 201, body: { id: 'x' } });
+  assert.deepEqual(await api.call('t', 'GET', '/api/me'), { status: 201, body: { id: 'x' } });
   assert.deepEqual(waits, [1, 2]);
+  const once = (status) => {
+    let calls = 0;
+    const f = async () => ((calls += 1), { status, headers: { get: () => null }, text: async () => '' });
+    return { f, count: () => calls };
+  };
+  for (const status of [503, 302]) {
+    const probe = once(status);
+    const post = new Api({ baseUrl: 'https://h', fetch: probe.f, sleep: async () => undefined, retryDelaysMs: [1, 2] });
+    assert.equal((await post.call('t', 'POST', '/api/posts', {})).status, status);
+    assert.equal(probe.count(), 1, `a POST answered ${status} is not sent again`);
+  }
+  const limited = once(429);
+  await new Api({ baseUrl: 'https://h', fetch: limited.f, sleep: async () => undefined, retryDelaysMs: [1, 2] }).call('t', 'POST', '/x', {});
+  assert.equal(limited.count(), 3);
   const four = new Api({ baseUrl: 'https://h', fetch: async () => ({ status: 400, headers: { get: () => null }, text: async () => '' }), sleep: async () => assert.fail('no retry') });
   assert.equal((await four.call('t', 'GET', '/x')).status, 400);
 });
@@ -317,12 +335,16 @@ test('the shift: every statement is bound to a demo account ($1), touches known 
   const expected = NOW.getTime() - 118 * 3600 * 1000;
   assert.ok(at <= expected && at > expected - 41 * 60 * 1000);
   assert.ok(!statements.some((s) => /stories|tracker_events/.test(s.text)), 'Stories and tracker events are never moved');
+  for (const s of statements.filter((x) => x.table === 'support_messages')) assert.match(s.text, /author_kind = 'user'/);
+  const likes = statements.find((s) => s.table === 'reactions');
+  assert.ok(likes.text.includes('and (r.post_id in (select id from nestly.posts where author_id = any($1::uuid[])'), 'likes on demo posts only');
   const without = buildShift(content, new Map([...ids].filter(([k]) => k !== 'michal')), NOW);
   assert.ok(!without.some((s) => s.label === 'post michal-sleep-question'));
   assert.ok(touchedTables(statements).includes('posts'));
 });
 
-function fakeDb({ who = 'postgres', bypass = true, dropColumn = null, staffFor = null } = {}) {
+function fakeDb({ who = 'postgres', bypass = true, dropColumn = null, staffFor = null, zeroFor = null, guardOn = null } = {}) {
+  const triggersOff = new Set();
   const log = [];
   const db = {
     async transaction(work) {
@@ -341,6 +363,15 @@ function fakeDb({ who = 'postgres', bypass = true, dropColumn = null, staffFor =
               const rows = emails.map((email, i) => ({ id: `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`, email, kind: 'regular', staff: email === staffFor }));
               return { count: rows.length, rows };
             }
+            const m = /^alter table nestly\.(\w+) (disable|enable) trigger user$/.exec(text);
+            if (m) {
+              if (m[2] === 'disable') triggersOff.add(m[1]);
+              else triggersOff.delete(m[1]);
+              return { count: 0, rows: [] };
+            }
+            const table = /^update nestly\.(\w+)/.exec(text)?.[1];
+            if (table !== undefined && table === guardOn && !triggersOff.has(table)) throw Object.assign(new Error('guard'), { code: '42501' });
+            if (table !== undefined && zeroFor !== null && text.startsWith(`update nestly.${zeroFor} `)) return { count: 0, rows: [] };
             return { count: 1, rows: [] };
           },
         });
@@ -365,10 +396,33 @@ test('the shift run: dry run rolls back, apply commits, triggers off only inside
   const lines = [];
   assert.equal((await runShift({ db: applied.db, content, emails, anchor: NOW, apply: true, log: (l) => lines.push(l) })).ok, true);
   assert.equal(applied.log.at(-1), 'commit');
-  const disables = applied.log.filter((l) => l.startsWith('alter table') && l.endsWith('disable')).length;
-  const enables = applied.log.filter((l) => l.startsWith('alter table') && l.endsWith('enable')).length;
-  assert.ok(disables > 0 && disables === enables);
+  assert.equal(applied.log.filter((l) => l.startsWith('alter table')).length, 0, 'no guard refused: no trigger is switched off');
   assert.ok(!lines.join('\n').includes('@'), 'no email in the log');
+});
+
+test('the shift switches triggers off only on a table whose guard refuses the move, and only inside the transaction', async () => {
+  const guarded = fakeDb({ guardOn: 'friendships' });
+  const report = await runShift({ db: guarded.db, content, emails, anchor: NOW, apply: true, log: silent });
+  assert.equal(report.ok, true);
+  assert.deepEqual(report.triggersOff, ['friendships']);
+  assert.ok(guarded.log.includes('rollback to savepoint demo_shift_table'));
+  assert.equal(guarded.log.at(-1), 'commit');
+});
+
+test('a statement that moves no row is flagged in the dry run, stops an apply, and passes only when allow-listed', async () => {
+  const lines = [];
+  const dry = await runShift({ db: fakeDb({ zeroFor: 'professional_reviews' }).db, content, emails, anchor: NOW, apply: false, log: (l) => lines.push(l) });
+  assert.equal(dry.ok, true);
+  assert.ok(dry.empty.length >= 4 && lines.some((l) => l.includes('0 ROWS')));
+  const applied = fakeDb({ zeroFor: 'professional_reviews' });
+  const refused = await runShift({ db: applied.db, content, emails, anchor: NOW, apply: true, log: silent });
+  assert.match(refused.reason, /moved no row/);
+  assert.equal(applied.log.at(-1), 'rollback');
+  const allowed = fakeDb({ zeroFor: 'professional_reviews' });
+  assert.equal((await runShift({ db: allowed.db, content, emails, anchor: NOW, apply: true, log: silent, allowEmpty: ['review '] })).ok, true);
+  assert.equal(allowed.log.at(-1), 'commit');
+  const optional = await runShift({ db: fakeDb({ zeroFor: 'chat_requests' }).db, content, emails, anchor: NOW, apply: true, log: silent });
+  assert.equal(optional.ok, true, 'a friends chat has no request: optional');
 });
 
 test('the shift refuses: not postgres with BYPASSRLS, a changed schema, or a staff account among the emails', async () => {
