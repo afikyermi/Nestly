@@ -50,12 +50,34 @@ function databaseClaims(identity: Identity): string {
   });
 }
 
-/** SET LOCAL ROLE authenticated, then the claims and the guard in one statement (the subquery runs first: OFFSET 0). */
+/**
+ * The transaction-local settings that the `authenticated` policies (and the functions they call) read, set to '' when the
+ * transaction begins (26.10, performance plan ז'). A setting never set on a connection reads NULL, and `NULL = 'on' AND (select
+ * has_permission(…))` still evaluates the permission check on every row; '' makes the comparison false, so the check is skipped.
+ * Every reader treats NULL and '' alike — `= 'on'`, `id::text = …`, `coalesce(…, '') = ''`, `nullif(…, '')`, the uuid pattern of
+ * profile_view_target() — so no permission changes; a path that needs one sets it later in the same transaction (staff_view 'on').
+ */
+const UNSET_SETTINGS = [
+  'nestly.staff_view',
+  'nestly.analytics_view',
+  'nestly.own_delete',
+  'nestly.reveal_user',
+  'nestly.search_scope',
+  'nestly.profile_view_target',
+  'nestly.block_ending',
+] as const;
+
+const unsetSettings = sql.raw(UNSET_SETTINGS.map((name) => `, pg_catalog.set_config('${name}', '', true)`).join(''));
+
+/**
+ * SET LOCAL ROLE authenticated, then the claims, the empty settings and the guard in one statement (the subquery runs first:
+ * OFFSET 0; set_config is volatile, so its unused columns are still computed).
+ */
 async function enter(tx: IdentityTx, identity: Identity): Promise<SessionGuard> {
   await tx.execute(sql`set local role authenticated`);
   const result = await tx.execute(
     sql`select nestly.session_guard() as guard
-        from (select pg_catalog.set_config('request.jwt.claims', ${databaseClaims(identity)}, true) offset 0) as claims`,
+        from (select pg_catalog.set_config('request.jwt.claims', ${databaseClaims(identity)}, true)${unsetSettings} offset 0) as claims`,
   );
   const [row] = guardRows.parse(result);
   if (row === undefined) throw new Error('the session guard returned no row');
