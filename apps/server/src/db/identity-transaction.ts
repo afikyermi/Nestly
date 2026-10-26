@@ -106,19 +106,22 @@ export async function inIdentityTransaction<T>(
   work: (tx: IdentityTx, guard: ProceedGuard) => Promise<T>,
   options: IdentityTransactionOptions = {},
 ): Promise<T> {
-  const began = timeTransaction(); // Server-Timing on a Vercel deployment (lib/server-timing.ts); a no-op otherwise
-  return database.db.transaction(async (tx) => {
-    const settled = began();
-    try {
-      // Before any query takes the snapshot (the role and the claims are set after it): one snapshot for everything the work reads.
-      if (options.isolationLevel === 'repeatable read') await tx.execute(sql`set transaction isolation level repeatable read`);
-      const guard = await enter(tx, identity);
-      if (guard !== 'ok' && guard !== 'must_set') throw new SessionRefused(guard);
-      return await work(tx, guard);
-    } finally {
-      settled();
-    }
-  });
+  const timer = timeTransaction(database.clock); // Server-Timing on a Vercel deployment (lib/server-timing.ts); a no-op otherwise
+  return database.db
+    .transaction(async (tx) => {
+      timer.began();
+      try {
+        // Before any query takes the snapshot (the role and the claims are set after it): one snapshot for everything the work reads.
+        if (options.isolationLevel === 'repeatable read') await tx.execute(sql`set transaction isolation level repeatable read`);
+        const guard = await enter(tx, identity);
+        timer.entered();
+        if (guard !== 'ok' && guard !== 'must_set') throw new SessionRefused(guard);
+        return await work(tx, guard);
+      } finally {
+        timer.settled();
+      }
+    })
+    .finally(() => timer.freed());
 }
 
 /**
@@ -131,13 +134,17 @@ export async function inLinkCheckTransaction<T>(
   identity: Identity,
   work: (tx: IdentityTx, guard: SessionGuard) => Promise<T>,
 ): Promise<T> {
-  const began = timeTransaction();
-  return database.db.transaction(async (tx) => {
-    const settled = began();
-    try {
-      return await work(tx, await enter(tx, identity));
-    } finally {
-      settled();
-    }
-  });
+  const timer = timeTransaction(database.clock);
+  return database.db
+    .transaction(async (tx) => {
+      timer.began();
+      try {
+        const guard = await enter(tx, identity);
+        timer.entered();
+        return await work(tx, guard);
+      } finally {
+        timer.settled();
+      }
+    })
+    .finally(() => timer.freed());
 }
