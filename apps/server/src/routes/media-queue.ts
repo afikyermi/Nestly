@@ -9,6 +9,7 @@
 //        match the caller may decide; I14 completion B, Afik 21.10.2026: not_abuse takes its matched hashes off the list, audited)
 //   all: 401/503 session guard · 503 · 500. The decision is audited by the database. Logs carry a fixed line and the SQLSTATE only.
 
+import { noteFailure } from '../lib/failure-report.js';
 import { mediaDecisionBody, mediaMatchDecisionBody, mediaQueueResponse, mediaRemovalBody } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -31,6 +32,7 @@ function replyFailure(request: FastifyRequest, reply: FastifyReply, error: unkno
   if (refused !== undefined) return refused;
   const code = readDatabaseFault(error)?.code;
   request.log.error({ sqlstate: code }, line);
+  noteFailure(request, error);
   if (code === '42501') return reply.code(404).send({ error: 'not_found' });
   if (isTransientFailure(error)) return reply.code(503).send({ error: 'unavailable' });
   return reply.code(500).send({ error: 'internal' });

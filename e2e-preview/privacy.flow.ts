@@ -4,7 +4,8 @@
 // email pattern as the fixture's, so the cleanup sweep covers it). No recovery attempts are made.
 import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures.ts';
-import { AFTER_ANSWERS_MS, createAccount, SIGN_IN_MS, submitSignIn } from './support/timed-steps.ts';
+import { keepSession, resumeSession } from './support/session.ts';
+import { AFTER_ANSWERS_MS, createAccount } from './support/timed-steps.ts';
 import { generateTestUser, type TestUser } from './support/test-user.ts';
 
 const emailField = (page: Page) => page.getByRole('textbox', { name: 'אימייל', exact: true });
@@ -29,13 +30,10 @@ function userOf(project: string): TestUser {
   }
   return u;
 }
-async function signIn(page: Page, u: TestUser): Promise<void> {
-  await page.goto('/login');
-  await emailField(page).fill(u.email);
-  await passwordField(page).fill(u.password);
-  await submitSignIn(page);
-  await expect(page).toHaveURL(/\/feed$/, { timeout: SIGN_IN_MS });
-  await page.goto('/settings');
+// The later tests continue with the session the sign-up made (T4); none of them checks the sign-in itself.
+const session = (project: string) => `privacy:${project}`;
+async function openSettings(page: Page, project: string): Promise<void> {
+  await resumeSession(page, session(project), '/settings');
   await expect(openRadio(page)).toBeVisible({ timeout: SETTINGS_LOAD });
 }
 
@@ -66,10 +64,11 @@ test.describe.serial('F2.3a privacy settings on the Preview [c1 c2 c6]', () => {
     await expect(restrictedRadio(page)).not.toBeChecked();
     await expect(sentenceBox(page)).toBeChecked();
     await expect(birthdayBox(page)).toBeChecked();
+    await keepSession(page, session(info.project.name));
   });
 
   test('[F2.3a c2] restricted, sentence off, birthday off: one PUT answers 200; after a reload the three are shown', async ({ page }, info) => {
-    await signIn(page, userOf(info.project.name));
+    await openSettings(page, info.project.name);
     await main(page).getByText('פרופיל מוגבל', { exact: true }).click();
     await main(page).getByText('הצגת המשפט כשאין ילדים והריון', { exact: true }).click();
     await main(page).getByText('יום הולדת של ילד בהתראות לחברים', { exact: true }).click();
@@ -81,10 +80,11 @@ test.describe.serial('F2.3a privacy settings on the Preview [c1 c2 c6]', () => {
     await expect(openRadio(page)).not.toBeChecked();
     await expect(sentenceBox(page)).not.toBeChecked();
     await expect(birthdayBox(page)).not.toBeChecked();
+    await keepSession(page, session(info.project.name));
   });
 
   test('[F2.3a c2] back to the defaults: saved, and a reload shows open and both switches on', async ({ page }, info) => {
-    await signIn(page, userOf(info.project.name));
+    await openSettings(page, info.project.name);
     await expect(restrictedRadio(page)).toBeChecked();
     await main(page).getByText('פרופיל פתוח', { exact: true }).click();
     await main(page).getByText('הצגת המשפט כשאין ילדים והריון', { exact: true }).click();

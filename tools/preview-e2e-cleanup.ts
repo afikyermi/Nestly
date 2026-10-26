@@ -4,24 +4,26 @@
 // password: a log line is a count or a fixed phrase.
 
 import { TEST_EMAIL_PATTERN } from '../e2e-preview/support/test-user.ts';
+import { formatTimings, type UserTiming } from './preview-e2e-cleanup-timings.ts';
 
-export { TEST_EMAIL_PATTERN };
+export { TEST_EMAIL_PATTERN, formatTimings, type UserTiming };
 export const PREVIEW_PROJECT_REF = 'xmihorrkegrdlbhpktny'; // nestly-preview
 export const SWEEP_AGE_HOURS = 3; // longer than the job's 20 minute timeout: a concurrent run's users are never swept
 // Leftovers (not this run's) read per run, oldest first; this run's own users are never capped. 200 because a missed cleanup leaves a
-// whole run (up to 50 users) behind, and 10 per run never caught up (nightly 24.10: the step timed out). SWEEP_BUDGET_SECONDS bounds the work.
+// whole run (up to 80 users) behind, and 10 per run never caught up (nightly 24.10: the step timed out). SWEEP_BUDGET_SECONDS bounds the work.
 export const MAX_SWEEP_PER_RUN = 200;
-// One user's transaction is about 80 statements, each a round trip from the runner to Frankfurt: 8-12 s per user, measured on the
-// runs of 22.10 (28 users, 4 min) and 23.10 (10 users, 2 min). Users are deleted on this many connections at once, each in its own
-// transaction, so a run's 50 users take about a minute.
-export const DELETE_CONCURRENCY = 8;
+// One user's transaction is about 80 statements: one round trip each, 8-12 s per user (22.10, 23.10), and 8 users at once queued on the
+// Audit table lock (25.10). Now pipelined (the CLI): a connection's first user still pays a round trip per statement (prepared once per
+// connection), the next ones about four. Two connections at once, each user in its own transaction.
+export const DELETE_CONCURRENCY = 2;
 // No leftover is started after this many seconds from the first delete (this run's own users always are), so the step ends with its
 // counts well inside its timeout; the rest are swept by the next runs.
 export const SWEEP_BUDGET_SECONDS = 240;
 // SQLSTATEs that two concurrent deletes of related test users (friends, a conversation) can cause: deadlock_detected,
 // lock_not_available (lock_timeout) and serialization_failure. Such a user is retried once, alone, after the concurrent pass.
 export const RETRY_CODES: readonly string[] = ['40P01', '55P03', '40001'];
-export const MAX_PATTERN_USERS = 50; // more of this run's own users than this: a wrong pattern, delete nothing and fail
+// More of this run's own users than this: a wrong pattern, delete nothing and fail. A full run creates 62 (30 per size and 2 staff).
+export const MAX_PATTERN_USERS = 80;
 
 /**
  * The ninety-two tables the preflight expects in `nestly`, sorted; an unknown table means this design needs re-review. A part that
@@ -169,8 +171,8 @@ export interface CleanupClient {
    * than SWEEP_AGE_HOURS, oldest first.
    */
   findCandidates(runId: string, runAttempt: string): Promise<{ candidates: Candidate[] }>;
-  /** One transaction; throws (after rolling back) on any failure. Resolves with the counts, all zero if already gone. */
-  deleteUser(id: string): Promise<DeleteCounts>;
+  /** One transaction; throws (after rolling back) on any failure; the counts, all zero if already gone. onAuditLock: the lock's ms. */
+  deleteUser(id: string, onAuditLock?: (ms: number) => void): Promise<DeleteCounts>;
   /** Users of this run still matching the pattern. */
   countRunLeftovers(runId: string, runAttempt: string): Promise<number>;
 }
@@ -186,6 +188,8 @@ export interface CleanupReport {
   deferredSwept: number;
   leftovers: number | null;
   tableCounts: DeleteCounts;
+  /** One entry per deleteUser call (a retried user has two), in the order they ended: milliseconds only, never an id. */
+  timings: UserTiming[];
 }
 
 export interface CleanupInput {
@@ -202,7 +206,7 @@ export interface CleanupInput {
 }
 
 function empty(reason: string): CleanupReport {
-  return { ok: false, reason, deletedOwn: 0, deletedSwept: 0, failedUsers: 0, deferredSwept: 0, leftovers: null, tableCounts: {} };
+  return { ok: false, reason, deletedOwn: 0, deletedSwept: 0, failedUsers: 0, deferredSwept: 0, leftovers: null, tableCounts: {}, timings: [] };
 }
 
 /** Runs `work` over `items` in order, at most `concurrency` at a time. */
@@ -247,7 +251,7 @@ export async function runCleanup(input: CleanupInput): Promise<CleanupReport> {
     return empty(`the database step failed before any delete (code ${errorCode(error)})`);
   }
 
-  const report: CleanupReport = { ok: true, deletedOwn: 0, deletedSwept: 0, failedUsers: 0, deferredSwept: 0, leftovers: null, tableCounts: {} };
+  const report: CleanupReport = { ok: true, deletedOwn: 0, deletedSwept: 0, failedUsers: 0, deferredSwept: 0, leftovers: null, tableCounts: {}, timings: [] };
   const now = input.now ?? Date.now;
   const started = now();
   const budgetMs = (input.budgetSeconds ?? SWEEP_BUDGET_SECONDS) * 1000;
@@ -259,8 +263,16 @@ export async function runCleanup(input: CleanupInput): Promise<CleanupReport> {
       report.deferredSwept += 1;
       return;
     }
+    const began = now();
+    let auditLockMs: number | null = null;
+    const timed = (ok: boolean): void => {
+      report.timings.push({ own: victim.own, ok, transactionMs: now() - began, auditLockMs });
+    };
     try {
-      const counts = await client.deleteUser(victim.id);
+      const counts = await client.deleteUser(victim.id, (lockMs) => {
+        auditLockMs = lockMs;
+      });
+      timed(true);
       const removed = (counts['auth.users'] ?? 0) > 0;
       if (removed) {
         if (victim.own) report.deletedOwn += 1;
@@ -268,6 +280,7 @@ export async function runCleanup(input: CleanupInput): Promise<CleanupReport> {
       }
       for (const [table, n] of Object.entries(counts)) report.tableCounts[table] = (report.tableCounts[table] ?? 0) + n;
     } catch (error) {
+      timed(false);
       const code = errorCode(error);
       if (!last && RETRY_CODES.includes(code)) {
         retry.push(victim);

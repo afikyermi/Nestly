@@ -143,6 +143,14 @@ describe('[I11 follow-ups] Professionals', () => {
     expect(regular.kind === 'ok' && regular.categories.map((c) => c.category)).not.toContain('offers');
   });
 
+  it('[OP-051 cancelled] once the week closes, the list shows the digest with its count (it answered 500 before: a timestamptz[] parameter)', T, async () => {
+    await side`select tests.fx_nt_close_week(${pro}::uuid)`;
+    const list = ok(await readNotifications(database, as(pro)));
+    expect(list.items.filter((item) => item.type === 'followers_weekly').map((item) => item.count)).toEqual([1]);
+    // the poll path, which delivers nothing, reads the same
+    expect(ok(await readNotifications(database, as(pro), null, { deliver: false })).items.some((item) => item.type === 'followers_weekly')).toBe(true);
+  });
+
   it('[OP-051 cancelled AC-012] Offer Help accepted into a conversation the pair already had; both answers notify the Professional', T, async () => {
     // mia already wrote to the Professional (FR-SERV-004): an accepted Offer Help reuses that conversation and shows its first message there
     const started = ok(await startChat(database, as(mia), pro, 'שלום, שאלה על הנקה'));
