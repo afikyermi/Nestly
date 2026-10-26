@@ -103,7 +103,8 @@ export async function readDigestCounts(tx: IdentityTx, rows: ReadonlyArray<{ id:
     await tx.execute(sql`
       select d.id, (select count(*)::int from nestly.professional_follows f where f.professional_id = (select auth.uid())
                      and f.created_at >= ((d.at at time zone 'Asia/Jerusalem') - interval '7 days') at time zone 'Asia/Jerusalem' and f.created_at < d.at) as n
-      from unnest(${sql.param(rows.map((row) => row.id))}::uuid[], ${sql.param(rows.map((row) => row.createdAt.toISOString()))}::timestamptz[]) as d(id, at)`),
+      -- the times go as text[]: postgres-js has no serializer for a timestamptz[] parameter (it failed every list showing a digest)
+      from unnest(${sql.param(rows.map((row) => row.id))}::uuid[], ${sql.param(rows.map((row) => row.createdAt.toISOString()))}::text[]::timestamptz[]) as d(id, at)`),
   );
   return new Map(counts.map((row) => [row.id, row.n]));
 }

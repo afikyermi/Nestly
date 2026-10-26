@@ -1,15 +1,21 @@
 # e2e-preview
 
-Flows that run against a deployed Preview (workflow `preview-e2e`), on Chrome at 375x812 and 1280x800.
+Flows that run against a deployed Preview (workflow `preview-e2e`), on Chrome at 1280x800; the few whose steps or assertions depend on the
+screen size run at 375x812 too (see "Screen sizes").
 
 - One file per feature: `e2e-preview/<feature>.flow.ts`. The config finds them by glob; no workflow edit.
 - By hand, `preview-e2e` can walk some flows alone: input `flows` (names without `.flow.ts`, space-separated) and
   `project` (`both`, `desktop-1280`, `mobile-375`). Used once per merge when the full walk stopped before a feature's flow.
+  `mobile-375` with a flow that is not a phone flow finds no test and fails.
 - Import `test` and `expect` from `./support/fixtures.ts`, never from `@playwright/test`.
 - Fixtures: `testUser` (own email, password, answers per viewport), `recoveryAttempts`, `baseURL`; use relative `page.goto`.
 - Real Auth, real server. Create users only through the app; the email pattern is `support/test-user.ts`.
 - Call `recoveryAttempts.recordFailedAttempt(email)` before each wrong /recovery submission (max 4 per user).
-- No secrets, no logging of password or answers, no video, trace or screenshots. Retries are off.
+- No secrets, no logging of password or answers, no video, trace or screenshots. Retries are off. A run stops after 5 failures.
+- Before any flow, a pre-check (`support/preflight.ts`) times `GET /api/health` and one refused sign-in of an unknown pattern email
+  (no user is made). Either above 10 s, or a wrong answer, stops the run with the reason: the Preview is too slow to walk.
+- One sign-in per serial group: a later test that does not check the sign-in itself continues with the session its group's sign-up
+  kept (`support/session.ts`: `keepSession` at the end of a test, `resumeSession(page, key, path)` at the start of the next).
 - Test users are deleted after each run by `preview-e2e-cleanup` (workflow_run, main's code; DR-E1). Flows never clean up.
 - Run: `npx playwright test -c e2e-preview/playwright.config.ts` with `PREVIEW_E2E_BASE_URL`,
   `VERCEL_AUTOMATION_BYPASS_SECRET`, `GITHUB_RUN_ID` and `GITHUB_RUN_ATTEMPT` set.
@@ -35,3 +41,11 @@ Flows that run against a deployed Preview (workflow `preview-e2e`), on Chrome at
   route whose query schema is strict answers 400 on the Preview and in Production, though the local server and stubs
   pass. Every new route with a query goes through a flow on the Preview (see `strict-query.flow.ts`); its schema
   must accept `path`.
+
+## Screen sizes (Afik 26.10, performance plan N T5)
+
+- A flow runs at 1280x800 only, unless its steps or assertions depend on the screen size: then it is listed in `PHONE_FLOWS`
+  (`playwright.config.ts`) and runs at 375x812 too. The app's content and controls are the same at both sizes except the search
+  (an icon that opens /search on a phone, a field in the top bar from 768 px); navigation and the menu move by CSS only.
+- Phone flows today: `srs-audit` (People Search through the phone's top-bar icon).
+- A new flow that checks a layout (what shows or hides at a width, a control reached differently on a phone) adds itself to the list.

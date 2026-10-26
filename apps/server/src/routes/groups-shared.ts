@@ -1,6 +1,7 @@
 // The Groups routes' shared answers (I10): a refusal by its kind, the identity guard and the path readers.
 
 
+import { noteFailure } from '../lib/failure-report.js';
 import { groupDetail, groupPathParams, groupUserPathParams } from '@nestly/shared';
 import { z } from 'zod';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -56,6 +57,7 @@ export function groupsHelpers(deps: GroupsRouteDependencies) {
       const refused = replySessionRefused(reply, error);
       if (refused !== undefined) return refused;
       request.log.error({ sqlstate: readDatabaseFault(error)?.code }, line);
+      noteFailure(request, error);
       if (isTransientFailure(error)) return reply.code(503).send({ error: 'unavailable' });
       return reply.code(500).send({ error: 'server_error' });
     }
