@@ -6,6 +6,8 @@
 //      C reads their own history on "about" (OP-070): the three records, never who acted.
 //   3. A Private Group: a member's invitation of a Friend waits for the Owner, who approves it on the management tab; then the Friend sees
 //      it, accepts it on the Group page and is a member; the Owner sees the new member in the members list.
+//   4. The Owner makes B an Admin of the Private Group and mutes B: B's Group page says management is paused until the mute ends, with no
+//      management control and the enforcement history still there; a management call answers "muted" (OP-070, AC-185).
 // Every user is fresh (the cleanup sweep's email pattern). No recovery attempts are made.
 import { randomBytes } from 'node:crypto';
 import type { BrowserContext, Page } from '@playwright/test';
@@ -79,7 +81,7 @@ async function personId(page: Page, authorization: string, name: string): Promis
   return id;
 }
 
-test('[FR-GRP-001 FR-GRP-002 FR-GRP-003 FR-ALG-010 AC-038 AC-066 AC-164 AC-167 AC-168 OP-070 §11.13-11.17] Group Highlights in the feed, warning + mute, invitations with approval', async ({
+test('[FR-GRP-001 FR-GRP-002 FR-GRP-003 FR-ALG-010 AC-038 AC-066 AC-164 AC-167 AC-168 AC-185 OP-070 §11.13-11.17] Group Highlights in the feed, warning + mute, invitations with approval', async ({
   page,
   browser,
   baseURL,
@@ -223,6 +225,25 @@ test('[FR-GRP-001 FR-GRP-002 FR-GRP-003 FR-ALG-010 AC-038 AC-066 AC-164 AC-167 A
     await main(page).getByRole('tab', { name: 'חברים' }).click();
     await expect(main(page).getByRole('listitem').filter({ hasText: cName })).toBeVisible({ timeout: 20_000 });
     await expect(main(page).getByText('3 חברים בקבוצה', { exact: false })).toBeVisible();
+
+    // 4. A muted Group Admin manages nothing until the mute ends (OP-070, AC-185): the Owner makes B an Admin of the Private Group and
+    //    mutes B; B's Group page says management is paused and offers no management control, the history stays, and the server says "muted"
+    expect((await api(page, ownerAuth, `/api/groups/${privId}/members/${bId}`, { method: 'PATCH', body: { role: 'admin' } })).status).toBe(200);
+    expect(
+      (await api(page, ownerAuth, `/api/groups/${privId}/enforcements`, { method: 'POST', body: { userId: bId, kind: 'warn_mute', reason: 'spam', muteHours: 24 } })).status,
+    ).toBe(204);
+    await bPage.goto(`/groups/${privId}`);
+    await expect(main(bPage).getByRole('note').filter({ hasText: 'בזמן ההשתקה פעולות הניהול בקבוצה מושהות עד' })).toBeVisible({ timeout: 20_000 });
+    await main(bPage).getByRole('tab', { name: 'ניהול' }).click();
+    await expect(main(bPage).getByRole('region', { name: 'היסטוריית אכיפה' })).toContainText('אזהרה והשתקה', { timeout: 20_000 });
+    for (const region of ['בקשות הצטרפות', 'הזמנות שמחכות לאישור', 'חסומים בקבוצה', 'פרטי הקבוצה']) {
+      await expect(main(bPage).getByRole('region', { name: region })).toHaveCount(0);
+    }
+    await main(bPage).getByRole('tab', { name: 'חברים' }).click();
+    await expect(main(bPage).getByRole('listitem').filter({ hasText: cName })).toBeVisible({ timeout: 20_000 });
+    await expect(main(bPage).getByRole('button', { name: `פעולות על ${cName}` })).toHaveCount(0);
+    const requests = await api(bPage, bAuth, `/api/groups/${privId}/requests`);
+    expect([requests.status, requests.body]).toEqual([403, { error: 'muted' }]);
   } finally {
     for (const context of contexts) await context.close();
   }

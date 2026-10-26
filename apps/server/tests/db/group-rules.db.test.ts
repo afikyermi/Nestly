@@ -309,11 +309,26 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     expect(feed.first.suggestedGroups, 'staff gets no Group unit').toBeUndefined();
   });
 
-  it('[FR-GRP-003 OP-070 AC-185] a muted Group Admin: the Group says management is paused until the mute ends; management answers "muted"; the history stays', T, async () => {
-    const paused = await createGroup(owner, 'ניהול בהפסקה', 'public');
-    for (const who of [a, b, c]) expect((await call('PUT', `/api/groups/${paused}/membership`, who)).statusCode).toBe(200);
+  it('[FR-GRP-003 OP-070 AC-185] a muted Group Admin: the Group says management is paused; every management action answers "muted"; the history stays; when the mute ends everything returns', T, async () => {
+    const paused = await createGroup(owner, 'ניהול בהפסקה', 'private');
+    for (const who of [a, b, c]) {
+      expect((await call('PUT', `/api/groups/${paused}/membership`, who)).statusCode).toBe(200);
+      expect((await call('PUT', `/api/groups/${paused}/requests/${who}`, owner, { decision: 'approve' })).statusCode).toBe(204);
+    }
     expect((await call('PATCH', `/api/groups/${paused}/members/${a}`, owner, { role: 'admin' })).statusCode).toBe(200);
     expect((await call('PATCH', `/api/groups/${paused}/members/${b}`, owner, { role: 'moderator' })).statusCode).toBe(200);
+    // what the Admin would manage: a member's post and comment, an invitation waiting for approval, a Join Request and a block
+    const memberPost = await groupPost(c, paused, 'פוסט של חבר');
+    const commented = await call('POST', `/api/posts/${memberPost}/comments`, c, { body: 'תגובה של חבר' });
+    expect(commented.statusCode).toBe(201);
+    const commentId = String(Reflect.get(Object(Reflect.get(Object(body(commented)), 'comment')), 'id'));
+    expect(body(await call('POST', `/api/groups/${paused}/invitations`, c, { userId: outsider }))).toEqual({ status: 'awaiting_approval' });
+    const waiting = groupPendingInvitationsResponse.parse(body(await call('GET', `/api/groups/${paused}/invitations`, owner))).invitations[0]?.id ?? '';
+    expect((await call('PUT', `/api/groups/${paused}/membership`, pro)).statusCode, 'a Join Request').toBe(200);
+    const blockedUser = await text(side`select tests.fx_new_auth_user()::text as v`);
+    expect((await post(app, await bearer(blockedUser), validBody({ fullName: 'Gil Blocked' }))).statusCode).toBe(201);
+    expect((await call('POST', `/api/groups/${paused}/enforcements`, owner, { userId: blockedUser, kind: 'remove_block', reason: 'spam' })).statusCode).toBe(204);
+
     expect((await call('POST', `/api/groups/${paused}/enforcements`, owner, { userId: a, kind: 'warn_mute', reason: 'spam', muteHours: 24 })).statusCode).toBe(204);
     const muted = groupDetail.parse(body(await call('GET', `/api/groups/${paused}`, a)));
     expect(muted.myRole, 'the Role held is unchanged').toBe('admin');
@@ -321,17 +336,46 @@ describe('[I10-C] Group Highlights, exposure, invitations and enforcement', () =
     expect(groupDetail.parse(body(await call('GET', `/api/groups/${paused}`, b))).managementPaused, 'an unmuted Moderator manages').toBeNull();
     expect(groupDetail.parse(body(await call('GET', `/api/groups/${paused}`, c))).managementPaused, 'a member has nothing to pause').toBeNull();
     expect(groupDetail.parse(body(await call('GET', `/api/groups/${paused}`, owner))).managementPaused).toBeNull();
-    for (const path of ['requests', 'bans', 'invitations']) {
-      const res = await call('GET', `/api/groups/${paused}/${path}`, a);
-      expect([res.statusCode, body(res)], `${path}: refused as muted, not an empty list`).toEqual([403, { error: 'muted' }]);
+    const refused: [string, 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', string, Record<string, unknown>?][] = [
+      ['the Join Requests', 'GET', `/api/groups/${paused}/requests`],
+      ['the blocked list', 'GET', `/api/groups/${paused}/bans`],
+      ['the invitations waiting', 'GET', `/api/groups/${paused}/invitations`],
+      ['a warning', 'POST', `/api/groups/${paused}/enforcements`, { userId: c, kind: 'warn_mute', reason: 'spam', muteHours: 24 }],
+      ['a Join Request decision', 'PUT', `/api/groups/${paused}/requests/${pro}`, { decision: 'approve' }],
+      ['an invitation decision', 'PUT', `/api/groups/${paused}/invitations/${waiting}`, { decision: 'approve' }],
+      ['a Role change', 'PATCH', `/api/groups/${paused}/members/${c}`, { role: 'moderator' }],
+      ['an unblock', 'DELETE', `/api/groups/${paused}/bans/${blockedUser}`],
+      ['a Pin', 'PUT', `/api/groups/${paused}/pin`, { postId: memberPost }],
+      ['an edit', 'PATCH', `/api/groups/${paused}`, { name: 'שם אחר' }],
+      ['a post removal', 'DELETE', `/api/groups/${paused}/posts/${memberPost}`],
+      ['a comment removal', 'DELETE', `/api/comments/${commentId}`],
+    ];
+    for (const [what, method, path, payload] of refused) {
+      const res = await call(method, path, a, payload);
+      expect([res.statusCode, body(res)], `${what}: refused as muted (not an empty list, not "unavailable")`).toEqual([403, { error: 'muted' }]);
     }
-    const enforce = await call('POST', `/api/groups/${paused}/enforcements`, a, { userId: c, kind: 'warn_mute', reason: 'spam', muteHours: 24 });
-    expect([enforce.statusCode, body(enforce)]).toEqual([403, { error: 'muted' }]);
     const history = groupEnforcementsResponse.parse(body(await call('GET', `/api/groups/${paused}/enforcements`, a)));
-    expect(history.records.map((r) => [r.kind, r.userId]), 'OP-070: the muted manager still reads the history').toEqual([['warn_mute', a]]);
+    expect(history.records.map((r) => [r.kind, r.userId]), 'OP-070: the muted manager still reads the history').toEqual([['warn_mute', a], ['remove_block', blockedUser]]);
     expect((await call('GET', `/api/groups/${paused}/bans`, b)).statusCode, 'the unmuted Moderator reads the blocked list').toBe(200);
     const plain = await call('GET', `/api/groups/${paused}/bans`, c);
     expect([plain.statusCode, body(plain)], 'a plain member: not allowed, as before').toEqual([403, { error: 'not_allowed' }]);
+    const after = groupDetail.parse(body(await call('GET', `/api/groups/${paused}`, owner)));
+    expect([after.name, after.pinnedPostId], 'nothing changed').toEqual(['ניהול בהפסקה', null]);
+
+    // the mute ends (its record expires): everything returns
+    await side.begin(async (tx) => {
+      await tx`select 1`;
+      await tx`select tests.fx_grr_end_mute(${paused}::uuid, ${a}::uuid)`;
+    });
+    const back = groupDetail.parse(body(await call('GET', `/api/groups/${paused}`, a)));
+    expect([back.myMute, back.managementPaused]).toEqual([null, null]);
+    const requests = await call('GET', `/api/groups/${paused}/requests`, a);
+    expect(requests.statusCode).toBe(200);
+    expect(JSON.stringify(body(requests))).toContain(pro);
+    expect(JSON.stringify(body(await call('GET', `/api/groups/${paused}/bans`, a)))).toContain(blockedUser);
+    expect((await call('PUT', `/api/groups/${paused}/requests/${pro}`, a, { decision: 'approve' })).statusCode, 'the Admin decides again').toBe(204);
+    expect((await call('PUT', `/api/groups/${paused}/invitations/${waiting}`, a, { decision: 'approve' })).statusCode).toBe(204);
+    expect((await call('DELETE', `/api/comments/${commentId}`, a)).statusCode, 'and removes content again').toBe(204);
   });
 
   it('[#147 strict query] the Group page\'s query, as Vercel\'s rewrite sends it, is accepted after the adapter', T, async () => {

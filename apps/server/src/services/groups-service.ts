@@ -189,6 +189,8 @@ export async function editGroup(database: Database, identity: Identity, id: stri
     async (tx) => {
       const before = await readGroupDetail(tx, id);
       if (before === undefined) return fail('group_unavailable');
+      // a muted Group Admin edits nothing until the mute ends (OP-070; the database refuses it either way)
+      if (before.managementPaused) return notManaging(before);
       const changed = await updateGroup(tx, id, body);
       if (changed === 0) return fail('not_allowed');
       const detail = await detailIn(tx, id);

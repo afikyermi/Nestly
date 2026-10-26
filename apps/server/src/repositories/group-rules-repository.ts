@@ -55,6 +55,21 @@ export async function readEnforcements(tx: IdentityTx, groupId: string, limit: n
 }
 
 /**
+ * Whether the caller is a Group Moderator or Admin whose management is paused now (muted: the database ranks them as a member, OP-070) in
+ * the Group of this comment's post. Not a permission: the policies refuse the removal either way; this names the refusal `muted`.
+ */
+export async function readManagementPausedForComment(tx: IdentityTx, commentId: string): Promise<boolean> {
+  const rows = await tx.execute(sql`
+    select coalesce((
+      select a.role in ('admin', 'moderator') and nestly.my_group_rank(p.group_id) < nestly.group_role_rank(a.role)
+        from nestly.comments c
+        join nestly.posts p on p.id = c.post_id
+        join nestly.group_access a on a.group_id = p.group_id and a.user_id = (select auth.uid())
+       where c.id = ${commentId}::uuid), false) as paused`);
+  return z.array(z.object({ paused: z.boolean() })).length(1).parse(rows)[0]?.paused === true;
+}
+
+/**
  * Whether the caller is muted now (§11.16) in the Group of this post, or of this comment's post: the caller's own records only (the policy
  * shows no one else's). Not a permission: the policies refuse the write either way; this names the refusal, so the member is told why.
  */

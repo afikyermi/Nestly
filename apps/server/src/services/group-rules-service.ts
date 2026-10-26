@@ -61,7 +61,10 @@ export async function unblock(database: Database, identity: Identity, id: string
     database,
     identity,
     async (tx) => {
-      if ((await readGroupDetail(tx, id)) === undefined) return fail('group_unavailable');
+      const group = await readGroupDetail(tx, id);
+      if (group === undefined) return fail('group_unavailable');
+      // a muted Group Moderator or Admin lifts no block until the mute ends (OP-070; the database refuses it either way)
+      if (group.managementPaused) return notManaging(group);
       if (!(await readBanned(tx, id, userId))) return fail('user_unavailable');
       await insertEnforcement(tx, id, { userId, kind: 'unblock', reason: null, reasonText: null, muteHours: null });
       return ok(null);

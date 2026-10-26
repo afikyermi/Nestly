@@ -59,6 +59,8 @@ export async function changeRole(database: Database, identity: Identity, id: str
     async (tx) => {
       const group = await readGroupDetail(tx, id);
       if (group === undefined) return fail('group_unavailable');
+      // a muted Group Admin changes no Role until the mute ends (OP-070; the database refuses it either way)
+      if (group.managementPaused) return notManaging(group);
       if ((await readMemberRole(tx, id, userId)) === undefined) return fail('user_unavailable');
       if ((await updateMemberRole(tx, id, userId, role)) === 0) return fail('role_not_allowed');
       if (role === 'owner' && (await stepDownOwner(tx, id)) === 0) return fail('role_not_allowed');
@@ -84,7 +86,10 @@ export async function decide(database: Database, identity: Identity, id: string,
     database,
     identity,
     async (tx) => {
-      if ((await readGroupDetail(tx, id)) === undefined) return fail('group_unavailable');
+      const group = await readGroupDetail(tx, id);
+      if (group === undefined) return fail('group_unavailable');
+      // a muted Group Admin decides no request until the mute ends (OP-070; the database refuses it either way)
+      if (group.managementPaused) return notManaging(group);
       return (await decideRequest(tx, id, userId, decision === 'approve' ? 'approved' : 'rejected')) === 0 ? fail('user_unavailable') : ok(null);
     },
     (error) => refusalOf(error),
@@ -215,7 +220,10 @@ export async function pin(database: Database, identity: Identity, id: string, po
     database,
     identity,
     async (tx) => {
-      if ((await readGroupDetail(tx, id)) === undefined) return fail('group_unavailable');
+      const group = await readGroupDetail(tx, id);
+      if (group === undefined) return fail('group_unavailable');
+      // a muted Group Admin pins nothing until the mute ends (OP-070; the database refuses it either way)
+      if (group.managementPaused) return notManaging(group);
       if ((await updateGroup(tx, id, { pinnedPostId: postId })) === 0) return fail('not_allowed');
       const detail = await detailIn(tx, id);
       return detail === undefined ? fail('group_unavailable') : ok(detail);
