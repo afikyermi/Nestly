@@ -25,7 +25,10 @@
 # the URL (part a CRITIC finding 1).
 #
 # The command is the one the CI `db` job runs against its disposable database, with the same pinned CLI. With
-# nothing pending it applies nothing (criterion 6, shown in that job).
+# nothing pending it applies nothing (criterion 6, shown in that job). --include-all (26.10.2026): a merged migration whose version
+# is older than one already applied (two migration PRs merged out of timestamp order, as #261 after #262) is applied too, instead
+# of the push refusing every run; the schema-gate keeps a merged migration from being renamed or deleted, so this is the way out.
+# It applies only versions the database has not recorded, as before.
 
 name: migrate
 
@@ -105,7 +108,7 @@ jobs:
         # URL. pipefail keeps the CLI's exit status.
         run: |
           set -euo pipefail
-          if ! supabase db push --db-url "${APP_OWNER_DATABASE_URL}" --yes --skip-vault --agent no 2>&1 | node tools/filter-db-push-log.mjs; then
+          if ! supabase db push --include-all --db-url "${APP_OWNER_DATABASE_URL}" --yes --skip-vault --agent no 2>&1 | node tools/filter-db-push-log.mjs; then
             echo "::error::supabase db push failed (its output is filtered: only migration names and ERROR/SQLSTATE lines are shown)"
             exit 1
           fi
@@ -168,7 +171,7 @@ jobs:
         # URL. pipefail keeps the CLI's exit status.
         run: |
           set -euo pipefail
-          if ! supabase db push --db-url "${APP_OWNER_DATABASE_URL}" --yes --skip-vault --agent no 2>&1 | node tools/filter-db-push-log.mjs; then
+          if ! supabase db push --include-all --db-url "${APP_OWNER_DATABASE_URL}" --yes --skip-vault --agent no 2>&1 | node tools/filter-db-push-log.mjs; then
             echo "::error::supabase db push failed (its output is filtered: only migration names and ERROR/SQLSTATE lines are shown)"
             exit 1
           fi

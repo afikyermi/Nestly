@@ -104,7 +104,8 @@ export async function promotedListings(tx: IdentityTx, query: MarketplaceQuery, 
 
 /**
  * The feed's promoted posts (§11.2): relevant to the viewer's search topics (Afik, 23.10.2026; Stage targeting deferred), not already on the page; one after every `gap`
- * organic posts, `gap` from 4 to 7 by the last 48 hours' volume. No matching topic, no promoted post; no Stage data is read.
+ * organic posts, `gap` from 4 to 7 by the last 48 hours' volume. No matching topic, no promoted post; no Stage data is read. `seesAds`: the
+ * caller already read the viewer's own account type in this transaction (the feed: a Regular or a Professional), so it is not read again.
  */
 export async function promotedPosts(
   tx: IdentityTx,
@@ -113,8 +114,9 @@ export async function promotedPosts(
   organicCount: number,
   laterPage: boolean,
   onSkip: OnSkip = skipLog,
+  known: { readonly seesAds?: boolean } = {},
 ): Promise<{ promotionId: string; postId: string; afterIndex: number }[]> {
-  if (organicCount === 0 || !(await viewerSeesAds(tx))) return [];
+  if (organicCount === 0 || !(known.seesAds ?? (await viewerSeesAds(tx)))) return [];
   const candidates = (await readPromotedCandidates(tx, 'post')).filter((c) => !onPage.has(c.targetId));
   if (candidates.length === 0) return [];
   if (patterns.length === 0) {
@@ -152,10 +154,11 @@ export interface Exposure {
  * could meet a concurrent one). All rows go in one statement (insertExposureBatch: one round trip after the identity, instead of a savepoint,
  * a statement and a release per write). Should that statement be refused (a row a guard refuses), the rows are recorded again one by one,
  * each in its own savepoint, as before: a refusal records nothing for that row and never fails the page. Faults are swallowed too:
- * recording is never a reason for a page to fail. Answers whether every row was accepted and committed (a row the database drops silently,
+ * recording is never a reason for a page to fail (after the answer, `options.afterResponse`, a fault is thrown to the after-response monitor). Answers whether every row was accepted and committed (a row the database drops silently,
  * such as a staff caller's, counts as accepted; a row refused in the one-by-one fallback answers false).
  */
-export async function recordExposure(database: Database, identity: Identity, exposure: Exposure): Promise<boolean> {
+export async function recordExposure(database: Database, identity: Identity, exposure: Exposure, options: RecordOptions = {}): Promise<boolean> {
+  const transaction = { asyncCommit: options.afterResponse === true };
   const batch: ExposureBatch = {
     impressions: exposure.impressions ?? [],
     ...(exposure.usage === undefined || (exposure.usageTimes ?? 1) < 1 ? {} : { usage: { kind: exposure.usage, times: exposure.usageTimes ?? 1 } }),
@@ -163,7 +166,7 @@ export async function recordExposure(database: Database, identity: Identity, exp
   };
   if (batch.impressions.length === 0 && batch.usage === undefined && batch.views.every((view) => view.times < 1)) return true;
   try {
-    await inIdentityTransaction(database, identity, (tx) => insertExposureBatch(tx, batch));
+    await inIdentityTransaction(database, identity, (tx) => insertExposureBatch(tx, batch), transaction);
     return true;
   } catch (error) {
     if (error instanceof SessionRefused) return false;
@@ -175,15 +178,30 @@ export async function recordExposure(database: Database, identity: Identity, exp
   ];
   let refused = false;
   try {
-    await inIdentityTransaction(database, identity, async (tx) => {
-      for (const write of writes)
-        await tx.transaction((savepoint) => write(savepoint)).catch(() => {
-          refused = true;
-        });
-    });
+    await inIdentityTransaction(
+      database,
+      identity,
+      async (tx) => {
+        for (const write of writes)
+          await tx.transaction((savepoint) => write(savepoint)).catch(() => {
+            refused = true;
+          });
+      },
+      transaction,
+    );
     return !refused;
-  } catch {
-    // recording is best effort: the page has already been answered from its own transaction
+  } catch (error) {
+    // recording is best effort: the page has already been answered from its own transaction. After the answer, a fault (not a token the
+    // guard refused) is thrown for the error monitor (lib/after-response.ts), which reports it without its data.
+    if (options.afterResponse === true && !(error instanceof SessionRefused)) throw error;
     return false;
   }
+}
+
+export interface RecordOptions {
+  /**
+   * Recorded after the answer was sent (lib/after-response.ts; plan ח1): the commit does not wait for the disk (best-effort counters), and a
+   * fault of the fallback is thrown for the monitor instead of swallowed. A refused row or token still answers false.
+   */
+  readonly afterResponse?: boolean;
 }

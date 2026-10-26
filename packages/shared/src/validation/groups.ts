@@ -126,8 +126,13 @@ export const groupDetail = groupSummary.extend({
   createdAt: z.iso.datetime(),
   /** I10-C: the caller's own mute in this Group (read-only until `until`), or null (§11.16). */
   myMute: z.strictObject({ until: z.iso.datetime(), reason: z.enum(GROUP_ENFORCEMENT_REASONS), reasonText: z.string().nullable() }).nullable(),
-  /** I10-C: the likes and comments by others at which a post of this Group is a Highlight now (members only; FR-ALG-010). */
+  /** I10-C: the number of different people other than the author whose likes or comments make a post of this Group a Highlight now (members only; FR-ALG-010, OP-077). */
   highlightThreshold: z.number().int().min(1).nullable(),
+  /**
+   * The caller is a Group Moderator or Admin who is muted here: every management action is paused until `until` (OP-070, FR-GRP-003), and
+   * `myRole` stays the Role they hold. Null for everyone else, the Owner included.
+   */
+  managementPaused: z.strictObject({ until: z.iso.datetime() }).nullable(),
 });
 export type GroupDetail = z.infer<typeof groupDetail>;
 

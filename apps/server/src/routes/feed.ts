@@ -6,6 +6,7 @@
 //   all:   401/503 session guard · 503 · 500 server_error. Any other method → 405 with Allow.
 // Logs carry a fixed line, the SQLSTATE and, for a configuration fallback, its version and class: never the cursor text or a post id.
 
+import { afterResponse } from '../lib/after-response.js';
 import { noteFailure } from '../lib/failure-report.js';
 import { parseFeedCursor } from '@nestly/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -49,7 +50,8 @@ async function read(request: FastifyRequest, reply: FastifyReply, deps: FeedRout
   if (cursor === null) return reply.code(400).send(CURSOR_INVALID);
   if (identity === null || deps.database === undefined) return reply.code(503).send({ error: 'unavailable' });
   try {
-    const outcome = await readFeedPage(deps.database, identity, cursor ?? null, deps.storage);
+    // the page's post views are counted after the answer was sent (plan ח1), never before it and never its failure
+    const outcome = await readFeedPage(deps.database, identity, cursor ?? null, deps.storage, { afterResponse: (task) => afterResponse(reply, task) });
     switch (outcome.kind) {
       case 'page':
         if (outcome.fallback !== null) {

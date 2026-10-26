@@ -23,7 +23,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | report_escalations, report_openings, group_staff_views, child_tracker_trends, the staff review reads | Staff work (I14 completion); Safety and admin core (reports, audit); Groups (Private Group views); Trackers (I6) |
 | enforcement_records, report_auto_hides, reported_comment_views, profile_staff_views, media_fingerprints, suspected_image_fingerprints | Staff rules (I14 completion B); Staff work; Safety and admin core (reports, audit); Media and Stories (the job) |
 | groups, group_members, group_access, group_join_requests, group_invitations, group_bans, group_notification_preferences, group_suggestions, group_highlight_configurations, group_highlights, group_member_enforcements, private_group_content_views | Groups (I10); posts, comments, reactions (group content); Notifications and People Search (notify_group); Safety and admin core (reports, audit) |
-| professional_profiles, professional_follows, outreach_requests, professional_reviews, professional_articles | Professionals (I11); posts (audience followers, is_help_request), Chat and Support (conversations: contexts professional and outreach); Blocking a user |
+| professional_profiles, professional_follows, outreach_requests, professional_reviews, professional_articles | Professionals (I11); posts (audience followers), Chat and Support (conversations: contexts professional and outreach); Blocking a user |
 | marketplace_listings, sponsored_products | Marketplace (I12); Media and Stories (listing and sponsored images), Chat and Support (conversations: context marketplace), Safety and admin core (reports, audit); Blocking a user |
 | promotion_plans, promotion_payments, promotions, promotion_events, usage_events, professional_views, promotion_settings, promotion_monthly_summaries | Monetization (I13); Professionals (profiles, posts, follows), Marketplace (listings), Chat and Support (conversations: attribution); Blocking a user |
 
@@ -387,7 +387,7 @@ a caller without a readable own `regular_profiles` row → 42501 first; then eve
 not active, **own post**, FR-FEED-006) → `NS002`. **Hide** (`post_hides_insert_guard`, replaced): caller gate 42501; post neither readable nor already
 hidden by the hider → `NS004` (unknown uuid included: no 23503 oracle); own post → `NS003`; a repeat hide reaches the PK (`on conflict do nothing` → 0).
 **Share immutable**: `posts_update_share_guard` (new, BEFORE UPDATE OF audience, body, stage_tag WHEN old.is_share) → `NS005` on any change; status and
-the author_status cascade unaffected. **Report text**: `reports_details_length_check` ≤ 1000 code points. SQLSTATE class `NS` is the project's own
+the author_status cascade unaffected. **Report text**: `reports_details_length_check` ≤ 1000 code points (≤ 500 since `20261026200000_reports_details_500.sql`, rows created before 2026-10-26 keep 1,000). SQLSTATE class `NS` is the project's own
 (`NS001` profile_view); the server maps by code (`lib/pg-error.ts`). Down: restores the two functions verbatim from F3.0a, drops the guard and the CHECK; data-free, no refuse guard.
 I3 PR-A3 (`20261019400000_professional_posting.sql`; `.work/professional-posting/schema.md`, Afik 19.10 DR-1..3): **Professionals post, comment
 and like.** RLS helper `caller_account_type()` (new; language sql, STABLE, SECURITY INVOKER, `search_path ''`, EXECUTE authenticated only): the
@@ -658,6 +658,8 @@ group_invited, group_join_requested (Owner/Admins), group_join_approved, group_p
 
 Other changes: `group_members_delete_manager` replaced by `group_members_delete_blocked` (a manager's delete needs the member's block: no plain removal); the RESTRICTIVE `posts_group_insert`, `comments_group_insert`, `reactions_group_insert` and `group_suggestions_insert_sender` refuse a muted member (an unexpired warn_mute); `regular_names_select_group_manager` (invitees awaiting approval to Owner/Admin, the enforcement history's users to Moderator+). `notify_group()` refuses (NS028) an invitation of a user blocked from the Group, read through `group_bans_select_notify` (TO app_owner, scope group): a plain member cannot read the blocks. Notifications: group_invitation_pending (Owner/Admins), group_invited on approval, group_invitation_approved / _rejected (inviter), group_member_muted (the member, critical, no actor). The audit log stays staff-only: the Group's enforcement history is its own record. Cleanup: `group_member_enforcements` by user or actor before `group_bans`; `group_highlights` by cascade.
 
+Follow-up (`20261026400000_group_rules_followup.sql`): configuration **v3** (5%, 3, 20, active; v2 inactive) and `notify_group()` count the **different people** other than the author who liked or commented (reactions joined to `reaction_owners` through the new `reaction_owners_select_notify`, TO app_owner, scope group, likes on group posts only; the like being inserted is the caller's, as `notify_group_reaction` fires before `reactions_insert_owner`; comments by `author_id`, an authorless one does not count; ⭐ OP-077). `my_group_rank()` returns 1 for a Moderator/Admin (rank 2–3, never the Owner) with an unexpired warn_mute in that Group (⭐ OP-070: a muted manager manages nothing), so `group_member_enforcements_select_party` and the history branch of `regular_names_select_group_manager` read the own `group_access` row directly (no recursion; the history stays readable while muted). `group_bans_insert_manager` / `group_bans_delete_manager` need a remove_block / unblock record for the same Group and user with `created_at = now()` (this transaction): no block or unblock without its history record.
+
 ## New entity template
 
 A new entity adds its columns to the first table — field, type, and its meaning, which is the part that matters — and
@@ -680,7 +682,7 @@ triggers: `professional_profiles_update_guard`, `outreach_requests_insert_limit`
 | `professional_reviews` | id, reviewer_id and reviewer_status (never granted for SELECT), professional_id, conversation_id (unique), rating 1-5, body 1-1,000, created_at, edited_at (I11-C); one per (reviewer, Professional) since I11-C | SELECT every active account (active, unblocked reviewer); INSERT a Regular after a professional/outreach conversation of theirs in which the Professional wrote; UPDATE (rating, body) and DELETE the writer (I11-C) |
 | `professional_articles` | id, author_id, author_status (copy), title 2-120, body 1-10,000, field (list), status published/hidden, created_at, updated_at | SELECT own, or a published article of an active unblocked author; INSERT/UPDATE/DELETE own (Professional) |
 
-Other changes: `users_insert_own` allows a Professional; `posts.is_help_request` (Regular only, never a share; OP-038) and audience `followers` (Professional only;
+Other changes: `users_insert_own` allows a Professional; `posts.is_help_request` (Regular only, never a share; OP-038; dropped 20261026300000) and audience `followers` (Professional only;
 `posts_select_viewer` gains the follower branch, through the caller's own Follow rows); `conversations.outreach_request_id` and contexts `professional` (a Regular with
 an active Professional) and `outreach` (the author of an accepted Offer Help).
 
@@ -778,14 +780,14 @@ duplicate reviews its data step deleted). No new table, no new SECURITY DEFINER,
 - `outreach_requests_insert_professional`: an active Professional offers help on any active, non-share post it can read under its own posts RLS (no
   Friends-only post of another, no Private Group it is not in) whose author is a Regular (named: no `professional_profiles` row; anonymous posts are
   Regular-only), no user block with a named author. One per post (key); `outreach_requests_insert_limit()` 100 in 24 hours (NS029).
-- `posts.is_help_request` is inert (no Offer Help policy reads it); column, check, index, grants and edit-guard column lists stay until a follow-up
-  migration after the code PR drops them.
+- `posts.is_help_request` was inert here and is dropped by `20261026300000_drop_is_help_request.sql` (column, check, index, grants; the
+  edit guards back on audience, body, stage_tag; `posts_insert_author` / `posts_update_author` no longer name it).
 - `professional_reviews`: unique (reviewer_id, professional_id) (data step kept the newest per pair ⭐); `edited_at` (NULL = never edited, readable);
   UPDATE (rating, body) granted — `professional_reviews_update_reviewer` (the writer, unmoderated review, conversation with a Professional message);
   `professional_reviews_delete_reviewer` (the writer; open reports expire). `conversation_id` stays unique (one conversation per pair).
 - `report_reasons.scope` community | reviewed_professional; four core rows (review_offensive 2, review_false 4, review_personal_info 2, review_other 4).
   `reports_insert_check()`: the reviewed Professional on a review about itself uses a reviewed_professional reason, everyone else a community one (23514);
-  `reports_other_details_check` also asks a text for review_other. `reports_details_length_check` still 1,000 (500 after the code on main holds 500).
+  `reports_other_details_check` also asks a text for review_other. `reports_details_length_check` 500 since `20261026200000_reports_details_500.sql` (validated; a row created before 2026-10-26 00:00 UTC keeps 1,000, so no data changed and old reports still close).
 
 ## Account deletion (I9)
 

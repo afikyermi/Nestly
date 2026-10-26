@@ -2,7 +2,9 @@
 // transaction and nowhere else. Reads `users.status` and nothing else. No `where` and no id: RLS returns the caller's own
 // row or nothing (users_select_own, any status), and permission is the database's.
 
-import { sql } from 'drizzle-orm';
+import { ACCOUNT_STATUSES, ACCOUNT_TYPES, type AccountStatus, type AccountType } from '@nestly/shared';
+import { sql, type SQL } from 'drizzle-orm';
+import { z } from 'zod';
 import { users } from '../db/schema.js';
 import type { IdentityTx } from '../db/identity-transaction.js';
 
@@ -17,6 +19,20 @@ export async function readOwnStatuses(tx: IdentityTx) {
 export async function readOwnAccounts(tx: IdentityTx) {
   // limit 2: more than one row is a fault the service must see, not a row to ignore.
   return tx.select({ status: users.status, accountType: users.accountType }).from(users).limit(2);
+}
+
+/**
+ * readOwnAccounts as one column of a larger statement (performance plan ט'1: a feed page reads it with its clock and configuration in one
+ * round trip): the same rows under the same policy, the same limit 2, as a json array of { status, accountType }. Read back with ownAccountsOf.
+ */
+export const OWN_ACCOUNTS_COLUMN: SQL = sql`(select coalesce(json_agg(json_build_object('status', o.status, 'accountType', o.account_type)), '[]'::json)
+       from (select status, account_type from nestly.users limit 2) as o)`;
+
+const ownAccountsValue = z.array(z.object({ status: z.enum(ACCOUNT_STATUSES), accountType: z.enum(ACCOUNT_TYPES) })).max(2);
+
+/** The value of OWN_ACCOUNTS_COLUMN, checked: the rows readOwnAccounts would return. */
+export function ownAccountsOf(value: unknown): { status: AccountStatus; accountType: AccountType }[] {
+  return ownAccountsValue.parse(value);
 }
 
 /**

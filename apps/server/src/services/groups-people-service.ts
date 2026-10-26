@@ -36,7 +36,7 @@ import {
 } from '../repositories/groups-repository.js';
 
 
-import { asMember, detailIn, fail, ok, refusalOf, type GroupResult } from './groups-service.js';
+import { asMember, detailIn, fail, managingRole, notManaging, ok, refusalOf, type GroupResult } from './groups-service.js';
 
 export async function listMembers(database: Database, identity: Identity, id: string): Promise<GroupResult<GroupMember[]>> {
   return asMember(database, identity, async (tx) => {
@@ -59,6 +59,8 @@ export async function changeRole(database: Database, identity: Identity, id: str
     async (tx) => {
       const group = await readGroupDetail(tx, id);
       if (group === undefined) return fail('group_unavailable');
+      // a muted Group Admin changes no Role until the mute ends (OP-070; the database refuses it either way)
+      if (group.managementPaused) return notManaging(group);
       if ((await readMemberRole(tx, id, userId)) === undefined) return fail('user_unavailable');
       if ((await updateMemberRole(tx, id, userId, role)) === 0) return fail('role_not_allowed');
       if (role === 'owner' && (await stepDownOwner(tx, id)) === 0) return fail('role_not_allowed');
@@ -73,7 +75,7 @@ export async function listRequests(database: Database, identity: Identity, id: s
   return asMember(database, identity, async (tx) => {
     const group = await readGroupDetail(tx, id);
     if (group === undefined) return fail('group_unavailable');
-    if (group.myRole !== 'owner' && group.myRole !== 'admin') return fail('not_allowed');
+    if (managingRole(group) !== 'owner' && managingRole(group) !== 'admin') return notManaging(group);
     return ok(await readPendingRequests(tx, id, GROUP_MEMBERS_PAGE_SIZE));
   });
 }
@@ -84,7 +86,10 @@ export async function decide(database: Database, identity: Identity, id: string,
     database,
     identity,
     async (tx) => {
-      if ((await readGroupDetail(tx, id)) === undefined) return fail('group_unavailable');
+      const group = await readGroupDetail(tx, id);
+      if (group === undefined) return fail('group_unavailable');
+      // a muted Group Admin decides no request until the mute ends (OP-070; the database refuses it either way)
+      if (group.managementPaused) return notManaging(group);
       return (await decideRequest(tx, id, userId, decision === 'approve' ? 'approved' : 'rejected')) === 0 ? fail('user_unavailable') : ok(null);
     },
     (error) => refusalOf(error),
@@ -96,7 +101,8 @@ export async function listBans(database: Database, identity: Identity, id: strin
   return asMember(database, identity, async (tx) => {
     const group = await readGroupDetail(tx, id);
     if (group === undefined) return fail('group_unavailable');
-    if (group.myRole === null || group.myRole === 'member') return fail('not_allowed');
+    const role = managingRole(group);
+    if (role === null || role === 'member') return notManaging(group);
     return ok(await readBans(tx, id, GROUP_MEMBERS_PAGE_SIZE));
   });
 }
@@ -214,7 +220,10 @@ export async function pin(database: Database, identity: Identity, id: string, po
     database,
     identity,
     async (tx) => {
-      if ((await readGroupDetail(tx, id)) === undefined) return fail('group_unavailable');
+      const group = await readGroupDetail(tx, id);
+      if (group === undefined) return fail('group_unavailable');
+      // a muted Group Admin pins nothing until the mute ends (OP-070; the database refuses it either way)
+      if (group.managementPaused) return notManaging(group);
       if ((await updateGroup(tx, id, { pinnedPostId: postId })) === 0) return fail('not_allowed');
       const detail = await detailIn(tx, id);
       return detail === undefined ? fail('group_unavailable') : ok(detail);
