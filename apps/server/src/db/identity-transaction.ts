@@ -50,12 +50,34 @@ function databaseClaims(identity: Identity): string {
   });
 }
 
-/** SET LOCAL ROLE authenticated, then the claims and the guard in one statement (the subquery runs first: OFFSET 0). */
+/**
+ * The transaction-local settings that the `authenticated` policies (and the functions they call) read, set to '' when the
+ * transaction begins (26.10, performance plan ז'). A setting never set on a connection reads NULL, and `NULL = 'on' AND (select
+ * has_permission(…))` still evaluates the permission check on every row; '' makes the comparison false, so the check is skipped.
+ * Every reader treats NULL and '' alike — `= 'on'`, `id::text = …`, `coalesce(…, '') = ''`, `nullif(…, '')`, the uuid pattern of
+ * profile_view_target() — so no permission changes; a path that needs one sets it later in the same transaction (staff_view 'on').
+ */
+const UNSET_SETTINGS = [
+  'nestly.staff_view',
+  'nestly.analytics_view',
+  'nestly.own_delete',
+  'nestly.reveal_user',
+  'nestly.search_scope',
+  'nestly.profile_view_target',
+  'nestly.block_ending',
+] as const;
+
+const unsetSettings = sql.raw(UNSET_SETTINGS.map((name) => `, pg_catalog.set_config('${name}', '', true)`).join(''));
+
+/**
+ * SET LOCAL ROLE authenticated, then the claims, the empty settings and the guard in one statement (the subquery runs first:
+ * OFFSET 0; set_config is volatile, so its unused columns are still computed).
+ */
 async function enter(tx: IdentityTx, identity: Identity): Promise<SessionGuard> {
   await tx.execute(sql`set local role authenticated`);
   const result = await tx.execute(
     sql`select nestly.session_guard() as guard
-        from (select pg_catalog.set_config('request.jwt.claims', ${databaseClaims(identity)}, true) offset 0) as claims`,
+        from (select pg_catalog.set_config('request.jwt.claims', ${databaseClaims(identity)}, true)${unsetSettings} offset 0) as claims`,
   );
   const [row] = guardRows.parse(result);
   if (row === undefined) throw new Error('the session guard returned no row');
@@ -89,20 +111,23 @@ export async function inIdentityTransaction<T>(
   work: (tx: IdentityTx, guard: ProceedGuard) => Promise<T>,
   options: IdentityTransactionOptions = {},
 ): Promise<T> {
-  const began = timeTransaction(); // Server-Timing on a Vercel deployment (lib/server-timing.ts); a no-op otherwise
-  return database.db.transaction(async (tx) => {
-    const settled = began();
-    try {
-      // Before any query takes the snapshot (the role and the claims are set after it): one snapshot for everything the work reads.
-      if (options.isolationLevel === 'repeatable read') await tx.execute(sql`set transaction isolation level repeatable read`);
-      if (options.asyncCommit === true) await tx.execute(sql`set local synchronous_commit = off`);
-      const guard = await enter(tx, identity);
-      if (guard !== 'ok' && guard !== 'must_set') throw new SessionRefused(guard);
-      return await work(tx, guard);
-    } finally {
-      settled();
-    }
-  });
+  const timer = timeTransaction(database.clock); // Server-Timing on a Vercel deployment (lib/server-timing.ts); a no-op otherwise
+  return database.db
+    .transaction(async (tx) => {
+      timer.began();
+      try {
+        // Before any query takes the snapshot (the role and the claims are set after it): one snapshot for everything the work reads.
+        if (options.isolationLevel === 'repeatable read') await tx.execute(sql`set transaction isolation level repeatable read`);
+        if (options.asyncCommit === true) await tx.execute(sql`set local synchronous_commit = off`);
+        const guard = await enter(tx, identity);
+        timer.entered();
+        if (guard !== 'ok' && guard !== 'must_set') throw new SessionRefused(guard);
+        return await work(tx, guard);
+      } finally {
+        timer.settled();
+      }
+    })
+    .finally(() => timer.freed());
 }
 
 /**
@@ -115,13 +140,17 @@ export async function inLinkCheckTransaction<T>(
   identity: Identity,
   work: (tx: IdentityTx, guard: SessionGuard) => Promise<T>,
 ): Promise<T> {
-  const began = timeTransaction();
-  return database.db.transaction(async (tx) => {
-    const settled = began();
-    try {
-      return await work(tx, await enter(tx, identity));
-    } finally {
-      settled();
-    }
-  });
+  const timer = timeTransaction(database.clock);
+  return database.db
+    .transaction(async (tx) => {
+      timer.began();
+      try {
+        const guard = await enter(tx, identity);
+        timer.entered();
+        return await work(tx, guard);
+      } finally {
+        timer.settled();
+      }
+    })
+    .finally(() => timer.freed());
 }

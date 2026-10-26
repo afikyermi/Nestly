@@ -40,9 +40,10 @@ begin
   return v;
 end
 $f$;
+-- p_help is kept for the call sites only: posts have no help marking since 20261026300000 (§13.1).
 create function pg_temp.post(p_by text, p_body text, p_help boolean default true, p_anon boolean default false, p_aud text default 'everyone') returns text language sql as $f$
-  select pg_temp.dml(p_by, format($q$ insert into nestly.posts (is_anonymous, audience, body, is_help_request) values (%L, %L, %L, %L) $q$,
-    p_anon, p_aud, p_body, p_help))
+  select pg_temp.dml(p_by, format($q$ insert into nestly.posts (is_anonymous, audience, body) values (%L, %L, %L) $q$,
+    p_anon, p_aud, p_body))
 $f$;
 -- a post id, read as its author (named: posts.author_id; anonymous: through post_authors)
 create function pg_temp.pid(p_by text, p_body text) returns uuid language sql as $f$
@@ -195,18 +196,19 @@ select is(pg_temp.n('q1', $q$ select count(*)::text from nestly.posts where body
 select is(pg_temp.unfollow('q2', 'q1'), 'OK:1', '[F11.1-a c4 FR-FOLLOW-001] Unfollow');
 select is(pg_temp.n('q2', $q$ select count(*)::text from nestly.posts where body = 'רק לעוקבים' $q$), '0', '[F11.1-a c5 AC-130] after Unfollow it is gone');
 select is(pg_temp.post('a', 'עוקבים של רגיל', false, false, 'followers'), 'ERR:42501', '[F11.1-a c5 VAL-049] a Regular never posts to followers');
-select is(pg_temp.post('q1', 'מקצועי מבקש עזרה', true), 'ERR:42501', '[F11.1-a c5 OP-038] a Professional''s post never asks for help');
+select is(pg_temp.post('q1', 'מקצועי מבקש עזרה', true), 'OK:1', '[F11.1-a c5 §13.1 OP-038] no help marking any more: a Professional''s named post to everyone is a plain post');
 select is(pg_temp.post('q1', 'לחברים', false, false, 'friends'), 'ERR:42501', '[F11.1-a c5 VAL-049] a Professional never posts to Friends');
 select is(pg_temp.dml('q1', $q$ update nestly.posts set audience = 'everyone' where body = 'רק לעוקבים' $q$), 'OK:1', '[F11.1-a c5 VAL-049] the Professional edits the audience');
 select is(pg_temp.dml('q1', $q$ update nestly.posts set audience = 'friends' where body = 'רק לעוקבים' $q$), 'ERR:42501', '[F11.1-a c5 VAL-049] never to Friends on an edit');
-select is(pg_temp.post('a', 'עזרה בשינה', true), 'OK:1', '[F11.1-a c5 OP-038 ⭐ (a)] a Regular marks its post as asking for help');
-select is(pg_temp.post('a', 'עזרה אנונימית', true, true), 'OK:1', '[F11.1-a c5] an anonymous post may ask for help');
-select is(pg_temp.post('b', 'סתם פוסט', false), 'OK:1', '[F11.1-a c5] control: a post that does not ask for help');
-select is(pg_temp.dml('b', $q$ update nestly.posts set is_help_request = true where body = 'סתם פוסט' $q$, false), 'OK:1', '[F11.1-a c5 OP-038] the author marks its post as asking for help on an edit');
-select is(pg_temp.dml('a', $q$ update nestly.posts set is_help_request = true where body = 'סתם פוסט' $q$), 'OK:0', '[F11.1-a c5] nobody else does');
+select is(pg_temp.post('a', 'עזרה בשינה', true), 'OK:1', '[F11.1-a c5] a Regular''s post (the Offer Help target below)');
+select is(pg_temp.post('a', 'עזרה אנונימית', true, true), 'OK:1', '[F11.1-a c5] an anonymous post');
+select is(pg_temp.post('b', 'סתם פוסט', false), 'OK:1', '[F11.1-a c5] another Regular post');
+select is(pg_temp.dml('b', $q$ insert into nestly.posts (audience, body, is_help_request) values ('everyone', 'סימון', true) $q$), 'ERR:42703', '[§13.1 OP-038] posts has no help marking: naming it is an unknown column (42703)');
+select is((select count(*) from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace ns on ns.oid = c.relnamespace where ns.nspname = 'nestly' and c.relname = 'posts' and a.attname = 'is_help_request' and not a.attisdropped),
+  0::bigint, '[§13.1 OP-038] the help marking column is dropped (with its check, index and grants)');
 select is((select count(*) from pg_trigger t join pg_class c on c.oid = t.tgrelid join pg_namespace ns on ns.oid = c.relnamespace where ns.nspname = 'nestly' and c.relname = 'posts' and t.tgname in ('posts_reject_staff_edit', 'posts_reject_group_edit')
-            and exists (select 1 from unnest(t.tgattr::int2[]) k join pg_attribute a on a.attrelid = t.tgrelid and a.attnum = k where a.attname = 'is_help_request')),
-  2::bigint, '[F11.1-a c5 I4 I10] staff and Group managers never change the help marking (the edit guards cover it)');
+            and (select string_agg(a.attname, ',' order by a.attname) from unnest(t.tgattr::int2[]) k join pg_attribute a on a.attrelid = t.tgrelid and a.attnum = k) = 'audience,body,stage_tag'),
+  2::bigint, '[F11.1-a c5 I4 I10] staff and Group managers never change audience, body or stage tag (the edit guards cover them)');
 select is(pg_temp.post('a', 'אנונימי לעוקבים', false, true, 'followers'), 'ERR:42501', '[F11.1-a c5] an anonymous post is everyone only');
 
 -- ---- Offer Help (FR-SERV-005/006/008, BR-007..010, VAL-010, AC-011, AC-012, AC-014) ------------------------------------

@@ -119,6 +119,23 @@ describe('Server-Timing against the real database', () => {
     // the identity entry and the reads are several statements: at least s1 and s2, numbered in order
     expect(header).toMatch(/, s1;dur=[0-9.]+, s2;dur=[0-9.]+/);
   });
+
+  it('splits dbwait: the app first request opens the connection (conn), the next reuses it (no conn); inflight is a count', T, async () => {
+    const app = await buildRegisterApp(env(), { clock: () => CLOCK_NOW, serverTiming: true });
+    let first: string;
+    let second: string;
+    try {
+      first = String((await get(app, hA, '/api/notifications/counts')).headers['server-timing']);
+      second = String((await get(app, hA, '/api/notifications/counts')).headers['server-timing']);
+    } finally {
+      await app.close();
+    }
+    const parts = (header: string): string[] => header.split(', ').map((part) => part.split(/[;=]/)[0] ?? '');
+    expect(first).toMatch(/^cold;dur=[01], inflight;desc=1, dbwait;dur=[0-9.]+, acq;dur=[0-9.]+, conn;dur=[0-9.]+, begin;dur=[0-9.]+, db;dur=/);
+    expect(parts(second)).not.toContain('conn');
+    expect(second).toMatch(/, acq;dur=[0-9.]+, begin;dur=[0-9.]+, db;dur=/);
+    console.info(`counts Server-Timing — first: ${first.replace(/, s\d+;dur=[0-9.]+/g, '')}; second: ${second.replace(/, s\d+;dur=[0-9.]+/g, '')}`);
+  });
 });
 
 describe('[FR-NOTIF-001 AC-040] the bell, the list, mark read', () => {

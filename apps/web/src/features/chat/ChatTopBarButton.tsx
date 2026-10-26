@@ -5,7 +5,7 @@ import { PATHS } from '@/app/paths';
 import { Avatar } from '@/components/ui/avatar';
 import { MessageIcon } from '@/components/ui/icons';
 import { Popover } from '@/components/ui/popover';
-import { useBellPoll } from '@/hooks/use-bell-poll';
+import { useBellPoll, useBellRefresh } from '@/hooks/use-bell-poll';
 import { useChatCall } from '@/hooks/use-chat-call';
 import { conversationIdOfPath, conversationPath, supportIdOfPath, supportThreadPath } from '@/lib/chat-link';
 import { fetchChatOverview, fetchChatUnread } from '@/services/api/chat';
@@ -44,10 +44,14 @@ export function ChatTopBarButton({ current }: { current: string }) {
     if (bell !== null) setUnread(bell.chatUnread);
   }, [bell]);
 
+  // A fresh count now: the bell's counters (one request that also serves the bell; the answer lands through `bell` above). Without a bell to
+  // ask (outside the notifications provider, or an account the bell has nothing for) the Chat's own badge request, as before.
+  const bellRefresh = useBellRefresh();
   const refresh = useCallback(async () => {
+    if (bellRefresh !== null) return bellRefresh();
     const result = await call(fetchChatUnread);
     if (result.kind === 'ok') setUnread(result.value.count);
-  }, [call]);
+  }, [call, bellRefresh]);
 
   // The badge: on every screen change (a thread just read); in between, the bell's poll.
   useEffect(() => {

@@ -179,7 +179,7 @@ select is(tests.fx_nt_one(pg_temp.id('q1'), 'review_received'), format('actor=- 
 select is(tests.fx_nt_count(pg_temp.id('a')), 0::bigint, '[F11.2-a c11] the reviewer gets nothing');
 
 -- Offer Help: declined and accepted
-select is(pg_temp.dml('b', $q$ insert into nestly.posts (audience, body, is_help_request) values ('everyone', 'מחפשת עזרה בהנקה', true) $q$), 'OK:1', '[F11.2-a c12 fixture] a help post');
+select is(pg_temp.dml('b', $q$ insert into nestly.posts (audience, body) values ('everyone', 'מחפשת עזרה בהנקה') $q$), 'OK:1', '[F11.2-a c12 fixture] a help post');
 select set_config('t.help1', pg_temp.q('b', $q$ select id::text from nestly.posts where body = 'מחפשת עזרה בהנקה' $q$), true);
 select is(pg_temp.dml('q1', format($q$ insert into nestly.outreach_requests (post_id, opening_message) values (%L, 'אשמח לעזור') $q$, current_setting('t.help1'))), 'OK:1',
   '[F11.2-a c12 fixture] q1 offers help');
@@ -198,7 +198,7 @@ select is(pg_temp.n('q2', 'nestly.notifications'), '1', '[F11.2-a c12] the Profe
 -- the recipient's switch (FR-NOTIF-002): q2 turns Offer Help notifications off
 select is(pg_temp.dml('q2', $q$ insert into nestly.notification_preferences (category, is_in_app_enabled) values ('offers', false) $q$), 'OK:1',
   '[F11.2-a c13 fixture] q2 switches offers off');
-select is(pg_temp.dml('b', $q$ insert into nestly.posts (audience, body, is_help_request) values ('everyone', 'עזרה בשינה בבקשה', true) $q$), 'OK:1', '[F11.2-a c13 fixture] another help post');
+select is(pg_temp.dml('b', $q$ insert into nestly.posts (audience, body) values ('everyone', 'עזרה בשינה בבקשה') $q$), 'OK:1', '[F11.2-a c13 fixture] another help post');
 select set_config('t.help2', pg_temp.q('b', $q$ select id::text from nestly.posts where body = 'עזרה בשינה בבקשה' $q$), true);
 select is(pg_temp.dml('q2', format($q$ insert into nestly.outreach_requests (post_id, opening_message) values (%L, 'אשמח') $q$, current_setting('t.help2'))), 'OK:1',
   '[F11.2-a c13 fixture] q2 offers again');

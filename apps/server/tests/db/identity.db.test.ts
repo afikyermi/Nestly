@@ -51,6 +51,14 @@ const QUERIES: Record<string, string> = {
   claimkeys: "select string_agg(k, ',' order by k) as keys from jsonb_object_keys(current_setting('request.jwt.claims')::jsonb) as k",
   boom: 'select 1 / 0',
   sleep: 'select pg_sleep(0.4), pg_backend_pid()::int as pid',
+  // The policy settings the identity entry sets to '' (performance plan ז'), name=value in name order; NULL would read "null".
+  unset: `select string_agg(n || '=' || coalesce(current_setting(n, true), 'null'), ',' order by n) as v
+          from unnest(array['nestly.staff_view', 'nestly.analytics_view', 'nestly.own_delete', 'nestly.reveal_user',
+                            'nestly.search_scope', 'nestly.profile_view_target', 'nestly.block_ending']) as n`,
+  // A path that turns the staff view on later in the transaction, as the admin reads do (admin-repository.ts): the setting is 'on',
+  // and the users the caller reads then (its permissions decide, not the setting).
+  staffon: `select s.v, (select current_setting('nestly.staff_view', true)) as after, (select string_agg(id::text, ',' order by id) from nestly.users) as ids
+            from (select pg_catalog.set_config('nestly.staff_view', 'on', true) as v offset 0) as s`,
 };
 const OUTSIDE =
   "select pg_backend_pid()::int as pid, current_user::text as cu, current_setting('role') as role, coalesce(current_setting('request.jwt.claims', true), '') as claims";
@@ -281,6 +289,33 @@ describe('[F1.1-c c24] identity settings last only for the transaction (platform
     expect(during - before, 'database connections opened by one server instance during a burst').toBeLessThanOrEqual(1);
     expect(done.every((r) => r.status === 200)).toBe(true);
     expect(new Set(done.map((r) => r.rows[0]?.pid)).size).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+describe('the policy settings start empty in every identity transaction (performance plan ז\', 26.10)', () => {
+  it('reads \'\' for each setting the authenticated policies read, on a fresh connection and after a transaction that set one', T, async () => {
+    const app = await serverApp();
+    const expected = ['nestly.analytics_view', 'nestly.block_ending', 'nestly.own_delete', 'nestly.profile_view_target', 'nestly.reveal_user', 'nestly.search_scope', 'nestly.staff_view']
+      .map((n) => `${n}=`)
+      .join(',');
+    const first = await call(app, 'unset', ACCOUNT_A);
+    expect(first.status, first.body).toBe(200);
+    expect(first.rows[0]?.v).toBe(expected);
+    await call(app, 'staffon', ACCOUNT_A);
+    const again = await call(app, 'unset', ACCOUNT_B);
+    expect(again.rows[0]?.v, 'the previous transaction\'s on does not carry over').toBe(expected);
+  });
+
+  it('a path that sets the staff view on later still gets on; a Regular account reads the same users with it as without it', T, async () => {
+    const app = await serverApp();
+    const plain = await call(app, 'users', ACCOUNT_A);
+    const on = await call(app, 'staffon', ACCOUNT_A);
+    expect(on.status, on.body).toBe(200);
+    expect(on.rows[0]).toMatchObject({ v: 'on', after: 'on' });
+    // has_permission('USER_VIEW') is false for a Regular account: the setting alone opens nothing
+    expect(String(on.rows[0]?.ids)).toBe(ids(plain.rows).join(','));
+    expect(ids(plain.rows)).toEqual([ACCOUNT_A]);
   });
 });
 

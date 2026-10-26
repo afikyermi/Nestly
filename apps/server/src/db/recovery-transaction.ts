@@ -9,6 +9,7 @@
 import { sql } from 'drizzle-orm';
 import type { Database } from './client.js';
 import type { IdentityTx } from './identity-transaction.js';
+import { timeTransaction } from '../lib/server-timing.js';
 
 /**
  * The two keyed hashes a recovery transaction declares. Never an email or an address. `claimedAt` is the `iat` of the
@@ -42,8 +43,18 @@ export function inRecoveryTransaction<T>(
   subjects: RecoverySubjects,
   work: (tx: IdentityTx) => Promise<T>,
 ): Promise<T> {
-  return database.db.transaction(async (tx) => {
-    await assumeRecoveryRole(tx, subjects);
-    return work(tx);
-  });
+  // Timed like an identity transaction (lib/server-timing.ts): it holds the instance's one connection too.
+  const timer = timeTransaction(database.clock);
+  return database.db
+    .transaction(async (tx) => {
+      timer.began();
+      try {
+        await assumeRecoveryRole(tx, subjects);
+        timer.entered();
+        return await work(tx);
+      } finally {
+        timer.settled();
+      }
+    })
+    .finally(() => timer.freed());
 }

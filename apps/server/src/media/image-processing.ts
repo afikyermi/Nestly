@@ -2,8 +2,9 @@
 // picture, but the server trusts nothing it receives: it reads the bytes as an image (by content, not by the declared type), turns it
 // upright, shrinks it to 2,048 pixels on the long side if needed, and writes a new WebP file. Writing a new file drops every metadata block,
 // EXIF and GPS included (M4: "the server verifies"); nothing of the original file is kept.
+// The image library is loaded on the first upload, not when the server starts: most requests never touch an image, and a new instance
+// answers them sooner without it.
 
-import sharp from 'sharp';
 import { MEDIA_MAX_SIDE } from '@nestly/shared';
 
 export type ProcessedImage = {
@@ -20,6 +21,8 @@ const ACCEPTED_FORMATS = new Set(['jpeg', 'png', 'webp']);
 const MAX_INPUT_PIXELS = 50_000_000;
 
 export async function processUpload(input: Uint8Array): Promise<ProcessedImage | ProcessingRefusal> {
+  // Outside the try: a library that cannot load is a server fault (500), never "unsupported" for the user's picture.
+  const { default: sharp } = await import('sharp');
   try {
     const source = sharp(input, { limitInputPixels: MAX_INPUT_PIXELS, failOn: 'error' });
     const meta = await source.metadata();
