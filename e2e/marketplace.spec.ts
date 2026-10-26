@@ -230,8 +230,8 @@ test.describe('[I12-B AC-205 FR-MKT-001 §3.2] a staff account on the Marketplac
     await expect(main(page).getByRole('list', { name: 'מודעות' })).toContainText('עגלת תינוק כחולה');
     await expect(main(page).getByRole('link', { name: 'פרסום מודעה' })).toHaveCount(0);
     await page.goto('/marketplace/new');
-    await expect(main(page).getByText('רק חשבון הורה יכול לפרסם מודעה')).toBeVisible();
+    await expect(main(page).getByText('חשבון צוות לא מפרסם מודעות')).toBeVisible();
     await page.goto('/marketplace/mine');
-    await expect(main(page).getByText('רק חשבון הורה יכול לפרסם מודעה')).toBeVisible();
+    await expect(main(page).getByText('חשבון צוות לא מפרסם מודעות')).toBeVisible();
   });
 });

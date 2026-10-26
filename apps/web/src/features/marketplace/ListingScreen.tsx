@@ -125,7 +125,11 @@ export function ListingScreen({ listingId }: { listingId: string }) {
     setError('');
     const result = await call((token) => setListingStatus(token, page.id, next));
     setBusy(false);
-    if (result.kind !== 'ok') return setError(ACTION_FAILED);
+    if (result.kind !== 'ok') {
+      setError(ACTION_FAILED);
+      // ERR-054: the listing may have passed its 60 days since the page loaded; reading it again shows why
+      return void load();
+    }
     setStatus(next === 'sold' ? MARKED_SOLD_TEXT : MARKED_ACTIVE_TEXT);
     await load();
   };
@@ -228,11 +232,11 @@ export function ListingScreen({ listingId }: { listingId: string }) {
           <Button variant="soft" onClick={() => void navigate(editListingPath(page.id))}>
             {EDIT_LABEL}
           </Button>
-          {page.status === 'active' ? (
+          {page.isExpired ? null : page.status === 'active' ? (
             <Button pending={busy} disabled={busy} onClick={() => void changeStatus('sold')}>
               {MARK_SOLD_LABEL}
             </Button>
-          ) : page.isExpired ? null : (
+          ) : (
             <Button variant="soft" pending={busy} disabled={busy} onClick={() => void changeStatus('active')}>
               {MARK_ACTIVE_LABEL}
             </Button>

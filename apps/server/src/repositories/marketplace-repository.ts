@@ -212,7 +212,7 @@ export async function insertListing(tx: IdentityTx, listing: ListingWrite): Prom
   const [row] = z.array(z.object({ id: z.guid() })).parse(
     await tx.execute(sql`
       insert into nestly.marketplace_listings (title, description, category, item_condition, price, city)
-      values (${listing.title}, ${listing.description}, ${listing.category}, ${listing.condition}, ${listing.price}, ${listing.city})
+      values (${listing.title}, ${listing.description ?? null}, ${listing.category}, ${listing.condition}, ${listing.price}, ${listing.city})
       returning id`),
   );
   if (row === undefined) throw new Error('the listing insert returned no row');
@@ -223,7 +223,7 @@ export async function insertListing(tx: IdentityTx, listing: ListingWrite): Prom
 export async function updateListing(tx: IdentityTx, id: string, listing: ListingWrite): Promise<number> {
   const rows = await tx.execute(sql`
     update nestly.marketplace_listings
-    set title = ${listing.title}, description = ${listing.description}, category = ${listing.category}, item_condition = ${listing.condition}, price = ${listing.price}, city = ${listing.city}
+    set title = ${listing.title}, ${listing.description === undefined ? sql`` : sql`description = ${listing.description}, `}category = ${listing.category}, item_condition = ${listing.condition}, price = ${listing.price}, city = ${listing.city}
     where id = ${id}::uuid
     returning id`);
   return rows.length;

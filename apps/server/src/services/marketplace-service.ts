@@ -280,15 +280,14 @@ export async function removeListingImage(database: Database, identity: Identity,
 }
 
 /**
- * POST /api/marketplace/listings/:id/status: sold/given, or back (decisions §3 item 11). A sold listing past its 60 days stays sold (ERR-054,
- * `expired`): back on sale it would be deleted at the next daily run (BR-090). The guard refuses it too.
+ * POST /api/marketplace/listings/:id/status: sold/given, or back (decisions §3 item 11). Past its 60 days a listing's status no longer moves
+ * (ERR-054, `expired`): a sold one back on sale would be deleted at the next daily run, an expired one marked sold would escape it (BR-090).
+ * The guard refuses both too.
  */
 export async function changeListingStatus(database: Database, identity: Identity, id: string, status: 'active' | 'sold'): Promise<MarketOutcome<object>> {
   return inTx(database, identity, async (tx): Promise<MarketOutcome<object>> => {
-    if (status === 'active') {
-      const listing = await readListing(tx, id);
-      if (listing?.isMine === true && listing.status === 'sold' && listing.isExpired) return { kind: 'expired' };
-    }
+    const listing = await readListing(tx, id);
+    if (listing?.isMine === true && listing.isExpired && listing.status !== status) return { kind: 'expired' };
     return (await setListingStatus(tx, id, status)) === 0 ? { kind: 'unavailable' } : { kind: 'ok' };
   });
 }

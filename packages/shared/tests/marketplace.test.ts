@@ -22,7 +22,7 @@ describe('[I12-B FR-MKT-002 VAL-013] listingSchema', () => {
 
   it('[AC-201] an optional description of up to 1,000 characters, trimmed; blank is none', () => {
     expect(LISTING_DESCRIPTION_MAX).toBe(1000);
-    expect(listingSchema.parse(base).description).toBeNull();
+    expect(listingSchema.parse(base).description, 'absent: an edit keeps the stored one').toBeUndefined();
     expect(listingSchema.parse({ ...base, description: '  עובד מצוין  ' }).description).toBe('עובד מצוין');
     expect(listingSchema.parse({ ...base, description: '   ' }).description).toBeNull();
     expect(listingSchema.parse({ ...base, description: 'ש'.repeat(1000) }).description).toHaveLength(1000);

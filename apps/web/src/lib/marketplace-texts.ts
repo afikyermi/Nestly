@@ -104,6 +104,8 @@ export const SAVE_LISTING = 'פרסום';
 export const SAVE_CHANGES = 'שמירת השינויים';
 export const SAVING = 'שומרים';
 export const SAVE_FAILED = 'המודעה לא נשמרה. אפשר לנסות שוב.';
+/** A staff account reviews the Marketplace; it neither publishes nor contacts sellers. */
+export const STAFF_NOT_PUBLISHER_TEXT = 'חשבון צוות לא מפרסם מודעות. אפשר לעיין במודעות.';
 export const NOT_REGULAR_TEXT = 'רק חשבון הורה יכול לפרסם מודעה. אפשר לצפות במודעות ולפנות למוכרים.';
 export const REMOVE_EXISTING_IMAGE = 'הסרת התמונה';
 export const IMAGE_IN_REVIEW = 'אי אפשר להסיר תמונה שממתינה לבדיקת הצוות. אפשר לנסות שוב אחרי הבדיקה.';

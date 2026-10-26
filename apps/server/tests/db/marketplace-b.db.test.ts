@@ -138,6 +138,20 @@ describe('[I12-B] Marketplace part B (Afik §10.5–§10.6)', () => {
     expect(await changeListingStatus(database, as(seller), warmer, 'active')).toEqual({ kind: 'expired' });
     expect((await listOwnListings(database, as(seller), undefined)).find((card) => card.id === warmer)).toMatchObject({ status: 'sold', isExpired: true });
     expect(await changeListingStatus(database, as(buyer), warmer, 'active'), 'never another user\'s').toEqual({ kind: 'unavailable' });
+    // an expired listing is not marked sold either: it would escape the deletion (BR-090)
+    const late = ok(await createListing(database, as(seller), listing({ title: `מאוורר ${tag}`, price: 40 }))).id;
+    await side.begin(async (tx) => {
+      await tx`select 1`;
+      await tx`select tests.fx_mkt_expire(${late}::uuid)`;
+    });
+    expect(await changeListingStatus(database, as(seller), late, 'sold')).toEqual({ kind: 'expired' });
+  });
+
+  it('[AC-201] an edit that leaves the description out keeps the stored one (an older client)', T, async () => {
+    const { description: omitted, ...withoutDescription } = listing({ title: `מוניטור תינוק ${tag}`, price: 180 });
+    expect(omitted).toBe('עובד מצוין, עם קופסה');
+    ok(await editListing(database, as(seller), monitor, withoutDescription));
+    expect(ok(await readListingPage(database, as(seller), undefined, monitor)).page.description).toBe('כתובת בתיאור');
   });
 
   it('[AC-206 FR-ADMIN-010] the Admin\'s graph: listings marked sold, by day, every day of the period', T, async () => {

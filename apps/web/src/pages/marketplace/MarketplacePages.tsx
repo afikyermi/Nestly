@@ -20,6 +20,7 @@ import {
   NEW_LISTING_TITLE,
   NOT_REGULAR_TEXT,
   PRO_VIEW_ONLY_NOTE,
+  STAFF_NOT_PUBLISHER_TEXT,
 } from '@/lib/marketplace-texts';
 
 // The Marketplace's pages (I12; PG-010, PG-019): the list (from the bottom navigation, "חנות"), "My listings", a new listing, one listing
@@ -36,9 +37,10 @@ function usePublisher(): boolean | null {
 
 /** A Professional or staff account that reached a publishing page by address: what it can do instead. */
 function NotPublisher() {
+  const staff = useStaffAccess();
   return (
     <div className="mt-4 flex flex-col items-start gap-3">
-      <p>{NOT_REGULAR_TEXT}</p>
+      <p>{staff.kind === 'staff' ? STAFF_NOT_PUBLISHER_TEXT : NOT_REGULAR_TEXT}</p>
       <Link to={MARKETPLACE_PATH} className="inline-flex min-h-11 items-center">
         {BACK_TO_MARKETPLACE}
       </Link>

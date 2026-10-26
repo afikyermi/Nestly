@@ -61,7 +61,7 @@ export const listingSchema = z.strictObject({
   title: nameOf(LISTING_TITLE_MIN, LISTING_TITLE_MAX, 'title_length'),
   category: z.enum(LISTING_CATEGORIES, { error: 'category_required' }),
   condition: z.enum(LISTING_CONDITIONS, { error: 'condition_required' }),
-  /** VAL-013: an optional description, at most 1,000 characters; empty or blank is none. */
+  /** VAL-013: an optional description, at most 1,000 characters; empty or blank is none. Absent on an edit keeps the one stored. */
   description: z
     .string()
     .max(4 * LISTING_DESCRIPTION_MAX, 'description_too_long')
@@ -69,7 +69,7 @@ export const listingSchema = z.strictObject({
     .refine((value) => !value.includes('\u0000') && codePointLength(value) <= LISTING_DESCRIPTION_MAX, 'description_too_long')
     .transform((value) => (value === '' ? null : value))
     .nullable()
-    .default(null),
+    .optional(),
   /** Whole shekels, 0 to 100,000 (VAL-013); 0 (or null, as before) is "למסירה" (to give away), kept as no price. */
   price: z
     .number({ error: 'price_invalid' })
