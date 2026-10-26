@@ -192,8 +192,6 @@ export const USERS_EMPTY_TEXT = 'לא נמצאו משתמשים';
 export const USERS_HINT = 'כותבים חלק מהשם. משתמשים מקצועיים מופיעים בלי שם';
 export const ACCOUNT_TYPE_LABELS = { regular: 'הורה', professional: 'בעל מקצוע', admin: 'מנהל', moderator: 'מודרטור' } as const;
 export const STATUS_LABELS = { active: 'פעיל', suspended: 'מושעה', banned: 'חסום', deletion_scheduled: 'ממתין למחיקה' } as const;
-/** BR-085 (§22.4): what a suspension or a ban does to an account that asked to delete itself. */
-export const DELETION_SCHEDULED_NOTE = 'החשבון ביקש למחוק את עצמו. השעיה או חסימה יבטלו את המחיקה, והחשבון לא יוכל לבטל אותן דרך מחיקה.';
 export const NO_NAME_TEXT = 'ללא שם';
 export const OPEN_USER_LABEL = 'פתיחה';
 /** Read after the visible label by screen readers only: whose account the button opens. */

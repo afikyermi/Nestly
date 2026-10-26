@@ -161,7 +161,7 @@
 | FR-ALG-010 | Group Highlights v1 וחשיפת קבוצות פעילות | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 191
+## קריטריוני קבלה — 187
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -354,21 +354,17 @@
 | AC-185 | מנהל קבוצה מושתק: ניהול מושהה | [15-acceptance.md](15-acceptance.md) |
 | AC-186 | גרסת המסמכים שנשמרת היא תאריך העדכון | [15-acceptance.md](15-acceptance.md) |
 | AC-187 | שלושת המסמכים הציבוריים נפתחים ומלאים | [15-acceptance.md](15-acceptance.md) |
-| AC-188 | השעיה מבטלת מחיקה מתוכננת | [15-acceptance.md](15-acceptance.md) |
-| AC-189 | חסימה מבטלת מחיקה מתוכננת | [15-acceptance.md](15-acceptance.md) |
-| AC-190 | עותק הטקסט בדיווחים מתרוקן במחיקה | [15-acceptance.md](15-acceptance.md) |
-| AC-191 | פרטי ההתחברות נמחקים פעם אחת | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
 | סוג | נושא | טווח | כמות | קובץ |
 |---|---|---|---|---|
-| BR | חוקים עסקיים | BR-001 … BR-085 | 85 | [08-business-rules.md](08-business-rules.md) |
+| BR | חוקים עסקיים | BR-001 … BR-084 | 84 | [08-business-rules.md](08-business-rules.md) |
 | VAL | ולידציות | VAL-001 … VAL-052 | 52 | [09-validations.md](09-validations.md) |
 | ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-048 | 48 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
 | NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-010 | 37 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
 | PG | מסכים | PG-001 … PG-061 | 61 | [07-screens-navigation.md](07-screens-navigation.md) |
-| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-079 | 79 | [appendix-b-open-points.md](appendix-b-open-points.md) |
+| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-078 | 78 | [appendix-b-open-points.md](appendix-b-open-points.md) |
 | ALG | קטלוג האלגוריתמים | ALG-01 … ALG-09 | 9 | [18-algorithms-spec.md](18-algorithms-spec.md) |
 | P-ALG | עקרונות האלגוריתמים | P-ALG-01 … P-ALG-08 | 8 | [18-algorithms-spec.md](18-algorithms-spec.md) |

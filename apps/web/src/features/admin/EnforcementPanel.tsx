@@ -20,7 +20,6 @@ import {
   HISTORY_HEADING,
   CONTENT_HISTORY_HEADING,
   CONTENT_KIND_LABELS,
-  DELETION_SCHEDULED_NOTE,
   KIND_ACTION_LABELS,
   PICK_ACTION_TEXT,
   REASON_LABEL,
@@ -52,8 +51,8 @@ const NEEDS: Record<EnforcementKind, PermissionKey> = {
 
 /** The actions that fit the account's state and the keys held: a suspension can be ended, a ban lifted, nothing else reverses. */
 function availableKinds(user: TargetUser, permissions: readonly PermissionKey[]): EnforcementKind[] {
-  // An account scheduled for deletion is acted on as an active one: a suspension or a ban cancels the deletion (BR-085, §22.4).
-  const kinds: EnforcementKind[] = user.status === 'banned' ? ['unban'] : user.status === 'suspended' ? ['warning', 'suspension', 'reinstate', 'ban'] : ['warning', 'suspension', 'ban'];
+  // An account scheduled for deletion can only be warned (the database refuses a suspension or a ban of it, I9).
+  const kinds: EnforcementKind[] = user.status === 'banned' ? ['unban'] : user.status === 'suspended' ? ['warning', 'suspension', 'reinstate', 'ban'] : user.status === 'deletion_scheduled' ? ['warning'] : ['warning', 'suspension', 'ban'];
   return kinds.filter((kind) => permissions.includes(NEEDS[kind]));
 }
 
@@ -98,7 +97,6 @@ export function EnforcementPanel({ user, permissions, report, pending, failure, 
         {user.fullName ?? ACCOUNT_TYPE_LABELS[user.accountType]} · {STATUS_LABELS[user.status]}
         {user.status === 'suspended' && user.suspendedUntil !== null ? ` · ${suspendedUntilText(formatAdminTime(user.suspendedUntil))}` : ''}
       </p>
-      {user.status === 'deletion_scheduled' ? <p>{DELETION_SCHEDULED_NOTE}</p> : null}
       <p className="text-muted-foreground">{suggestionText(user.suggestion.kind, user.suggestion.hours)}</p>
       <div>
         <h4 className="text-label">{HISTORY_HEADING}</h4>
