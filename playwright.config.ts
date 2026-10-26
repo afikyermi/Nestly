@@ -25,10 +25,11 @@ export default defineConfig({
   //   a to j are app flows that cost ~1.4 s a test against ~0.4 s for the story files after them, so with five shards
   //   shard 2 took 12.2 min (718 tests) while shards 3 and 4 took 6 and 6.7 (main run 40077357689) and sometimes hit
   //   the globalTimeout; with eight the slowest still took 11.5 min (CI 40094702922: app-shell-guard-stories alone 6 min).
-  //   Smaller runs shrink that spread; the timeout is unchanged.
+  //   Smaller runs shrink that spread. Since 26.10 (Afik) the globalTimeout is 20 min under a 30-min job: shards take
+  //   3.5-9 min, but a runner's slow apt install pushed whole jobs to the old 15-min limit with every test passed.
   // - On CI the run ends itself before the job's timeout-minutes, so a hang still reports and uploads its report.
   timeout: 30_000,
-  globalTimeout: isCi ? 13 * 60_000 : 0,
+  globalTimeout: isCi ? 20 * 60_000 : 0,
   // - Workers: Playwright's default (half the CPUs: 2 on the 4-vCPU runner). Three were measured in P3 on the same 2,312
   //   tests: each test ran ~35-40% slower and the slowest shard gained ~40 s, within run-to-run noise; not kept.
   forbidOnly: isCi,
