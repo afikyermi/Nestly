@@ -62,12 +62,20 @@ const clockRow = z.object({ nowText: dbTimestamp, usable: z.boolean() });
  * The database's `now()` as cursor text (a first page's `asOf`), and whether `cursorAsOf` (null: none) is not later than it. A cursor
  * from the future is not one this database issued.
  */
+export function snapshotClockColumns(cursorAsOf: string | null): SQL {
+  return sql`${isoText(sql`now()`)} as "nowText", coalesce(${cursorAsOf}::timestamptz <= now(), true) as usable`;
+}
+
+/** The clock columns of one row, checked. */
+export function snapshotClockOf(row: unknown): { nowText: string; isCursorUsable: boolean } {
+  const { nowText, usable } = clockRow.parse(row);
+  return { nowText, isCursorUsable: usable };
+}
+
+/** The snapshot clock on its own (a feed page reads it inside readFeedPrelude, combined-reads-repository.ts). */
 export async function readSnapshotClock(tx: IdentityTx, cursorAsOf: string | null): Promise<{ nowText: string; isCursorUsable: boolean }> {
-  const rows = await tx.execute(sql`
-    select ${isoText(sql`now()`)} as "nowText", coalesce(${cursorAsOf}::timestamptz <= now(), true) as usable`);
-  const [row] = z.array(clockRow).length(1).parse(rows);
-  if (row === undefined) throw new Error('the snapshot clock returned no row');
-  return { nowText: row.nowText, isCursorUsable: row.usable };
+  const [row] = z.array(z.unknown()).length(1).parse(await tx.execute(sql`select ${snapshotClockColumns(cursorAsOf)}`));
+  return snapshotClockOf(row);
 }
 
 // ---- the ranking statement -----------------------------------------------------------------------------------------------------------
@@ -253,6 +261,11 @@ export function rankingStatement(parameters: RankingParameters): SQL {
  */
 export async function readRankedPosts(tx: IdentityTx, parameters: RankingParameters): Promise<RankedPost[]> {
   await tx.execute(sql`select pg_catalog.set_config('extra_float_digits', '3', true)`);
+  return readRankedPostsExact(tx, parameters);
+}
+
+/** readRankedPosts in a transaction that already asks for the exact float8 text (a feed page: readFeedPrelude sets it, one round trip less). */
+export async function readRankedPostsExact(tx: IdentityTx, parameters: RankingParameters): Promise<RankedPost[]> {
   return z.array(rankedRow).parse(await tx.execute(rankingStatement(parameters)));
 }
 

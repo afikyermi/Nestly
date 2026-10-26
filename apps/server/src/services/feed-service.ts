@@ -1,10 +1,10 @@
 // The community feed (I3 F3.2 a2; FR-FEED-001, FR-ALG-002, ERR-027, BR-065; I3-algorithm.md). The caller is already authenticated; one page is
-// one identity transaction. The database decides who may see which post, count and name (row policies); this layer reads the configuration
-// and the snapshot clock, asks the ranking statement for the page, re-ranks it (shared), reads the display fields by the page's ids and
-// builds the answer. The viewer's own account type chooses the ranking profile and nothing else (AC-061; algorithm-review.md R1, R2): a
-// Regular parent gets every term, a Professional the content signals only; Admin and Moderator the review feed (freshness and quality, I14
-// completion). The viewer's Stage is read only
-// for the Regular profile and only when the configuration gives it weight. An empty feed is a page, never an error.
+// one identity transaction. The database decides who may see which post, count and name (row policies); this layer reads the caller's
+// account and the snapshot clock (one statement) and the configuration, asks the ranking statement for the page, re-ranks it (shared),
+// reads the display fields and the counts by the page's ids and builds the answer (performance plan ט'1: the same page in fewer round
+// trips). The viewer's own account type chooses the ranking profile and nothing else (AC-061; algorithm-review.md R1, R2): a Regular parent
+// gets every term, a Professional the content signals only; Admin and Moderator the review feed (freshness and quality, I14 completion).
+// The viewer's Stage is read only for the Regular profile and only when the configuration gives it weight. An empty feed is a page, never an error.
 
 import {
   FEED_GROUP_SUGGESTIONS,
@@ -25,13 +25,12 @@ import {
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction, type IdentityTx } from '../db/identity-transaction.js';
 import type { Identity } from '../lib/token-verifier.js';
-import { readOwnAccounts } from '../repositories/account-state-repository.js';
+import { readFeedPrelude, type FeedPrelude } from '../repositories/combined-reads-repository.js';
 import { readPublishedAnnouncements } from '../repositories/team-repository.js';
 import {
   readDisplayPosts,
   readFeedConfigRows,
-  readRankedPosts,
-  readSnapshotClock,
+  readRankedPostsExact,
   type DisplayPost,
   type RankingParameters,
   type RankingProfile,
@@ -39,7 +38,7 @@ import {
 import { readOwnStages } from '../repositories/journeys-repository.js';
 import { readFeedGroupSuggestions } from '../repositories/group-activity-repository.js';
 import { readMutedGroupIds } from '../repositories/group-rules-repository.js';
-import { readCommentCounts, readLikeCounts, readLikedTargetIds } from '../repositories/likes-repository.js';
+import { readLikedTargetIds, readPostCounts } from '../repositories/likes-repository.js';
 import { readOwnTopicWeights } from '../repositories/search-repository.js';
 import type { MediaStorage } from '../media/storage-admin.js';
 import type { PostImageRow } from '../repositories/media-repository.js';
@@ -85,9 +84,12 @@ export function readsViewerStages(profile: RankingProfile, wStage: number): bool
   return profile === 'regular' && wStage > 0;
 }
 
-/** The caller's ranking profile, or why there is no feed. The account type is read here only, to choose the profile (R1: never a row filter). */
-async function classifyViewer(tx: IdentityTx): Promise<FeedRefusal | { readonly kind: 'viewer'; readonly profile: RankingProfile; readonly review?: true }> {
-  const accounts = await readOwnAccounts(tx);
+/**
+ * The caller's ranking profile, or why there is no feed. The account type is read here only (the page's first statement), to choose the
+ * profile (R1: never a row filter).
+ */
+function classifyViewer(prelude: FeedPrelude): FeedRefusal | { readonly kind: 'viewer'; readonly profile: RankingProfile; readonly review?: true } {
+  const { accounts } = prelude;
   if (accounts.length > 1) throw new FeedFault('more than one own users row');
   const [account] = accounts;
   if (account === undefined) return { kind: 'forbidden' };
@@ -182,8 +184,18 @@ async function readIntents(tx: IdentityTx, asOf: string, halfLifeHours: number):
   );
 }
 
-/** One page, inside the caller's transaction. `cursor` is null for a first page; a cursor whose `asOf` is in the database's future is refused. */
-async function readPage(
+/** A unit's displayed counts (readPostCounts) and the viewer's own like-state. */
+const reactionsOf = (id: string, counts: ReadonlyMap<string, { likeCount: number; commentCount: number }>, liked: ReadonlySet<string>): UnitReactions => ({
+  likeCount: counts.get(id)?.likeCount ?? 0,
+  commentCount: counts.get(id)?.commentCount ?? 0,
+  likedByMe: liked.has(id),
+});
+
+/**
+ * One page, inside the caller's transaction (exported for the equivalence test). `cursor` is null for a first page; a cursor whose `asOf` is
+ * in the database's future is refused.
+ */
+export async function readFeedPageIn(
   tx: IdentityTx,
   viewerId: string,
   cursor: FeedCursor | null,
@@ -191,9 +203,10 @@ async function readPage(
   imageRows: PostImageRow[],
   professionalAuthors: { id: string; posts: number }[],
 ): Promise<FeedOutcome> {
-  const viewer = await classifyViewer(tx);
+  const prelude = await readFeedPrelude(tx, cursor === null ? null : cursor.asOf);
+  const viewer = classifyViewer(prelude);
   if (viewer.kind !== 'viewer') return viewer;
-  const clock = await readSnapshotClock(tx, cursor === null ? null : cursor.asOf);
+  const { clock } = prelude;
   if (!clock.isCursorUsable) return { kind: 'cursor_invalid' };
 
   const resolution = resolveFeedConfig(await readFeedConfigRows(tx), cursor === null ? null : cursor.configVersion);
@@ -217,13 +230,13 @@ async function readPage(
         ? { profile: 'content', asOf, config, after }
         : { profile: 'content', asOf, config, after, viewerId };
 
-  const ranked = await readRankedPosts(tx, parameters);
+  const ranked = await readRankedPostsExact(tx, parameters); // the prelude asked for the exact float8 text
   const selection = selectFeedPage(ranked, config);
   const pageIds = selection.units.map((unit) => unit.id);
   const display = new Map((await readDisplayPosts(tx, pageIds)).map((row) => [row.id, row]));
-  // F3.3: the displayed counts and the viewer's own likes, by the page's ids, after the order is fixed. None of them reaches the ranking.
-  const likeCounts = await readLikeCounts(tx, 'post', pageIds);
-  const commentCounts = await readCommentCounts(tx, pageIds);
+  // F3.3: the displayed counts (both in one statement) and the viewer's own likes, by the page's ids, after the order is fixed. None of them
+  // reaches the ranking.
+  const counts = await readPostCounts(tx, pageIds);
   const liked = await readLikedTargetIds(tx, pageIds);
   // I5: a post's image rows the viewer may read, read after the order is fixed (never a ranking input); signed after the transaction
   imageRows.push(...(await readPostImageRows(tx, storage, pageIds)));
@@ -232,12 +245,7 @@ async function readPage(
   const items: FeedUnit[] = [];
   for (const unit of selection.units) {
     const row = display.get(unit.id); // gone since the ranking statement: no longer readable, so not listed
-    const reactions = {
-      likeCount: likeCounts.get(unit.id) ?? 0,
-      commentCount: commentCounts.get(unit.id) ?? 0,
-      likedByMe: liked.has(unit.id),
-    };
-    const item = row === undefined ? undefined : unitOf(row, reactions, true, mutedGroups);
+    const item = row === undefined ? undefined : unitOf(row, reactionsOf(unit.id, counts, liked), true, mutedGroups);
     if (item !== undefined) items.push(item);
   }
   const last = selection.cursorFrom;
@@ -258,20 +266,17 @@ async function readPage(
   if (viewer.review !== true) {
     const intents = parameters.profile === 'regular' && (parameters.intents?.length ?? 0) > 0 ? (parameters.intents ?? []) : await readIntents(tx, asOf, config.intentHalfLifeHours);
     // I13 (Afik, 23.10.2026): paid relevance uses search topics only; Stage targeting is deferred.
-    const slots = await promotedPosts(tx, intents.map((intent) => intent.pattern), new Set(pageIds), items.length, after !== null);
+    // The viewer is a Regular or a Professional here (classifyViewer, not review): its account type is not read again.
+    const slots = await promotedPosts(tx, intents.map((intent) => intent.pattern), new Set(pageIds), items.length, after !== null, undefined, { seesAds: true });
     if (slots.length > 0) {
       const ids = slots.map((slot) => slot.postId);
       const promotedRows = new Map((await readDisplayPosts(tx, ids)).map((row) => [row.id, row]));
-      const promotedLikes = await readLikeCounts(tx, 'post', ids);
-      const promotedComments = await readCommentCounts(tx, ids);
+      const promotedCounts = await readPostCounts(tx, ids);
       const promotedLiked = await readLikedTargetIds(tx, ids);
       imageRows.push(...(await readPostImageRows(tx, storage, ids)));
       for (const slot of slots) {
         const row = promotedRows.get(slot.postId);
-        const unit =
-          row === undefined
-            ? undefined
-            : unitOf(row, { likeCount: promotedLikes.get(slot.postId) ?? 0, commentCount: promotedComments.get(slot.postId) ?? 0, likedByMe: promotedLiked.has(slot.postId) });
+        const unit = row === undefined ? undefined : unitOf(row, reactionsOf(slot.postId, promotedCounts, promotedLiked));
         if (unit !== undefined) promoted.push({ promotionId: slot.promotionId, afterIndex: slot.afterIndex, unit: { ...unit, source: 'promoted' } });
       }
     }
@@ -301,7 +306,7 @@ async function readPage(
 export async function readFeedPage(database: Database, identity: Identity, cursor: FeedCursor | null, storage?: MediaStorage): Promise<FeedOutcome> {
   const imageRows: PostImageRow[] = [];
   const professionalAuthors: { id: string; posts: number }[] = [];
-  const outcome = await inIdentityTransaction(database, identity, (tx) => readPage(tx, identity.userId, cursor, storage, imageRows, professionalAuthors), {
+  const outcome = await inIdentityTransaction(database, identity, (tx) => readFeedPageIn(tx, identity.userId, cursor, storage, imageRows, professionalAuthors), {
     isolationLevel: 'repeatable read',
   });
   if (outcome.kind !== 'page') return outcome;
