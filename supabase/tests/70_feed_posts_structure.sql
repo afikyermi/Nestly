@@ -78,7 +78,7 @@ select is(
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = 'posts' and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'SELECT')),
-  'anonymous_post_id, audience, author_id, author_status, body, created_at, group_id, held_at, held_until, id, is_anonymous, is_help_request, is_share, shared_post_id, stage_tag, status',
+  'anonymous_post_id, audience, author_id, author_status, body, created_at, group_id, held_at, held_until, id, is_anonymous, is_share, shared_post_id, stage_tag, status',
   '[F3.0-b finding 1 c14 · I10] authenticated may SELECT exactly these posts columns: everything but held_xact');
 
 select is(
@@ -92,7 +92,7 @@ select is(
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT')),
-  'post_authors.post_id, post_hides.post_id, posts.audience, posts.body, posts.group_id, posts.is_anonymous, posts.is_help_request, posts.shared_post_id, posts.stage_tag',
+  'post_authors.post_id, post_hides.post_id, posts.audience, posts.body, posts.group_id, posts.is_anonymous, posts.shared_post_id, posts.stage_tag',
   '[F3.0-a c1 c6 platform r12 r13] authenticated may INSERT exactly these columns: never the author, the status, a copy, an id or a clock');
 
 select is(
@@ -100,7 +100,7 @@ select is(
      from pg_catalog.pg_attribute a join pg_catalog.pg_class c on c.oid = a.attrelid join pg_catalog.pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'nestly' and c.relname = any (pg_temp.new_tables()) and a.attnum > 0 and not a.attisdropped
       and has_column_privilege('authenticated', c.oid, a.attnum, 'UPDATE')),
-  'posts.audience, posts.body, posts.is_help_request, posts.stage_tag, posts.status',
+  'posts.audience, posts.body, posts.stage_tag, posts.status',
   '[F3.0-a c6 c4] authenticated may UPDATE exactly audience, body, tag and (F3.0b, the move to deleted) status: not the anonymous flag, author or share reference');
 
 -- ---- c1: functions --------------------------------------------------------------------------------------------------------------
