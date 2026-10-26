@@ -31,7 +31,7 @@ screen size run at 375x812 too (see "Screen sizes").
   step 2 — as in `professional-followups.flow.ts`. Its pages are under `/pro/*`.
 - **A staff user (Moderator / Admin): only on the Preview, never on Production** (Afik, 21.10, decision §10.1). It is
   created by the CI job with the cleanup credential (same email pattern, so the cleanup deletes it with the run).
-  Afik approved the temporary setup/cleanup on 23.10: two separate viewport Moderators, CONTENT_MODERATE only; REPORTS_VIEW was added on 24.10 for staff-rules.flow's report queue, and USER_VIEW + USER_SUSPEND on 26.10 for account-deletion-staff.flow (§22.4; both awaiting Afik's confirmation);
+  Afik approved the temporary setup/cleanup on 23.10: two separate viewport Moderators, CONTENT_MODERATE only; REPORTS_VIEW was added on 24.10 for staff-rules.flow's report queue (awaiting Afik's confirmation);
   a trusted-main setup checkout, main-restricted `preview-e2e` environment, and one setup step holding the DB credential.
   `staffUser` supplies generated credentials from a private runner-temp file removed after the flows. The normal
   recovery-question gate is completed through the app. Cleanup removes only the locked pattern actor's Audit rows,
