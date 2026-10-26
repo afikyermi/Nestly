@@ -104,8 +104,13 @@ export interface MediaStorage {
   isConfigured(): boolean;
   upload(id: string, bytes: Uint8Array, mime: string): Promise<StorageOutcome>;
   remove(ids: readonly string[]): Promise<StorageOutcome>;
-  /** id -> a read address valid for `seconds`; an id Storage did not sign is missing from the map. */
-  signedUrls(ids: readonly string[], seconds: number): Promise<Map<string, string>>;
+  /** id -> a read address valid for `seconds`; an id Storage did not sign is missing from the map. `reuse`: an address signed earlier may
+   *  come back while enough of its lifetime remains (media/signed-url-cache.ts; this module itself always signs). */
+  signedUrls(ids: readonly string[], seconds: number, options?: SignOptions): Promise<Map<string, string>>;
+}
+
+export interface SignOptions {
+  readonly reuse?: boolean;
 }
 
 const signedRow = (value: unknown): { path: string; url: string } | undefined => {

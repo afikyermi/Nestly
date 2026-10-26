@@ -108,13 +108,13 @@ for (const [label, over] of [
   });
 }
 
-test('[E c9] the sweep age is 3 hours, the sweep cap 200 per run (bounded by a 240 s budget, 8 at once), the pattern ceiling 50', () => {
+test('[E c9] the sweep age is 3 hours, the sweep cap 200 per run (bounded by a 240 s budget, 2 at once), the pattern ceiling 80', () => {
   assert.equal(cleanup.SWEEP_AGE_HOURS, 3);
   assert.equal(cleanup.MAX_SWEEP_PER_RUN, 200);
   assert.equal(cleanup.SWEEP_BUDGET_SECONDS, 240);
-  assert.equal(cleanup.DELETE_CONCURRENCY, 8);
+  assert.equal(cleanup.DELETE_CONCURRENCY, 2);
   assert.deepEqual([...cleanup.RETRY_CODES].sort(), ['40001', '40P01', '55P03']);
-  assert.equal(cleanup.MAX_PATTERN_USERS, 50);
+  assert.equal(cleanup.MAX_PATTERN_USERS, 80);
   assert.equal(cleanup.MAX_VICTIMS, undefined);
 });
 
@@ -175,19 +175,19 @@ test('[E c9] fewer than MAX_SWEEP_PER_RUN leftovers are all swept', () => {
   assert.equal(r.victims.length, 3);
 });
 
-test("[E c9] Afik 17.10 per-run limit: 50 of this run's users are allowed; 51 select nothing and fail, the reason names this run and 50 and carries a count only", () => {
-  const ok = cleanup.selectVictims(cands(50, true, 'own'));
+test("[E c9] Afik 17.10 per-run limit (80 since plan E, a full run makes 62): 80 of this run's users are allowed; 81 select nothing and fail, the reason names this run and 80 and carries a count only", () => {
+  const ok = cleanup.selectVictims(cands(80, true, 'own'));
   assert.equal(ok.ok, true);
-  assert.equal(ok.victims.length, 50);
-  const r = cleanup.selectVictims(cands(51, true, 'own'));
+  assert.equal(ok.victims.length, 80);
+  const r = cleanup.selectVictims(cands(81, true, 'own'));
   assert.equal(r.ok, false);
   assert.equal(r.victims, undefined);
   assert.match(r.reason, /this run/i);
-  assert.match(r.reason, /\b50\b/);
+  assert.match(r.reason, /\b80\b/);
   assert.doesNotMatch(r.reason, /own\d|@|nestly-e2e/);
 });
 
-test("[E c9] Afik 17.10: leftovers do not count toward the 50: 3 own + MAX_SWEEP_PER_RUN+10 leftovers select the 3 and at most MAX_SWEEP_PER_RUN leftovers", () => {
+test("[E c9] Afik 17.10: leftovers do not count toward the 80: 3 own + MAX_SWEEP_PER_RUN+10 leftovers select the 3 and at most MAX_SWEEP_PER_RUN leftovers", () => {
   const r = cleanup.selectVictims([...cands(3, true, 'own'), ...cands(cleanup.MAX_SWEEP_PER_RUN + 10, false, 'old')]);
   assert.equal(r.ok, true);
   assert.equal(r.victims.filter((v) => v.own).length, 3);
@@ -275,8 +275,8 @@ test("[E c8] one user's delete failing: the others still run, and the job fails"
   assert.equal(r.deletedOwn, 2);
 });
 
-test("[E c9] 51 of this run's own users: no delete is attempted and the cleanup fails", async () => {
-  const { client, calls } = stubClient({ findCandidates: async () => found(cands(51, true, 'own')) });
+test("[E c9] 81 of this run's own users: no delete is attempted and the cleanup fails", async () => {
+  const { client, calls } = stubClient({ findCandidates: async () => found(cands(81, true, 'own')) });
   const r = await runIt(client);
   assert.equal(r.ok, false);
   assert.equal(calls.deleted.length, 0);
@@ -527,14 +527,15 @@ const NO_DELETE = ['security_limits', 'algorithm_configurations', 'status_guides
   // I10 completion C: a Highlight goes with its post or Group (cascade); it names no user
   'group_highlights'];
 
-test('[cleanup a] every expected table is deleted from in the user transaction, but the configuration tables; identity_link_checks just before nestly.users', () => {
+test('[cleanup a] every expected table is deleted from in the user transaction, but the configuration tables; identity_link_checks, then the Audit entries, just before nestly.users', () => {
   const order = [...cliText.matchAll(/delete from (nestly\.[a-z_]+|auth\.users)/g)].map((m) => m[1]);
   assert.deepEqual(
     [...new Set(order.filter((t) => t.startsWith('nestly.') && t !== 'nestly.post_authors'))].sort(),
     cleanup.EXPECTED_NESTLY_TABLES.filter((t) => !NO_DELETE.includes(t) && t !== 'post_authors' && t !== 'reaction_owners').map((t) => `nestly.${t}`),
   );
   const users = order.indexOf('nestly.users');
-  assert.equal(order[users - 1], 'nestly.identity_link_checks');
+  assert.equal(order[users - 1], 'nestly.audit_log');
+  assert.equal(order[users - 2], 'nestly.identity_link_checks');
   assert.equal(order.at(-1), 'auth.users');
   // friendships and regular_names (F2.4a) sit after journey_contexts, before regular_profiles; profile_open_counts and
   // security_events (F2.4c1, both keyed on the user, security_events ON DELETE RESTRICT) after regular_profiles, before
@@ -549,7 +550,7 @@ test('[cleanup a] every expected table is deleted from in the user transaction, 
   assert.ok(at('nestly.post_hides') < at('nestly.comments') && at('nestly.comments') < at('nestly.posts'), 'comments between the hides and the posts');
   assert.ok(at('nestly.recovery_answers') < at('nestly.reports'), 'F3.0b rows after the recovery rows');
   assert.deepEqual(order.filter((t) => !['nestly.identity_link_checks', 'nestly.post_hides', 'nestly.posts', 'nestly.post_authors', 'nestly.reports', 'nestly.reactions', 'nestly.comments'].includes(t)), [
-    'nestly.audit_log', 'nestly.recovery_throttles', 'nestly.recovery_events', 'nestly.legal_consents', 'nestly.recovery_answers', 'nestly.tracker_events', 'nestly.cycle_entries', 'nestly.children',
+    'nestly.recovery_throttles', 'nestly.recovery_events', 'nestly.legal_consents', 'nestly.recovery_answers', 'nestly.tracker_events', 'nestly.cycle_entries', 'nestly.children',
     'nestly.journey_contexts', 'nestly.notifications', 'nestly.notification_preferences', 'nestly.friend_content_notification_preferences',
     'nestly.reported_message_views', 'nestly.private_group_content_views', 'nestly.reported_comment_views', 'nestly.profile_staff_views', 'nestly.enforcement_records', 'nestly.report_openings', 'nestly.report_escalations', 'nestly.group_staff_views', 'nestly.promotion_events', 'nestly.promotion_monthly_summaries', 'nestly.promotions', 'nestly.promotion_payments', 'nestly.professional_views', 'nestly.usage_events', 'nestly.stories', 'nestly.profile_photos', 'nestly.media_assets', 'nestly.marketplace_listings',
     'nestly.groups', 'nestly.group_suggestions', 'nestly.group_invitations', 'nestly.group_join_requests', 'nestly.group_member_enforcements', 'nestly.group_bans',
@@ -557,20 +558,20 @@ test('[cleanup a] every expected table is deleted from in the user transaction, 
     'nestly.professional_reviews', 'nestly.professional_follows', 'nestly.professional_articles', 'nestly.outreach_requests',
     'nestly.chat_reads', 'nestly.support_messages', 'nestly.support_requests', 'nestly.messages', 'nestly.conversations', 'nestly.chat_requests', 'nestly.chat_blocks',
     'nestly.user_blocks', 'nestly.friendships', 'nestly.regular_names', 'nestly.regular_profiles', 'nestly.professional_profiles',
-    'nestly.profile_open_counts', 'nestly.search_intents', 'nestly.people_search_counts', 'nestly.user_enforcements', 'nestly.moderator_permissions', 'nestly.staff_roles', 'nestly.security_events', 'nestly.account_deletion_events', 'nestly.users', 'auth.users',
+    'nestly.profile_open_counts', 'nestly.search_intents', 'nestly.people_search_counts', 'nestly.user_enforcements', 'nestly.moderator_permissions', 'nestly.staff_roles', 'nestly.security_events', 'nestly.account_deletion_events', 'nestly.audit_log', 'nestly.users', 'auth.users',
   ]);
   assert.ok(order.indexOf('nestly.security_events') < order.indexOf('nestly.identity_link_checks'));
   // I9: conversations (both sides) and messages go before nestly.users, so the SET NULL of a deleted side never leaves a one-sided
   // conversation of a test user behind; the deletion record (no FK) by account id
   assert.ok(at('nestly.messages') < at('nestly.conversations') && at('nestly.conversations') < at('nestly.users'), 'conversations before users');
-  assert.match(cliText, /counts\['account_deletion_events'\] = \(await tx`delete from nestly\.account_deletion_events where account_id = \$\{id\}`\)\.count/);
+  assert.match(cliText, /\['account_deletion_events', tx`delete from nestly\.account_deletion_events where account_id = \$\{id\}`\]/);
   // I5: Stories and the profile photo before the images they point at; all three before regular_profiles (stories reference it)
   assert.ok(at('nestly.stories') < at('nestly.media_assets') && at('nestly.profile_photos') < at('nestly.media_assets') && at('nestly.media_assets') < at('nestly.regular_profiles'));
-  assert.match(cliText, /counts\['friendships'\] = \(\s*await tx`delete from nestly\.friendships where requester_id = \$\{id\} or addressee_id = \$\{id\}`\s*\)\.count/);
-  assert.match(cliText, /counts\['regular_names'\] = \(await tx`delete from nestly\.regular_names where user_id = \$\{id\}`\)\.count/);
-  assert.match(cliText, /counts\['profile_open_counts'\] = \(\s*await tx`delete from nestly\.profile_open_counts where user_id = \$\{id\}`\s*\)\.count/);
-  assert.match(cliText, /counts\['security_events'\] = \(\s*await tx`delete from nestly\.security_events where user_id = \$\{id\}`\s*\)\.count/);
-  assert.match(cliText, /counts\['identity_link_checks'\] = \(await tx`delete from nestly\.identity_link_checks where user_id = \$\{id\}`\)\.count/);
+  assert.match(cliText, /\['friendships', tx`delete from nestly\.friendships where requester_id = \$\{id\} or addressee_id = \$\{id\}`\]/);
+  assert.match(cliText, /\['regular_names', tx`delete from nestly\.regular_names where user_id = \$\{id\}`\]/);
+  assert.match(cliText, /\['profile_open_counts', tx`delete from nestly\.profile_open_counts where user_id = \$\{id\}`\]/);
+  assert.match(cliText, /\['security_events', tx`delete from nestly\.security_events where user_id = \$\{id\}`\]/);
+  assert.match(cliText, /\['identity_link_checks', tx`delete from nestly\.identity_link_checks where user_id = \$\{id\}`\]/);
 });
 
 test('[F3.0a c19] the cleanup deletes the hides of the user and the posts the user wrote, named or anonymous, and never writes the configuration', () => {
@@ -612,10 +613,10 @@ test('[cleanup c] mode: workflow_run carries none; workflow_dispatch needs dry-r
   }
 });
 
-test('[F3.0a c19 B1] the backlog mode is gone: no cap, no selector, the parser rejects it; the pattern ceiling is unchanged', () => {
+test('[F3.0a c19 B1] the backlog mode is gone: no cap, no selector, the parser rejects it; the pattern ceiling is 80 (plan E)', () => {
   assert.equal(cleanup.MAX_BACKLOG_PER_RUN, undefined);
   assert.equal(cleanup.selectBacklog, undefined);
-  assert.equal(cleanup.MAX_PATTERN_USERS, 50);
+  assert.equal(cleanup.MAX_PATTERN_USERS, 80);
   assert.equal(cleanup.parseMode('workflow_dispatch', 'backlog ').ok, false);
 });
 

@@ -2,6 +2,7 @@
 // a status and one `error` code, never a message, a table or a constraint (conventions, "User-facing errors"). Logs carry a fixed line and the
 // SQLSTATE, never an id, a reason or a name (NFR-PRIV-001).
 
+import { noteFailure } from '../lib/failure-report.js';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { isTransientFailure, readDatabaseFault } from '../lib/pg-error.js';
 import { replySessionRefused } from '../plugins/authentication.js';
@@ -17,6 +18,7 @@ export function replyFailure(request: FastifyRequest, reply: FastifyReply, error
   const refused = replySessionRefused(reply, error);
   if (refused !== undefined) return refused;
   request.log.error({ sqlstate: readDatabaseFault(error)?.code }, line);
+  noteFailure(request, error);
   if (isTransientFailure(error)) return reply.code(503).send({ error: 'unavailable' });
   return reply.code(500).send({ error: 'internal' });
 }

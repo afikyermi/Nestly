@@ -179,6 +179,19 @@ create or replace function tests.fx_ns_events(p_id uuid) returns integer
 language sql stable security definer set search_path = ''
 as $$ select count(*)::integer from nestly.security_events e where e.user_id = p_id and e.kind = 'people_search_limit' $$;
 
+-- Closes the week of a Professional's weekly follower digest (I11 follow-ups): the row is written at the week's first follow, timed at its
+-- close, and listed only once that time has passed; the test moves it to a minute ago, and the Professional's follows a day back so
+-- they fall inside the week it closes.
+create or replace function tests.fx_nt_close_week(p_user uuid) returns void
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  update nestly.professional_follows set created_at = created_at - interval '1 day' where professional_id = p_user;
+  update nestly.notifications set created_at = pg_catalog.now() - interval '1 minute'
+   where recipient_id = p_user and type = 'followers_weekly';
+end
+$$;
+
 revoke all on all functions in schema tests from public;
 grant usage on schema tests to app_server;
 grant execute on all functions in schema tests to app_server;
