@@ -152,7 +152,7 @@ select is((select count(*)::int from pairs x cross join people pe where pg_temp.
 
 -- what the policies do not show is not returned ------------------------------------------------------------------------------
 select is(pg_temp.n('a', 'select count(*)::text from nestly.chat_conversations()'), '1', '[plan-cache c4] a lists its conversation with c');
-select is(pg_temp.n('c', $q$ select string_agg("lastText" || '/' || unread || '/' || "canSend", ',') from nestly.chat_conversations() $q$), 'שלום קורה/1/true',
+select is(pg_temp.n('c', $q$ select string_agg(last_text || '/' || unread || '/' || can_send, ',') from nestly.chat_conversations() $q$), 'שלום קורה/1/true',
   '[plan-cache c4] c lists it too, with a''s message unread');
 select is(pg_temp.n('b', 'select count(*)::text from nestly.chat_conversations()'), '0', '[plan-cache c4] b, not a party, does not get it');
 select is(pg_temp.n('p', 'select count(*)::text from nestly.chat_conversations()'), '0', '[plan-cache c4] nor does p');
@@ -160,7 +160,7 @@ select is(pg_temp.n('a', 'select count(*)::text from nestly.chat_pending_incomin
   '1/1', '[plan-cache c4] b''s request is a''s incoming and b''s outgoing');
 select is(pg_temp.n('c', 'select count(*)::text from nestly.chat_pending_incoming()') || '/' || pg_temp.n('c', 'select count(*)::text from nestly.chat_pending_outgoing()'),
   '0/0', '[plan-cache c4] c, not a party, gets neither');
-select is(pg_temp.n('a', $q$ select string_agg(topic || '/' || "fromSupport" || '/' || unread, ',') from nestly.chat_support_threads() $q$), 'bug/true/1',
+select is(pg_temp.n('a', $q$ select string_agg(topic || '/' || from_support || '/' || unread, ',') from nestly.chat_support_threads() $q$), 'bug/true/1',
   '[plan-cache c4] a lists its answered Support thread');
 select is(pg_temp.n('b', 'select count(*)::text from nestly.chat_support_threads()'), '0', '[plan-cache c4] nobody else gets it');
 select is(pg_temp.n('a', 'select nestly.chat_unread_count()::text') || '/' || pg_temp.n('c', 'select nestly.chat_unread_count()::text')

@@ -8,7 +8,8 @@
 -- (Preview, the conversations list: 486 ms on the first call, 17-21 ms after).
 --
 -- What. Each function below returns exactly what one read statement of the server returned, with the same SQL (the server's parameters
--- become the function's arguments; `in (…)` over a list becomes `= any(array)`). SECURITY INVOKER: every row is read as the caller
+-- become the function's arguments; `in (…)` over a list becomes `= any(array)`; the columns are snake_case, the server's select names them
+-- as before). SECURITY INVOKER: every row is read as the caller
 -- (authenticated) under the same policies; nothing here reads a row the statement it replaces could not. STABLE, search_path = '',
 -- plan_cache_mode = force_generic_plan (one plan per backend, never re-planned per call). EXECUTE: authenticated only.
 --   chat_conversations()                    GET /api/chat: the conversation list          (chat-repository readConversations)
@@ -25,7 +26,7 @@
 
 -- The conversation list (readConversations) ---------------------------------------------------------------------------
 create function nestly.chat_conversations()
-returns table (id uuid, "otherUserId" uuid, "otherName" text, "lastText" text, "lastAt" text, "lastMine" boolean, unread integer, "canSend" boolean)
+returns table (id uuid, other_user_id uuid, other_name text, last_text text, last_at text, last_mine boolean, unread integer, can_send boolean)
 language plpgsql
 stable
 security invoker
@@ -35,15 +36,15 @@ as $$
 #variable_conflict use_column
 begin
   return query
-  select c.id, case when c.user_a = (select auth.uid()) then c.user_b else c.user_a end as "otherUserId", coalesce(n.full_name, pp.full_name) as "otherName",
-         coalesce(lm.body, op.opening_message, oo.opening_message) as "lastText",
-         to_char(coalesce(lm.created_at, op.created_at, oo.created_at) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "lastAt",
-         coalesce(lm.mine, op.mine, oo.mine) as "lastMine",
+  select c.id, case when c.user_a = (select auth.uid()) then c.user_b else c.user_a end as other_user_id, coalesce(n.full_name, pp.full_name) as other_name,
+         coalesce(lm.body, op.opening_message, oo.opening_message) as last_text,
+         to_char(coalesce(lm.created_at, op.created_at, oo.created_at) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as last_at,
+         coalesce(lm.mine, op.mine, oo.mine) as last_mine,
          (select count(*)::int from nestly.messages m
            where m.conversation_id = c.id and m.sender_id <> (select auth.uid())
              and m.created_at > coalesce((select r.last_read_at from nestly.chat_reads r where r.user_id = (select auth.uid()) and r.conversation_id = c.id), '-infinity')) as unread,
          not exists (select 1 from nestly.chat_blocks b where b.lifted_at is null
-           and ((b.blocker_id = c.user_a and b.blocked_id = c.user_b) or (b.blocker_id = c.user_b and b.blocked_id = c.user_a))) as "canSend"
+           and ((b.blocker_id = c.user_a and b.blocked_id = c.user_b) or (b.blocker_id = c.user_b and b.blocked_id = c.user_a))) as can_send
   from nestly.conversations c
   left join nestly.regular_names n on n.user_id = case when c.user_a = (select auth.uid()) then c.user_b else c.user_a end
   left join nestly.professional_profiles pp on pp.user_id = case when c.user_a = (select auth.uid()) then c.user_b else c.user_a end
@@ -60,7 +61,7 @@ $$;
 
 -- Pending chat requests (readPendingRequests): one function per direction (static SQL only) ---------------------------
 create function nestly.chat_pending_incoming()
-returns table (id uuid, "userId" uuid, name text, "text" text, at text)
+returns table (id uuid, user_id uuid, name text, message text, sent_at text)
 language plpgsql
 stable
 security invoker
@@ -70,8 +71,8 @@ as $$
 #variable_conflict use_column
 begin
   return query
-  select r.id, r.requester_id as "userId", coalesce(n.full_name, pp.full_name) as name, r.opening_message as text,
-         to_char(r.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as at
+  select r.id, r.requester_id as user_id, coalesce(n.full_name, pp.full_name) as name, r.opening_message as message,
+         to_char(r.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as sent_at
   from nestly.chat_requests r left join nestly.regular_names n on n.user_id = r.requester_id
   left join nestly.professional_profiles pp on pp.user_id = r.requester_id
   where r.target_id = (select auth.uid()) and r.status = 'pending'
@@ -81,7 +82,7 @@ end
 $$;
 
 create function nestly.chat_pending_outgoing()
-returns table (id uuid, "userId" uuid, name text, "text" text, at text)
+returns table (id uuid, user_id uuid, name text, message text, sent_at text)
 language plpgsql
 stable
 security invoker
@@ -91,8 +92,8 @@ as $$
 #variable_conflict use_column
 begin
   return query
-  select r.id, r.target_id as "userId", coalesce(n.full_name, pp.full_name) as name, r.opening_message as text,
-         to_char(r.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as at
+  select r.id, r.target_id as user_id, coalesce(n.full_name, pp.full_name) as name, r.opening_message as message,
+         to_char(r.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as sent_at
   from nestly.chat_requests r left join nestly.regular_names n on n.user_id = r.target_id
   left join nestly.professional_profiles pp on pp.user_id = r.target_id
   where r.requester_id = (select auth.uid()) and r.status = 'pending'
@@ -103,7 +104,7 @@ $$;
 
 -- Answered Support threads (readSupportThreads) ------------------------------------------------------------------------
 create function nestly.chat_support_threads()
-returns table (id uuid, topic text, status text, "lastText" text, "lastAt" text, "fromSupport" boolean, unread integer)
+returns table (id uuid, topic text, status text, last_text text, last_at text, from_support boolean, unread integer)
 language plpgsql
 stable
 security invoker
@@ -113,8 +114,8 @@ as $$
 #variable_conflict use_column
 begin
   return query
-  select s.id, s.topic, s.status, lm.body as "lastText", to_char(lm.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "lastAt",
-         lm.author_kind = 'support' as "fromSupport",
+  select s.id, s.topic, s.status, lm.body as last_text, to_char(lm.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as last_at,
+         lm.author_kind = 'support' as from_support,
          (select count(*)::int from nestly.support_messages m
            where m.support_request_id = s.id and m.author_kind = 'support'
              and m.created_at > coalesce((select r.last_read_at from nestly.chat_reads r where r.user_id = (select auth.uid()) and r.support_request_id = s.id), '-infinity')) as unread
