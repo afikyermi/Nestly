@@ -1,8 +1,9 @@
 // Error monitoring of the server (SRS §12 "Error monitoring"; Afik 24.10.2026: Sentry only, errors only, no separate logger).
 // Started only where SENTRY_DSN is set (Vercel Production and Preview); locally, in tests and in CI there is no DSN and every call
 // is a no-op. Errors only: no tracing, no spans, no breadcrumbs, no request data, no default PII; every event passes the allow-list
-// scrubber (scrub-error-event.ts) last. The SDK is imported in the background, so the function's cold start does not wait for it;
-// an error captured before it is ready is sent once it is.
+// scrubber (scrub-error-event.ts) last. The SDK is imported on the first report only (27.10): loading it costs a cold start hundreds of
+// milliseconds of CPU that the instance's first requests would queue behind, and most instances never report. The report is sent once
+// the SDK is ready.
 
 import { scrubServerEvent } from './scrub-error-event.js';
 
@@ -103,13 +104,15 @@ export function withoutTracing(client: { getOptions(): { tracesSampleRate?: numb
 export function startErrorMonitor(env: Env, load: () => Promise<SentryNode> = () => import('@sentry/node')): ErrorMonitor {
   const dsn = env.SENTRY_DSN?.trim();
   if (!dsn) return noErrorMonitor;
-  const ready: Promise<SentryNode | undefined> = load()
-    .then((sentry) => {
-      withoutTracing(sentry.initWithoutDefaultIntegrations(sentryOptions(sentry, dsn, env)));
-      return sentry;
-    })
-    // Monitoring never breaks the server: a failed load or init leaves it off.
-    .catch(() => undefined);
+  let ready: Promise<SentryNode | undefined> | undefined;
+  const sdk = (): Promise<SentryNode | undefined> =>
+    (ready ??= load()
+      .then((sentry) => {
+        withoutTracing(sentry.initWithoutDefaultIntegrations(sentryOptions(sentry, dsn, env)));
+        return sentry;
+      })
+      // Monitoring never breaks the server: a failed load or init leaves it off.
+      .catch(() => undefined));
   const tags = (report: ErrorReport): Record<string, string> => ({
     route: report.route,
     method: report.method,
@@ -119,13 +122,13 @@ export function startErrorMonitor(env: Env, load: () => Promise<SentryNode> = ()
   return {
     enabled: true,
     capture(error, report) {
-      void ready.then((sentry) => sentry?.withScope((scope) => {
+      void sdk().then((sentry) => sentry?.withScope((scope) => {
         scope.setTags(tags(report));
         sentry.captureException(error);
       }));
     },
     captureStatus(report) {
-      void ready.then((sentry) => sentry?.withScope((scope) => {
+      void sdk().then((sentry) => sentry?.withScope((scope) => {
         scope.setTags(tags(report));
         // One issue per status and route template: the fingerprint keeps different routes apart.
         scope.setFingerprint(['http-status', String(report.status), report.route]);
@@ -133,6 +136,8 @@ export function startErrorMonitor(env: Env, load: () => Promise<SentryNode> = ()
       }));
     },
     async flush(timeoutMs = DEFAULT_FLUSH_MS) {
+      // Nothing reported yet: nothing to send, and no reason to load the SDK.
+      if (ready === undefined) return;
       const sentry = await ready;
       if (sentry !== undefined) await sentry.flush(timeoutMs);
     },

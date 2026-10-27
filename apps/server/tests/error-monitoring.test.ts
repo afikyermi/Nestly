@@ -132,6 +132,9 @@ describe('[§12 Error monitoring] Sentry starts only with a DSN, errors only', (
       const monitor = startErrorMonitor({ SENTRY_DSN: FAKE_DSN }, () =>
         Promise.resolve({ ...sentry, initWithoutDefaultIntegrations: (o) => (client = sentry.initWithoutDefaultIntegrations({ ...o, transport: () => sentry.createTransport({ recordDroppedEvent: () => undefined }, () => Promise.resolve({})) })) }));
       await monitor.flush(100);
+      expect(client).toBeUndefined(); // nothing reported yet: the SDK is not loaded, so a cold start does not pay for it
+      monitor.captureStatus({ route: '/probe', method: 'GET', status: 503, surface: 'api' });
+      await monitor.flush(100);
       expect(client).toBeDefined();
       // The SDK took the rate from the environment; the monitor removed it, so no span records.
       expect(client?.getOptions().tracesSampleRate).toBeUndefined();
