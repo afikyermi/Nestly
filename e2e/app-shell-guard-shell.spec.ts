@@ -46,7 +46,7 @@ async function openDrawer(page: Page): Promise<void> {
 test.describe('AppShell: TopBar', () => {
   for (const vp of [MOBILE, DESKTOP]) {
     for (const route of PROTECTED_ROUTES) {
-      test(`[F1.2 c15][FR-TOP-001][AC-033] ${route.path} @${vp.width}: TopBar has the Hamburger at the inline-start (right) edge, then the Logo, the search, the Chat button and the notifications bell, and no other control`, async ({
+      test(`[F1.2 c15][FR-TOP-001][AC-033] ${route.path} @${vp.width}: TopBar has the Logo at the inline-start (right) edge, then the search, the Chat button, the notifications bell and the Hamburger last, at the inline-end (left) edge (§7.3, redesign 27.10.2026), and no other control`, async ({
         page,
       }) => {
         await page.setViewportSize(vp);
@@ -57,13 +57,13 @@ test.describe('AppShell: TopBar', () => {
         await expect(hamburger).toHaveCount(1);
         const logo = header.getByRole('img', { name: 'Nestly' }).or(header.getByRole('link', { name: 'Nestly' })).first();
         await expect(logo).toBeVisible();
-        expect(await inDomOrder([hamburger, logo]), 'Hamburger precedes the Logo in DOM order').toBe(true);
+        expect(await inDomOrder([logo, hamburger]), 'the Logo precedes the Hamburger in DOM order').toBe(true);
         const h = await hamburger.boundingBox();
         const l = await logo.boundingBox();
         const b = await header.boundingBox();
         if (h === null || l === null || b === null) throw new Error('missing box');
-        expect(h.x + h.width, 'Hamburger at the right (inline-start) edge').toBeGreaterThan(b.x + b.width - 40);
-        expect(l.x, 'Logo is to the left of the Hamburger').toBeLessThan(h.x);
+        expect(l.x + l.width, 'Logo at the right (inline-start) edge').toBeGreaterThan(b.x + b.width - 40);
+        expect(h.x, 'Hamburger at the left (inline-end) edge').toBeLessThan(b.x + 40);
         // AC-033: the search (a field from 768 px, an icon link to the results screen below it) and the bell.
         if (vp.width >= 768) await expect(header.getByRole('searchbox', { name: 'חיפוש אנשים ופוסטים' })).toBeVisible();
         else await expect(header.getByRole('link', { name: 'חיפוש', exact: true })).toBeVisible();

@@ -51,9 +51,11 @@ async function probe(page: Page): Promise<Probe> {
           if (el === null || el === document.body) return null;
           const r = el.getBoundingClientRect();
           const bars: Probe['bars'] = [];
+          // A control that is part of a bar is not covered by the bars: from 1024 the navigation sits inside the top bar (§7.1, redesign
+          // 27.10.2026), so the two make one bar there, and below 1024 they are apart, at opposite edges.
+          const ownBar = [document.querySelector('header'), document.querySelector('nav')].some((node) => node?.contains(el) === true);
           for (const [which, node] of [['header', document.querySelector('header')], ['nav', document.querySelector('nav')]] as const) {
-            // A control that is part of a bar is not covered by that bar; only the other bar can cover it.
-            if (node === null || node.contains(el)) continue;
+            if (node === null || ownBar) continue;
             const b = node.getBoundingClientRect();
             bars.push({ which, x: b.x, y: b.y, w: b.width, h: b.height });
           }

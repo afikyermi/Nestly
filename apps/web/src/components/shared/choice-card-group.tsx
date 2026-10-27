@@ -132,7 +132,7 @@ export function ChoiceCardGroup(props: ChoiceCardGroupProps) {
                 'peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring',
                 'peer-disabled:cursor-not-allowed peer-disabled:text-muted-foreground',
                 selected
-                  ? 'border-primary bg-brand-subtle text-badge-foreground ring-1 ring-primary ring-inset'
+                  ? 'border-2 border-primary bg-brand-subtle px-3.25 py-2.75 text-badge-foreground'
                   : error
                     ? 'border-destructive'
                     : 'border-input',

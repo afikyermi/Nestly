@@ -131,7 +131,7 @@ interface SheetPanelProps {
 
 // The sheet of an action done in place (direction.md "דפוסי אינטראקציה": share and report; F3.7 c10, F3.5/F3.6 reuse it): below 1024 px a
 // bottom sheet (top corners 20 and a grab handle), from 1024 px a small window in the middle. role="dialog", aria-modal, portaled over a 45%
-// dark backdrop; a focus trap, the page scroll locked and the rest of the page inert (Radix Dialog). Escape and a press outside close it (onOpenChange(false));
+// dark backdrop that blurs the page by 4 px; a focus trap, the page scroll locked and the rest of the page inert (Radix Dialog). Escape and a press outside close it (onOpenChange(false));
 // Back is the screen's (useBackCloses), since only the screen owns the history. Controlled: the element focused when it opened is remembered
 // and given focus back when it closes, unless `finalFocus` names another.
 export function SheetPanel({ open, onOpenChange, children, described = true, onOpened, finalFocus }: SheetPanelProps) {
@@ -140,7 +140,7 @@ export function SheetPanel({ open, onOpenChange, children, described = true, onO
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/45" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/45 backdrop-blur-xs" />
         <DialogPrimitive.Content
           ref={panel}
           aria-modal="true"

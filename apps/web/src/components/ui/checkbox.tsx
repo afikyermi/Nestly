@@ -27,20 +27,20 @@ export interface CheckboxProps {
 export function Checkbox({ error, 'aria-invalid': ariaInvalid, children, onCheckedChange, ...rest }: CheckboxProps) {
   return (
     <label className="flex min-h-11 items-start gap-3 text-small text-foreground">
-      <span className="relative mt-0.5 grid size-5 shrink-0 place-items-center">
+      <span className="relative grid size-6 shrink-0 place-items-center">
         <input
           {...rest}
           type="checkbox"
           aria-invalid={error || ariaInvalid ? true : undefined}
           onChange={(event: ChangeEvent<HTMLInputElement>) => onCheckedChange?.(event.target.checked)}
           className={cn(
-            'peer size-5 cursor-pointer appearance-none rounded-sm border border-input bg-card',
+            'peer size-6 cursor-pointer appearance-none rounded-sm border border-input bg-card',
             'transition-colors duration-fast ease-standard checked:border-primary checked:bg-primary',
             'disabled:cursor-not-allowed disabled:bg-muted disabled:checked:bg-muted-foreground',
             'aria-invalid:outline-2 aria-invalid:outline-offset-2 aria-invalid:outline-destructive',
           )}
         />
-        <CheckIcon className="pointer-events-none absolute inset-0 m-auto hidden size-3.5 stroke-3 text-primary-foreground peer-checked:block" />
+        <CheckIcon className="pointer-events-none absolute inset-0 m-auto hidden size-4 stroke-3 text-primary-foreground peer-checked:block" />
       </span>
       <span>{children}</span>
     </label>

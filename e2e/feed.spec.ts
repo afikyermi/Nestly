@@ -79,7 +79,8 @@ test.describe('F3.2b c13 [FR-FEED-001] the landing route', () => {
       // bell's light counters once the staff check says it is a community account (the shell's, not the feed's), never /api/chat/unread.
       // I11: the shell asks for the account kind once (any time after sign-in). The own user id (the feed, its Stories tray) comes from the token:
       // neither asks Auth's /user (measured 26.10: three calls before, one after). The one left is the Auth client's own reload of the stored session.
-      await expect.poll(() => [...new Set(net.apiPaths)].sort()).toEqual(['/api/account/kind', '/api/admin/access', '/api/feed', '/api/me', '/api/notifications', '/api/notifications/counts', '/api/profile', '/api/stories']);
+      // AC-209 (redesign 27.10.2026): a Regular's journey row reads the home's stage contexts.
+      await expect.poll(() => [...new Set(net.apiPaths)].sort()).toEqual(['/api/account/kind', '/api/admin/access', '/api/feed', '/api/home', '/api/me', '/api/notifications', '/api/notifications/counts', '/api/profile', '/api/stories']);
       expect(authUser.length).toBeLessThanOrEqual(1);
       await scan(page);
     });

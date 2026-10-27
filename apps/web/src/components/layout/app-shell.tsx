@@ -37,7 +37,10 @@ export interface AppShellProps {
   /** The global search, handed to the TopBar (an icon below 1024, a field beside the logo from 1024). */
   topBarSearch?: ReactNode;
   topBarActions?: ReactNode;
-  /** From 1024 only: the shortcuts column at the inline-start edge (redesign 27.10.2026, NFR-USE-001); hidden below 1024. */
+  /**
+   * The shortcuts column at the inline-start edge (redesign 27.10.2026, NFR-USE-001), shown from 1152 (72rem), where it fits beside the
+   * centred column and the gutter the action bar uses; below that its places are in the menu.
+   */
   shortcuts?: ReactNode;
   /** Below 1024 `main` scrolls inside the frame: when this changes (the route's path, not its hash) `main` goes back to the top. */
   scrollResetKey?: string | undefined;
@@ -144,7 +147,7 @@ export function AppShell({
           onNavigate={onNavigate}
         />
         {shortcuts === undefined ? null : (
-          <div className="sticky top-21 hidden w-60 shrink-0 self-start lg:block @7xl:w-72">{shortcuts}</div>
+          <div className="sticky top-21 hidden w-60 shrink-0 self-start @6xl:block @7xl:w-72">{shortcuts}</div>
         )}
         <main
           id={mainId}

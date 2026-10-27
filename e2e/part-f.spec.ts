@@ -41,7 +41,7 @@ test.describe('TopBar (38)', () => {
   test.use({ viewport: MOBILE });
 
   for (const id of TOPBAR) {
-    test(`[38] ${id}: one header landmark, a Hamburger named "${MENU}", the Logo, and the Hamburger at the right edge (RTL)`, async ({
+    test(`[38] ${id}: one header landmark, a Hamburger named "${MENU}", the Logo at the right edge and the Hamburger at the left edge (RTL; §7.3, redesign 27.10.2026)`, async ({
       page,
     }) => {
       await openStory(page, id);
@@ -51,9 +51,9 @@ test.describe('TopBar (38)', () => {
       await expect(page.getByRole('img', { name: 'Nestly' }).or(page.getByRole('link', { name: 'Nestly' }))).toHaveCount(1);
       const h = await box(hamburger);
       const header = await box(page.locator(`${ROOT} header`));
-      expect(right(h), 'Hamburger sits at the inline-start (right) edge of the bar').toBeGreaterThan(right(header) - 24);
+      expect(h.x, 'Hamburger sits at the inline-end (left) edge of the bar').toBeLessThan(header.x + 24);
       const logo = await box(page.getByRole('img', { name: 'Nestly' }).or(page.getByRole('link', { name: 'Nestly' })));
-      expect(logo.x, 'the Logo is to the left of the Hamburger').toBeLessThan(h.x);
+      expect(right(logo), 'the Logo sits at the inline-start (right) edge').toBeGreaterThan(right(header) - 24);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(MOBILE.width);
     });
 
@@ -78,7 +78,7 @@ test.describe('TopBar (38)', () => {
     await expect(page.getByRole('searchbox')).toHaveCount(0);
   });
 
-  test('[38] the with-actions story shows caller nodes in the header, after the Hamburger and Logo, in the same bar', async ({
+  test('[38] the with-actions story shows caller nodes in the header, between the Logo and the Hamburger, in the same bar (§7.3, redesign 27.10.2026)', async ({
     page,
   }) => {
     const id = TOPBAR.find((s) => s.includes('actions')) ?? '';
@@ -88,8 +88,9 @@ test.describe('TopBar (38)', () => {
     expect(await extra.count()).toBeGreaterThanOrEqual(2);
     const hamburger = await box(page.getByRole('button', { name: MENU }));
     const header = await box(page.locator(`${ROOT} header`));
-    const last = await box(extra.last());
-    expect(last.x, 'actions sit at the inline-end (left) side, away from the Hamburger').toBeLessThan(hamburger.x);
+    // the Hamburger is the last control, at the inline-end (left) edge; the caller's actions come just before it
+    const last = await box(extra.nth((await extra.count()) - 2));
+    expect(last.x, 'actions sit just to the right of the Hamburger').toBeGreaterThan(hamburger.x);
     expect(last.y).toBeGreaterThanOrEqual(header.y - 1);
     expect(bottom(last)).toBeLessThanOrEqual(bottom(header) + 1);
   });
@@ -530,7 +531,7 @@ test.describe('AppShell (41)', () => {
           }
         });
 
-        test(`[41] ${id}: the Hamburger is the second Tab stop and is at the right edge of the header`, async ({ page }) => {
+        test(`[41] ${id}: the Hamburger is the second Tab stop and is at the left (inline-end) edge of the header (§7.3, redesign 27.10.2026)`, async ({ page }) => {
           await openStory(page, id);
           await page.keyboard.press('Tab');
           await page.keyboard.press('Tab');
@@ -538,7 +539,7 @@ test.describe('AppShell (41)', () => {
           await expect(hamburger).toBeFocused();
           const h = await box(hamburger);
           const header = await box(page.locator('header'));
-          expect(right(h)).toBeGreaterThan(right(header) - 24);
+          expect(h.x).toBeLessThan(header.x + 24);
         });
 
         test(`[41][40] ${id}: Hamburger opens the drawer; Escape, close control and backdrop each close it and return focus to the Hamburger`, async ({

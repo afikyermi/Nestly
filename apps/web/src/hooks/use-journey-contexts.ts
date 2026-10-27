@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { HomeResponse, StageContext } from '@nestly/shared';
 import { fetchHome } from '@/services/api/trackers';
 import { useAuthedCall } from './use-authed-call';
@@ -23,18 +23,17 @@ export function useJourneyContexts(enabled: boolean): readonly StageContext[] | 
     cached !== null && Date.now() - cached.at < FRESH_MS ? cached.home.contexts : null,
   );
 
+  const asked = useRef(false);
   useEffect(() => {
-    if (!enabled || (cached !== null && Date.now() - cached.at < FRESH_MS)) return;
-    let cancelled = false;
+    if (!enabled || asked.current || (cached !== null && Date.now() - cached.at < FRESH_MS)) return;
+    asked.current = true;
+    // Not cancelled on unmount: a late answer only fills the cache (setting state on an unmounted component is a no-op).
     void (async () => {
       const result = await call(fetchHome);
-      if (cancelled || result.kind !== 'ok') return;
+      if (result.kind !== 'ok') return;
       rememberHome(result.value);
       setContexts(result.value.contexts);
     })();
-    return () => {
-      cancelled = true;
-    };
   }, [call, enabled]);
 
   return enabled ? contexts : null;
