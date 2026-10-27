@@ -61,10 +61,33 @@ describe('[professional-posting c14 R2] the content profile reads no social or j
     }
   });
 
-  it("[professional-posting c14] the Regular profile renders F3.2's statement and parameters byte for byte", () => {
+  // Performance (27.10): the statement reads tier 0 by the scored window and tier 1 in index order (feed-repository.ts), so its text around the
+  // score changed. The score itself, the tiering, the keyset and the order stay F3.2's byte for byte (placeholders aside), with F3.2's values.
+  const unnumbered = (text: string): string => text.replace(/\$\d+/g, '$?');
+  const between = (text: string, from: string, to: string): string => {
+    const start = text.indexOf(from);
+    const end = text.indexOf(to, start);
+    expect(start, from).toBeGreaterThanOrEqual(0);
+    expect(end, to).toBeGreaterThan(start);
+    return text.slice(start, end + to.length);
+  };
+  it("[professional-posting c14] the Regular profile keeps F3.2's score, tiers, keyset and order byte for byte", () => {
     const query = render({ profile: 'regular', asOf: AS_OF, config: heavy, after, stages: STAGES });
-    expect(query.sql).toBe(EXPECTED_SQL);
-    expect(query.params).toEqual(EXPECTED_PARAMS);
+    const now = unnumbered(query.sql);
+    const past = unnumbered(EXPECTED_SQL);
+    for (const [from, to] of [
+      ['tiered as (', 'from tiered t\n    )'],
+      ['where (s.tier > ', 'limit $?'],
+    ] as const) {
+      expect(now).toContain(between(past, from, to));
+    }
+    expect(now).toContain(between(past, 'extract(epoch from', 'as age_hours'));
+    // F3.2's values, in F3.2's order: the score's weights and the cursor's (the tier window and the page size included).
+    const values = (params: unknown[]): unknown[] => params.filter((p) => p !== AS_OF);
+    const expected = values(EXPECTED_PARAMS);
+    let at = 0;
+    for (const value of values(query.params)) if (at < expected.length && JSON.stringify(value) === JSON.stringify(expected[at])) at += 1;
+    expect(at, 'F3.2 parameter values as an ordered subsequence').toBe(expected.length);
   });
 
   it('[professional-posting c14] the check can fail: the Regular statement does hold friendships, the tag and the Stage array', () => {
