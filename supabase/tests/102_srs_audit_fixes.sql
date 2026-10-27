@@ -55,6 +55,8 @@ begin
   perform tests.fx_nt_purge();
 end
 $f$;
+-- AC-192: the check runs once per Israel day; as if a new day began (every caller's check cleared, as postgres)
+create function pg_temp.new_day() returns text language sql as $f$ select tests.fx_dl_exec('delete from nestly.birthday_checks') $f$;
 -- a count on the analytics screen (nestly.analytics_view = on), as the analytics route does
 create function pg_temp.na(p_who text, p_rel text) returns text language plpgsql as $f$
 declare v text;
@@ -174,7 +176,8 @@ select is(pg_temp.dml('b', $q$ update nestly.regular_profiles set profile_visibi
 select is(pg_temp.q('a', format($q$ select string_agg(v.outcome || '/' || (row_to_json(v)::text ~ 'Noa')::text, ',') from nestly.profile_view(%L) v $q$, pg_temp.id('b'))),
   'shown/false', '[audit-fix FR-PRIV-001] nor in Restricted (a Friend sees the Open view, children only as the Journey Summary)');
 select is(pg_temp.dml('b', $q$ update nestly.regular_profiles set profile_visibility = 'open' $q$), 'OK:1', '[audit-fix] (setup) back to Open');
-select is(pg_temp.deliver('a'), '0', '[audit-fix] a birthday notifies once: a second opening adds nothing');
+select pg_temp.new_day();
+select is(pg_temp.deliver('a'), '0', '[audit-fix] a birthday notifies once: a second opening adds nothing (even on a call that runs: a later day of the same week)');
 select is(pg_temp.deliver('b'), '0', '[audit-fix] a parent is not notified of its own children');
 select is(pg_temp.deliver('c'), '0', '[audit-fix FR-NOTIF-003] someone who is not a Friend is not notified');
 
@@ -186,8 +189,10 @@ select is(pg_temp.share('b', true), 'OK:1', '[audit-fix] (setup) and back on');
 
 -- condition 3: the recipient's preference
 select tests.fx_nt_pref(pg_temp.id('a'), 'birthdays', false);
+select pg_temp.new_day();
 select is(pg_temp.deliver('a'), '0', '[audit-fix condition 3 FR-NOTIF-002] the recipient''s "birthdays" category off: nothing');
 select tests.fx_nt_pref(pg_temp.id('a'), 'birthdays', true);
+select pg_temp.new_day();
 select is(pg_temp.deliver('a'), '2', '[audit-fix condition 3] (control) switched back on, they come');
 
 -- a Friendship that is not accepted, an inactive parent
@@ -213,6 +218,7 @@ select pg_temp.reset();
 select tests.fx_fr_add(pg_temp.id('a'), pg_temp.id('b'), 'accepted');
 select is(pg_temp.deliver('a'), '0', '[audit-fix condition 3 FR-REL-002] no birthday notification across a block (the parent blocked the Friend)');
 select is(pg_temp.dml('b', format($q$ update nestly.user_blocks set lifted_at = now() where blocked_id = %L and lifted_at is null $q$, pg_temp.id('a'))), 'OK:1', '[audit-fix] (setup) B lifts the block');
+select pg_temp.new_day();
 select is(pg_temp.deliver('a'), '2', '[audit-fix condition 3] (control) without the block, they come');
 select pg_temp.reset();
 select is(pg_temp.dml('a', format($q$ insert into nestly.user_blocks (blocked_id, blocked_account_type) values (%L, 'regular') $q$, pg_temp.id('b'))),

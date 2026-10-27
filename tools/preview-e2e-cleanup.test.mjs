@@ -81,7 +81,7 @@ const GOOD_FACTS = {
   dbUser: 'postgres',
   bypassRls: true,
   canDeleteAuthUsers: true,
-  nestlyTables: ['account_deletion_events', 'algorithm_configurations', 'audit_log', 'auto_hide_scopes', 'chat_blocks', 'chat_reads', 'chat_requests', 'children', 'comments', 'conversations', 'cycle_entries', 'enforcement_records', 'friend_content_notification_preferences', 'friendships', 'group_access', 'group_bans', 'group_highlight_configurations', 'group_highlights', 'group_invitations', 'group_join_requests', 'group_member_enforcements', 'group_members', 'group_notification_preferences', 'group_staff_views', 'group_suggestions', 'groups', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'marketplace_listings', 'media_assets', 'media_fingerprints', 'media_reviews', 'media_training_candidates', 'media_training_events', 'media_training_samples', 'messages', 'moderator_invitations', 'moderator_permissions', 'notification_preferences', 'notifications', 'outreach_requests', 'people_search_counts', 'post_authors', 'post_hides', 'posts', 'private_group_content_views', 'professional_articles', 'professional_follows', 'professional_profiles', 'professional_reviews', 'professional_views', 'profile_open_counts', 'profile_photos', 'profile_staff_views', 'promotion_events', 'promotion_monthly_summaries', 'promotion_payments', 'promotion_plans', 'promotion_settings', 'promotions', 'reaction_owners', 'reactions', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'report_auto_hides', 'report_escalations', 'report_openings', 'report_reasons', 'reported_comment_views', 'reported_message_views', 'reports', 'search_intents', 'security_events', 'security_limits', 'sponsored_products', 'staff_roles', 'status_guides', 'stories', 'support_messages', 'support_requests', 'suspected_image_fingerprints', 'system_announcements', 'tracker_events', 'trend_scopes', 'usage_events', 'user_blocks', 'user_enforcements', 'users'],
+  nestlyTables: ['account_deletion_events', 'algorithm_configurations', 'audit_log', 'auto_hide_scopes', 'birthday_checks', 'chat_blocks', 'chat_reads', 'chat_requests', 'children', 'comments', 'conversations', 'cycle_entries', 'enforcement_records', 'friend_content_notification_preferences', 'friendships', 'group_access', 'group_bans', 'group_highlight_configurations', 'group_highlights', 'group_invitations', 'group_join_requests', 'group_member_enforcements', 'group_members', 'group_notification_preferences', 'group_staff_views', 'group_suggestions', 'groups', 'identity_link_checks', 'journey_contexts', 'legal_consents', 'marketplace_listings', 'media_assets', 'media_fingerprints', 'media_reviews', 'media_training_candidates', 'media_training_events', 'media_training_samples', 'messages', 'moderator_invitations', 'moderator_permissions', 'notification_preferences', 'notifications', 'outreach_requests', 'people_search_counts', 'post_authors', 'post_hides', 'posts', 'private_group_content_views', 'professional_articles', 'professional_follows', 'professional_profiles', 'professional_reviews', 'professional_views', 'profile_open_counts', 'profile_photos', 'profile_staff_views', 'promotion_events', 'promotion_monthly_summaries', 'promotion_payments', 'promotion_plans', 'promotion_settings', 'promotions', 'reaction_owners', 'reactions', 'recovery_answers', 'recovery_events', 'recovery_throttles', 'regular_names', 'regular_profiles', 'report_auto_hides', 'report_escalations', 'report_openings', 'report_reasons', 'reported_comment_views', 'reported_message_views', 'reports', 'search_intents', 'security_events', 'security_limits', 'sponsored_products', 'staff_roles', 'status_guides', 'stories', 'support_messages', 'support_requests', 'suspected_image_fingerprints', 'system_announcements', 'tracker_events', 'trend_scopes', 'usage_events', 'user_blocks', 'user_enforcements', 'users'],
 };
 
 test('[E c8] preflight passes only for the exact expected facts, in any table order', () => {
@@ -474,15 +474,15 @@ test('[cleanup a] the expected tables are exactly the nestly tables the migratio
   assert.doesNotMatch(code, /alter\s+table\s+(?:if\s+exists\s+)?nestly\.[a-z_]+\s+rename\s+to/i, 'a renamed table: update this test');
   assert.deepEqual([...cleanup.EXPECTED_NESTLY_TABLES], [...created].sort());
   assert.ok(created.has('identity_link_checks'));
-  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 92);
+  assert.equal(cleanup.EXPECTED_NESTLY_TABLES.length, 93);
   for (const t of ['algorithm_configurations', 'post_authors', 'post_hides', 'posts', 'comments', 'reaction_owners', 'reactions', 'reports']) assert.ok(cleanup.EXPECTED_NESTLY_TABLES.includes(t), t);
 });
 
-test('[cleanup a] the preflight with all ninety-two tables passes; the ninety-one left without identity_link_checks fail', () => {
-  assert.equal(GOOD_FACTS.nestlyTables.length, 92);
+test('[cleanup a] the preflight with all ninety-three tables passes; the ninety-two left without identity_link_checks fail', () => {
+  assert.equal(GOOD_FACTS.nestlyTables.length, 93);
   assert.equal(cleanup.decidePreflight(GOOD_FACTS).ok, true);
   const rest = GOOD_FACTS.nestlyTables.filter((t) => t !== 'identity_link_checks');
-  assert.equal(rest.length, 91);
+  assert.equal(rest.length, 92);
   assert.equal(cleanup.decidePreflight({ ...GOOD_FACTS, nestlyTables: rest }).ok, false);
 });
 
@@ -558,7 +558,7 @@ test('[cleanup a] every expected table is deleted from in the user transaction, 
     'nestly.professional_reviews', 'nestly.professional_follows', 'nestly.professional_articles', 'nestly.outreach_requests',
     'nestly.chat_reads', 'nestly.support_messages', 'nestly.support_requests', 'nestly.messages', 'nestly.conversations', 'nestly.chat_requests', 'nestly.chat_blocks',
     'nestly.user_blocks', 'nestly.friendships', 'nestly.regular_names', 'nestly.regular_profiles', 'nestly.professional_profiles',
-    'nestly.profile_open_counts', 'nestly.search_intents', 'nestly.people_search_counts', 'nestly.user_enforcements', 'nestly.moderator_permissions', 'nestly.staff_roles', 'nestly.security_events', 'nestly.account_deletion_events', 'nestly.audit_log', 'nestly.users', 'auth.users',
+    'nestly.profile_open_counts', 'nestly.search_intents', 'nestly.people_search_counts', 'nestly.birthday_checks', 'nestly.user_enforcements', 'nestly.moderator_permissions', 'nestly.staff_roles', 'nestly.security_events', 'nestly.account_deletion_events', 'nestly.audit_log', 'nestly.users', 'auth.users',
   ]);
   assert.ok(order.indexOf('nestly.security_events') < order.indexOf('nestly.identity_link_checks'));
   // I9: conversations (both sides) and messages go before nestly.users, so the SET NULL of a deleted side never leaves a one-sided
