@@ -97,7 +97,8 @@ test('[I11-C FR-SERV-005/006/011 AC-169 AC-172 AC-173 AC-174] offer → accept �
     await credentialsAndAnswers(pro, generateTestUser(runId(), runAttempt()));
     // §11.20: the four tabs; "בקשות עזרה" from the home
     const nav = pro.getByRole('navigation', { name: 'ניווט ראשי' });
-    expect((await nav.getByRole('link').allTextContents()).map((text) => text.split(/[\d,]/)[0])).toEqual(['בית', 'פיד', 'שיחות', 'פרופיל']);
+    // polled: until the account kind loads, the bar shows the community tabs
+    await expect.poll(async () => (await nav.getByRole('link').allTextContents()).map((text) => text.split(/[\d,]/)[0])).toEqual(['בית', 'פיד', 'שיחות', 'פרופיל']);
     await pro.goto('/home');
     await expect(main(pro).getByText('הצעות עזרה היום: 0 מתוך 100')).toBeVisible();
     const own = await main(pro).getByRole('link', { name: 'צפייה בעמוד שלי' }).getAttribute('href');
