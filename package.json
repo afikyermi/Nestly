@@ -9,7 +9,7 @@
     "node": ">=22.22.0"
   },
   "scripts": {
-    "postinstall": "npm run build -w @nestly/shared",
+    "postinstall": "npm run build -w @nestly/shared && node tools/bundle-server.mjs",
     "dev": "node tools/dev.mjs",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tsconfig.playwright.json && tsc -p tsconfig.e2e-preview.json",

@@ -9,6 +9,7 @@
 node_modules/
 dist/
 dist-e2e/
+dist-fn/
 build/
 
 # Generated Word exports of the SRS — regenerate with tools/export-srs-docx.js, never edit

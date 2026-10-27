@@ -124,6 +124,7 @@ export default tseslint.config(
       "**/node_modules/**",
       "**/dist/**",
       "**/dist-e2e/**",
+      "**/dist-fn/**",
       "**/build/**",
       "**/coverage/**",
       "**/storybook-static/**",
