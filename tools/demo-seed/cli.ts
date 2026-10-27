@@ -7,6 +7,8 @@
 //             SUPABASE_PUBLISHABLE_KEY, VERCEL_AUTOMATION_BYPASS_SECRET (preview only), DEMO_ALLOW_SIGNUP=1 to create missing accounts
 //   node tools/demo-seed/cli.ts walk preview                  the role walk after the seed: every persona signs in and reads its first
 //        screens (GET only); the env of run, without DEMO_ALLOW_SIGNUP. Preview only: on production Afik walks it signed in himself.
+//   node tools/demo-seed/cli.ts load <preview|production>      the load test (load.ts): the personas sign in, then LOAD_USERS users read their
+//        screens at once for LOAD_DURATION_S (after LOAD_RAMP_S), LOAD_THINK_MS apart; GET only. Production: at most 500 users, 60 s.
 //   node tools/demo-seed/cli.ts make-accounts <email template with {key}> <out file>
 //        writes a fresh DEMO_ACCOUNTS value (random passwords) to a new file outside the repository, to paste into the secret.
 //
@@ -22,6 +24,7 @@ import { Api, Auth } from './http.ts';
 import { buildPlan, type Mode } from './plan.ts';
 import { createContext, dryRun, runPlan } from './runner.ts';
 import { checkTarget, type Target } from './target.ts';
+import { reportLines, runLoad, TARGET_MS } from './load.ts';
 import { walk } from './walk.ts';
 
 const log = (line: string) => process.stdout.write(`${line}\n`);
@@ -103,6 +106,57 @@ async function walkPreview(args: string[]): Promise<void> {
   if (report.failed.length > 0) process.exit(1);
 }
 
+function intOf(name: string, fallback: number, min: number, max: number): number {
+  const raw = process.env[name]?.trim();
+  if (raw === undefined || raw === '') return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < min || value > max) return fail(`${name} is a whole number from ${min} to ${max}`);
+  return value;
+}
+
+async function load(args: string[]): Promise<void> {
+  const target = args[0];
+  if (target !== 'preview' && target !== 'production') return fail('the target is preview or production');
+  const checked = checkTarget(target, process.env['DEMO_BASE_URL']);
+  if (!checked.ok) return fail(checked.reason);
+  const data = content();
+  const accounts = parseAccounts(process.env['DEMO_ACCOUNTS'], [...data.regulars, ...data.professionals].map((p) => p.key));
+  if (!accounts.ok) return fail(accounts.reason);
+  maskAccounts(accounts.accounts, (l) => process.stdout.write(l), process.env['GITHUB_ACTIONS'] === 'true');
+  const key = process.env['SUPABASE_PUBLISHABLE_KEY'] ?? '';
+  if (key.trim() === '' || key.startsWith('sb_secret_')) return fail('SUPABASE_PUBLISHABLE_KEY is missing or is not a publishable key');
+  const production = target === 'production';
+  const options = {
+    users: intOf('LOAD_USERS', 500, 1, production ? 500 : 1000),
+    durationMs: intOf('LOAD_DURATION_S', production ? 30 : 60, 5, production ? 60 : 300) * 1000,
+    rampMs: intOf('LOAD_RAMP_S', 20, 0, 120) * 1000,
+    thinkMs: intOf('LOAD_THINK_MS', 1000, 0, 30_000),
+  };
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+  const result = await runLoad(
+    {
+      baseUrl: checked.baseUrl,
+      auth: new Auth({ supabaseUrl: checked.supabaseUrl, publishableKey: key.trim(), fetch, sleep }),
+      accounts: accounts.accounts,
+      personas: [
+        ...data.regulars.map((p) => ({ key: p.key, kind: 'regular' as const })),
+        ...data.professionals.map((p) => ({ key: p.key, kind: 'professional' as const })),
+      ],
+      bypassSecret: production ? undefined : process.env['VERCEL_AUTOMATION_BYPASS_SECRET'],
+      fetch: (url, init) => fetch(url, { ...init, redirect: 'manual' }),
+      log,
+    },
+    options,
+  );
+  for (const f of result.signInFailed) log(`  sign-in failed: ${f}`);
+  const lines = [`load ${target}: ${options.users} users, ${options.durationMs / 1000} s after a ${options.rampMs / 1000} s ramp, think ${options.thinkMs} ms`, '', ...reportLines(result.summary, result.samples, (options.durationMs + options.rampMs) / 1000)];
+  for (const line of lines) log(line);
+  const summaryFile = process.env['GITHUB_STEP_SUMMARY'];
+  if (summaryFile !== undefined && summaryFile !== '') writeFileSync(summaryFile, `${lines.join('\n')}\n`, { flag: 'a' });
+  if (result.summary.requests === 0) fail('no request was made');
+  log(`load: ${result.summary.share === 1 ? 'every' : 'not every'} request answered within ${TARGET_MS} ms`);
+}
+
 function makeAccounts(args: string[]): void {
   const [template, out] = args;
   if (template === undefined || out === undefined) return fail('make-accounts <email template with {key}> <out file>');
@@ -124,8 +178,10 @@ if (command === 'plan') {
   await run(rest);
 } else if (command === 'walk') {
   await walkPreview(rest);
+} else if (command === 'load') {
+  await load(rest);
 } else if (command === 'make-accounts') {
   makeAccounts(rest);
 } else {
-  fail('usage: cli.ts plan [seed|stories] | run <seed|stories> <preview|production> | walk preview | make-accounts <template> <out>');
+  fail('usage: cli.ts plan [seed|stories] | run <seed|stories> <preview|production> | walk preview | load <preview|production> | make-accounts <template> <out>');
 }
