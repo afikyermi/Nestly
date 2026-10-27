@@ -1,13 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
+import { expandFunctionCalls } from './helpers/sql-functions.js';
 import { rankingStatement, type RankingParameters } from '../src/repositories/feed-repository.js';
 import { rankingProfileOf, readsViewerStages } from '../src/services/feed-service.js';
 
 // professional-posting c5 and c14 (.work/professional-posting/spec.md; algorithm-review.md "Static-test wording", binding). Static and unit by design:
 // the promise is about what the rendered ranking SQL contains, and about which files may read the account type.
 const dialect = new PgDialect();
-const render = (parameters: RankingParameters) => dialect.sqlToQuery(rankingStatement(parameters));
+// The call of the plan-cached invoker function (migration 20261027400000), followed by the statement that function runs.
+const render = (parameters: RankingParameters) => {
+  const query = dialect.sqlToQuery(rankingStatement(parameters));
+  return { ...query, sql: expandFunctionCalls(query.sql) };
+};
 const read = (path: string): string => readFileSync(new URL(path, import.meta.url), 'utf8');
 const code = (text: string): string => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
@@ -63,7 +68,9 @@ describe('[professional-posting c14 R2] the content profile reads no social or j
 
   // Performance (27.10): the statement reads tier 0 by the scored window and tier 1 in index order (feed-repository.ts), so its text around the
   // score changed. The score itself, the tiering, the keyset and the order stay F3.2's byte for byte (placeholders aside), with F3.2's values.
-  const unnumbered = (text: string): string => text.replace(/\$\d+/g, '$?');
+  // Performance (27.10, migration 20261027400000): the statement runs as a plan-cached invoker function whose arguments are the bound values;
+  // an argument name (p_…) is a placeholder like $n.
+  const unnumbered = (text: string): string => text.replace(/\$\d+|\bp_[a-z0-9_]+\b/g, '$?');
   const between = (text: string, from: string, to: string): string => {
     const start = text.indexOf(from);
     const end = text.indexOf(to, start);
@@ -82,12 +89,20 @@ describe('[professional-posting c14 R2] the content profile reads no social or j
       expect(now).toContain(between(past, from, to));
     }
     expect(now).toContain(between(past, 'extract(epoch from', 'as age_hours'));
-    // F3.2's values, in F3.2's order: the score's weights and the cursor's (the tier window and the page size included).
+    // F3.2's values, in F3.2's order: the score's weights and the cursor's (the tier window and the page size included). The function takes a
+    // value F3.2 bound twice in a row (the cursor's tier, score, created_at) as one argument, used at both places.
     const values = (params: unknown[]): unknown[] => params.filter((p) => p !== AS_OF);
-    const expected = values(EXPECTED_PARAMS);
+    const expected = values(EXPECTED_PARAMS).filter((value, i, all) => i === 0 || JSON.stringify(value) !== JSON.stringify(all[i - 1]));
     let at = 0;
     for (const value of values(query.params)) if (at < expected.length && JSON.stringify(value) === JSON.stringify(expected[at])) at += 1;
     expect(at, 'F3.2 parameter values as an ordered subsequence').toBe(expected.length);
+    // and each by its argument's name
+    const named = new Map([...query.sql.matchAll(/\b(p_\w+) => \$(\d+)/g)].map((m) => [m[1], query.params[Number(m[2]) - 1]]));
+    expect(Object.fromEntries(named)).toEqual({
+      p_as_of: AS_OF, p_window_edge_secs: 336 * 3600 + 1, p_window_hours: 336, p_w_fresh: 1, p_half_life_hours: 24, p_w_friend: 2, p_w_quality: 0.2,
+      p_quality_cap: 20, p_w_stage: 2, p_stages: STAGES, p_scores_tier0: true, p_tier1_created_at: 'infinity', p_tier1_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      p_after_tier: 0, p_after_score: 0.5, p_after_created_at: after.createdAt, p_after_id: after.id, p_limit: 21,
+    });
   });
 
   it('[professional-posting c14] the check can fail: the Regular statement does hold friendships, the tag and the Stage array', () => {
