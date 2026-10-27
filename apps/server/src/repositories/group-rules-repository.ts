@@ -87,9 +87,8 @@ export async function readMutedHere(tx: IdentityTx, target: 'post' | 'comment', 
 /** Of these Groups, the ones the caller is muted in now (their own records only; §11.16). Display only: the policies refuse the writes. */
 export async function readMutedGroupIds(tx: IdentityTx, groupIds: readonly string[]): Promise<ReadonlySet<string>> {
   if (groupIds.length === 0) return new Set();
-  const rows = await tx.execute(sql`
-    select distinct e.group_id as "groupId" from nestly.group_member_enforcements e
-    where e.group_id = any(${sql.param([...groupIds])}::uuid[]) and e.user_id = (select auth.uid()) and e.kind = 'warn_mute' and e.mute_until > now()`);
+  // the statement as the plan-cached invoker function nestly.read_muted_group_ids (migration 20261027400000)
+  const rows = await tx.execute(sql`select * from nestly.read_muted_group_ids(${sql.param([...groupIds])}::uuid[])`);
   return new Set(z.array(z.object({ groupId: z.guid() })).parse(rows).map((r) => r.groupId));
 }
 

@@ -55,11 +55,8 @@ export type PostImageRow = z.infer<typeof postImageRow>;
 /** The images of these posts the caller may read, in order. */
 export async function readImagesOfPosts(tx: IdentityTx, postIds: readonly string[]): Promise<PostImageRow[]> {
   if (postIds.length === 0) return [];
-  const rows = await tx.execute(sql`
-    select m.id, m.status, m.width, m.height, m.post_id as "postId", m.position
-    from nestly.media_assets m
-    where m.post_id = any(${sql.param([...postIds])}::uuid[])
-    order by m.post_id, m.position`);
+  // the statement (ordered by post, then position) as the plan-cached invoker function nestly.read_post_images (migration 20261027400000)
+  const rows = await tx.execute(sql`select * from nestly.read_post_images(${sql.param([...postIds])}::uuid[])`);
   return z.array(postImageRow).parse(rows);
 }
 
