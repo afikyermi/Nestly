@@ -73,9 +73,10 @@ const unsetSettings = sql.raw(UNSET_SETTINGS.map((name) => `, pg_catalog.set_con
  * The longest one statement of a product transaction may run (27.10, load test). app_server logs in with no limit, and `set local role`
  * does not apply the `authenticated` role's own setting, so a statement whose request had already timed out at the Function (30 s)
  * kept running for minutes: under load those statements held the database's CPU and every later request waited behind them. Past
- * this limit the statement is cancelled (the request answers 5xx), and the database's time goes to requests still waiting for an answer.
+ * this limit the statement is cancelled (the request fails), and the database's time goes to requests still waiting for an answer.
+ * 10 s, not less: a burst on one account's rate-limit row queues on its lock, and the wait counts (CI, profile-view c20: 120 at once).
  */
-export const STATEMENT_TIMEOUT_MS = 5000;
+export const STATEMENT_TIMEOUT_MS = 10_000;
 
 const statementTimeout = sql.raw(`, pg_catalog.set_config('statement_timeout', '${STATEMENT_TIMEOUT_MS}', true)`);
 

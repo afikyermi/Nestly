@@ -59,7 +59,7 @@ const QUERIES: Record<string, string> = {
   // and the users the caller reads then (its permissions decide, not the setting).
   // The statement time limit of an identity transaction (27.10), and a statement that runs past it.
   timeout: "select current_setting('statement_timeout') as v",
-  overrun: 'select pg_sleep(6)',
+  overrun: 'select pg_sleep(11)',
   staffon: `select s.v, (select current_setting('nestly.staff_view', true)) as after, (select string_agg(id::text, ',' order by id) from nestly.users) as ids
             from (select pg_catalog.set_config('nestly.staff_view', 'on', true) as v offset 0) as s`,
 };
@@ -412,17 +412,17 @@ describe('[F1.1-c c25] end to end through the server: the caller reads its own U
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
-describe('a statement of an identity transaction stops after 5 s (27.10, load test)', () => {
+describe('a statement of an identity transaction stops after 10 s (27.10, load test)', () => {
   it('the limit is set inside the transaction and gone after it; a longer statement is cancelled and the request fails', { timeout: 30_000 }, async () => {
     const app = await serverApp();
     const inside = await call(app, 'timeout', ACCOUNT_A);
     expect(inside.status, inside.body).toBe(200);
-    expect(inside.rows[0]?.v).toBe('5s');
+    expect(inside.rows[0]?.v).toBe('10s');
     const [after] = await outside(app);
     expect(after?.timeout).toBe('0');
     const started = Date.now();
     const overrun = await call(app, 'overrun', ACCOUNT_A);
     expect(overrun.status).toBe(500);
-    expect(Date.now() - started).toBeLessThan(5900);
+    expect(Date.now() - started).toBeLessThan(10_900);
   });
 });
