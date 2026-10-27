@@ -7,14 +7,14 @@
 import {
   NOTIFICATION_CATEGORIES,
   type NotificationCategory,
-  NOTIFICATION_TARGET_KINDS,
   NOTIFICATION_TYPES,
   type NotificationTargetKind,
 } from '@nestly/shared';
-import { eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { chatUnreadSql } from './chat-repository.js';
 import type { IdentityTx } from '../db/identity-transaction.js';
-import { friendContentNotificationPreferences, notificationPreferences, notificationsUpdate } from '../db/schema.js';
+import { friendContentNotificationPreferences, notificationPreferences, notifications, notificationsUpdate } from '../db/schema.js';
 
 export interface NotificationRow {
   readonly id: string;
@@ -29,12 +29,16 @@ export interface NotificationRow {
   readonly isRead: boolean;
 }
 
-// The list's and the bell's reads (readLatest, countUnread, readBellCounts) are plan-cached SECURITY INVOKER functions (migration
-// 20261027200000): the same SQL, read as the caller under the same policies, planned once per database connection instead of on every request
-// (27.10.2026, performance). Each applies the weekly follower digest rule (I11 follow-ups): a followers_weekly row is shown only while the
-// caller's `followers` category is on and the week it closes still has a new follower (the rows naming the caller that it reads as a count;
-// never who). The row was written at the week's first follow, so a switch turned off later in the week, or a week whose followers all left,
-// shows nothing.
+/**
+ * I11 follow-ups: the weekly follower digest is shown only while the caller's `followers` category is on and the week it closes still has a new
+ * follower (the rows naming the caller that it reads as a count; never who). The row was written at the week's first follow, so a switch
+ * turned off later in the week, or a week whose followers all left, shows nothing. Read under the caller's own policies.
+ */
+const digestShown = sql`not (${notifications.type} = 'followers_weekly' and (
+  exists (select 1 from nestly.notification_preferences p where p.category = 'followers' and not p.is_in_app_enabled)
+  or not exists (select 1 from nestly.professional_follows f where f.professional_id = (select auth.uid())
+                  and f.created_at >= ((${notifications.createdAt} at time zone 'Asia/Jerusalem') - interval '7 days') at time zone 'Asia/Jerusalem'
+                  and f.created_at < ${notifications.createdAt})))`;
 
 /**
  * BR-037, AC-046 (migration 20261023100000): the caller's own notifications of a Friend's child's birthday in the last seven days, written by
@@ -46,42 +50,31 @@ export async function deliverChildBirthdays(tx: IdentityTx): Promise<number> {
   return rows[0]?.n ?? 0;
 }
 
-const latestRow = z.object({
-  id: z.guid(),
-  type: z.string(),
-  actor_id: z.guid().nullable(),
-  target_kind: z.enum(NOTIFICATION_TARGET_KINDS),
-  target_id: z.guid(),
-  // timestamptz arrives as the database's text (drizzle's postgres-js parsers); read as drizzle's own timestamp column reads it
-  created_at: z.union([z.date(), z.string()]).transform((value) => (value instanceof Date ? value : new Date(value))),
-  cursor_at: z.string(),
-  read_at: z.union([z.date(), z.string()]).nullable(),
-});
-
 /** The caller's notifications, newest first, older than `before` when given (keyset on time and id). */
 export async function readLatest(tx: IdentityTx, limit: number, before: { at: string; id: string } | null = null): Promise<NotificationRow[]> {
-  const rows = z.array(latestRow).parse(
-    before === null
-      ? await tx.execute(sql`select * from nestly.notifications_latest(${limit}::int)`)
-      : await tx.execute(sql`select * from nestly.notifications_latest_before(${limit}::int, ${before.at}::timestamptz, ${before.id}::uuid)`),
-  );
-  return rows.map((row) => ({
-    id: row.id,
-    type: row.type,
-    actorId: row.actor_id,
-    targetKind: row.target_kind,
-    targetId: row.target_id,
-    createdAt: row.created_at,
-    cursorAt: row.cursor_at,
-    isRead: row.read_at !== null,
-  }));
+  const rows = await tx
+    .select({
+      id: notifications.id,
+      type: sql<string>`${notifications.type}`,
+      actorId: notifications.actorId,
+      targetKind: notifications.targetKind,
+      targetId: notifications.targetId,
+      createdAt: notifications.createdAt,
+      cursorAt: sql<string>`to_char(${notifications.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      readAt: notifications.readAt,
+    })
+    .from(notifications)
+    .where(and(digestShown, before === null ? undefined : sql`(${notifications.createdAt}, ${notifications.id}) < (${before.at}::timestamptz, ${before.id}::uuid)`))
+    .orderBy(desc(notifications.createdAt), desc(notifications.id))
+    .limit(limit);
+  return rows.map(({ readAt, ...row }) => ({ ...row, isRead: readAt !== null }));
 }
 
 const countRow = z.array(z.object({ n: z.number().int().nonnegative() })).length(1);
 
 /** How many of the caller's notifications are unread (the bell). */
 export async function countUnread(tx: IdentityTx): Promise<number> {
-  const rows = countRow.parse(await tx.execute(sql`select nestly.notifications_unread_count() as n`));
+  const rows = countRow.parse(await tx.execute(sql`select count(*)::int as n from nestly.notifications where read_at is null and ${digestShown}`));
   return rows[0]?.n ?? 0;
 }
 
@@ -92,7 +85,13 @@ const bellRow = z.array(z.object({ unread: z.number().int().nonnegative(), chat:
  * newest notification readLatest would list (same digest rule, a type this build knows). Read under the caller's own policies.
  */
 export async function readBellCounts(tx: IdentityTx): Promise<{ unread: number; chat: number; latest: string | null }> {
-  const rows = bellRow.parse(await tx.execute(sql`select * from nestly.notifications_bell_counts(${sql.param([...NOTIFICATION_TYPES])}::text[])`));
+  const types = sql.join(NOTIFICATION_TYPES.map((type) => sql`${type}`), sql`, `);
+  const rows = bellRow.parse(
+    await tx.execute(sql`select
+      (select count(*)::int from nestly.notifications where read_at is null and ${digestShown}) as unread,
+      ${chatUnreadSql} as chat,
+      (select id from nestly.notifications where ${digestShown} and type::text in (${types}) order by created_at desc, id desc limit 1) as latest`),
+  );
   const row = rows[0];
   return { unread: row?.unread ?? 0, chat: row?.chat ?? 0, latest: row?.latest ?? null };
 }

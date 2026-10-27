@@ -6,9 +6,8 @@
 
 import type { FriendshipStatus } from '@nestly/shared';
 import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
-import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
-import { friendships, friendshipsInsert, friendshipsUpdate } from '../db/schema.js';
+import { friendships, friendshipsInsert, friendshipsUpdate, regularNames } from '../db/schema.js';
 
 /** A row between the caller and one other person, as the caller may read it. */
 export interface PairRow {
@@ -109,7 +108,5 @@ export async function readListedRows(tx: IdentityTx): Promise<ListedRow[]> {
  */
 export async function readVisibleNames(tx: IdentityTx, userIds: readonly string[]): Promise<{ userId: string; fullName: string }[]> {
   if (userIds.length === 0) return [];
-  // a plan-cached SECURITY INVOKER function (migration 20261027200000): the same read, planned once per database connection (27.10.2026)
-  const rows = await tx.execute(sql`select user_id, full_name from nestly.regular_names_visible(${sql.param([...userIds])}::uuid[])`);
-  return z.array(z.object({ user_id: z.guid(), full_name: z.string() })).parse(rows).map((row) => ({ userId: row.user_id, fullName: row.full_name }));
+  return tx.select({ userId: regularNames.userId, fullName: regularNames.fullName }).from(regularNames).where(inArray(regularNames.userId, [...userIds]));
 }
