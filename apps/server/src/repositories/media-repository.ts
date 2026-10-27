@@ -7,6 +7,7 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { MEDIA_KINDS, type MediaKind, type MediaState, type StoryAudience } from '@nestly/shared';
 import type { IdentityTx } from '../db/identity-transaction.js';
+import { camelColumns } from './plan-cached.js';
 
 const STATUSES = ['pending', 'passed', 'queued', 'approved', 'rejected'] as const;
 export type MediaStatus = (typeof STATUSES)[number];
@@ -55,11 +56,8 @@ export type PostImageRow = z.infer<typeof postImageRow>;
 /** The images of these posts the caller may read, in order. */
 export async function readImagesOfPosts(tx: IdentityTx, postIds: readonly string[]): Promise<PostImageRow[]> {
   if (postIds.length === 0) return [];
-  const rows = await tx.execute(sql`
-    select m.id, m.status, m.width, m.height, m.post_id as "postId", m.position
-    from nestly.media_assets m
-    where m.post_id = any(${sql.param([...postIds])}::uuid[])
-    order by m.post_id, m.position`);
+  // the statement (ordered by post, then position) as the plan-cached invoker function nestly.read_post_images (migration 20261027400000)
+  const rows = await tx.execute(sql`select ${camelColumns('id', 'status', 'width', 'height', 'post_id')}, image_position as position from nestly.read_post_images(${sql.param([...postIds])}::uuid[])`);
   return z.array(postImageRow).parse(rows);
 }
 
