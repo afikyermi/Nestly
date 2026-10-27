@@ -34,18 +34,18 @@ for (const { label, viewport } of SIZES) {
       await shot(page, 'professional-composer-idle', label);
     });
 
-    test('composer engaged: text typed, "הפוסט יוצג לכולם" after the field', async ({ page }) => {
+    test('composer engaged: text typed, the audience group "כולם" / "עוקבים בלבד" after the field (AC-130)', async ({ page }) => {
       const net = await setupFeed(page, () => pageOf(range(1, 3), null), { professional: true });
       await openFeedAt(page, net);
       await expect(feedCards(page)).toHaveCount(3);
       await bodyBox(page).click();
       await bodyBox(page).fill('שאלה קטנה על שינה');
-      await expect(page.getByText('הפוסט יוצג לכולם', { exact: true })).toBeVisible();
+      await expect(page.getByRole('radio', { name: 'עוקבים בלבד', exact: true })).toBeVisible();
       await page.evaluate(() => document.fonts.ready.then(() => undefined));
       await shot(page, 'professional-composer-engaged', label);
     });
 
-    test('own post, edit form: the fixed line instead of the audience and tag groups', async ({ page }) => {
+    test('own post, edit form: the audience group "כולם" / "עוקבים בלבד", no tag group (AC-130)', async ({ page }) => {
       await setupPosts(page, { posts: [{ ...MINE, stageTag: null }], professional: true });
       await page.goto('/login');
       await page.getByRole('textbox', { name: 'אימייל', exact: true }).fill(EMAIL);
@@ -55,7 +55,7 @@ for (const { label, viewport } of SIZES) {
       await page.goto(`/posts/${POST_ID}`);
       await chooseFromPostMenu(page, EDIT_ITEM);
       await expect(page.getByRole('form', { name: 'עריכת פוסט' })).toBeVisible();
-      await expect(page.getByText('הפוסט יוצג לכולם', { exact: true })).toBeVisible();
+      await expect(page.getByRole('radio', { name: 'עוקבים בלבד', exact: true })).toBeVisible();
       await page.evaluate(() => document.fonts.ready.then(() => undefined));
       await shot(page, 'professional-post-edit', label);
     });
