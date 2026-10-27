@@ -8,7 +8,8 @@ import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
 
-/** The activity score of the Group aliased `g` in the enclosing statement (0 for a quiet Group): an ordering term, never a filter. */
+/** The activity score of the Group aliased `g` in the enclosing statement (0 for a quiet Group): an ordering term, never a filter.
+ * nestly.group_summaries() and nestly.feed_group_suggestions() repeat it verbatim (migration 20261027300000): change all three. */
 export function groupActivityScore(): SQL {
   return sql`(select case when count(*) >= ${GROUP_ACTIVITY_MIN_EVENTS}::integer
                   then sum(power(2::float8, -(extract(epoch from (now() - e.at)) / 3600::float8) / ${GROUP_ACTIVITY_HALF_LIFE_HOURS}::float8))
@@ -28,19 +29,11 @@ export function groupActivityScore(): SQL {
  * most active first; a quiet Group is never suggested. Basic details only (name, description, member count), never a post.
  */
 export async function readFeedGroupSuggestions(tx: IdentityTx, limit: number): Promise<FeedGroupSuggestion[]> {
+  // The statement is nestly.feed_group_suggestions (migration 20261027300000): a SECURITY INVOKER plpgsql function, so its plan is cached
+  // per connection; it runs under the caller's policies exactly as the statement did (the activity score of groupActivityScore()).
   const rows = await tx.execute(sql`
-    select s.id, s.name, s.description, s."memberCount"
-    from (
-      select g.id, g.name, g.description, g.created_at,
-             (select count(*) from nestly.group_members m where m.group_id = g.id and m.member_status = 'active')::int as "memberCount",
-             ${groupActivityScore()} as activity
-      from nestly.groups g
-      where g.privacy = 'public'
-        and not exists (select 1 from nestly.group_access a where a.group_id = g.id)
-        and not exists (select 1 from nestly.group_bans b where b.group_id = g.id and b.user_id = (select auth.uid()))
-    ) s
-    where s.activity > 0
-    order by s.activity desc, s.created_at desc, s.id desc
-    limit ${limit}`);
+    select s.id, s.name, s.description, s.member_count as "memberCount"
+    from nestly.feed_group_suggestions(${limit}::integer, ${GROUP_ACTIVITY_MIN_EVENTS}::integer, ${GROUP_ACTIVITY_HALF_LIFE_HOURS}::float8,
+                                       ${GROUP_ACTIVITY_WINDOW_DAYS}::integer) s`);
   return z.array(feedGroupSuggestion).parse(rows);
 }
