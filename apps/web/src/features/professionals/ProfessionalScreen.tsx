@@ -168,7 +168,7 @@ export function ProfessionalScreen({ professionalId }: { professionalId: string 
               {page.isFollowing ? UNFOLLOW : FOLLOW}
             </Button>
             {page.conversationId !== null ? (
-              <Link to={conversationPath(page.conversationId)} className="inline-flex min-h-11 items-center rounded-md bg-primary-soft px-5 text-label text-primary-strong">
+              <Link to={conversationPath(page.conversationId)} className="inline-flex min-h-11 items-center rounded-md bg-secondary px-5 text-label font-bold text-secondary-foreground no-underline">
                 {OPEN_CONVERSATION}
               </Link>
             ) : page.canChat && !writing ? (

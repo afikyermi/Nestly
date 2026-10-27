@@ -127,12 +127,12 @@ export function ChoiceCardGroup(props: ChoiceCardGroupProps) {
             <label
               htmlFor={id}
               className={cn(
-                'flex min-h-13 cursor-pointer items-center gap-3 rounded-lg border-2 bg-card px-3.5 py-3 text-body text-foreground',
+                'flex min-h-13 cursor-pointer items-center gap-3 rounded-md border bg-card px-3.5 py-3 text-body text-foreground',
                 'transition-colors duration-fast ease-standard',
                 'peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring',
                 'peer-disabled:cursor-not-allowed peer-disabled:text-muted-foreground',
                 selected
-                  ? 'border-primary bg-primary-soft text-primary-strong'
+                  ? 'border-primary bg-brand-subtle text-badge-foreground ring-1 ring-primary ring-inset'
                   : error
                     ? 'border-destructive'
                     : 'border-input',
@@ -141,15 +141,15 @@ export function ChoiceCardGroup(props: ChoiceCardGroupProps) {
               <span
                 aria-hidden="true"
                 className={cn(
-                  'grid size-6 shrink-0 place-items-center border-2',
+                  'grid size-5 shrink-0 place-items-center border',
                   multiple ? 'rounded-sm' : 'rounded-full',
                   selected ? 'border-primary bg-primary text-primary-foreground' : 'border-input',
                 )}
               >
-                {selected ? <CheckIcon className="size-4" /> : null}
+                {selected ? <CheckIcon className="size-3.5 stroke-3" /> : null}
               </span>
               <span className="flex flex-col">
-                <span id={`${id}-label`} className={selected ? 'font-semibold' : undefined}>
+                <span id={`${id}-label`} className={selected ? 'font-bold' : undefined}>
                   {option.label}
                 </span>
                 {option.description ? (

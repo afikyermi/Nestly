@@ -1,11 +1,11 @@
 import type { ChangeEventHandler, FocusEventHandler } from 'react';
 import { cn } from '@/lib/cn';
 
-// The field box shared by TextInput, PasswordInput and SelectInput. The border is the `input`
+// The field box shared by TextInput, PasswordInput and SelectInput (44 high, corners 10). The border is the `input`
 // token (3:1, tokens.md): `border` is decorative and never outlines a field. An error is a
 // thicker destructive border, and FormField adds the icon and text, so it is never colour alone.
 export const inputStyles = cn(
-  'block min-h-12 w-full rounded-md border border-input bg-card px-3.5 text-body text-foreground',
+  'block min-h-11 w-full rounded-md border border-input bg-card px-3.5 text-body text-foreground',
   'placeholder:text-muted-foreground',
   'transition-colors duration-fast ease-standard',
   'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground',

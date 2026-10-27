@@ -34,7 +34,7 @@ export function MediaTile({ image, alt, fit = 'cover', className }: MediaTilePro
         className={cn('size-full', fit === 'cover' ? 'object-cover' : 'object-contain')}
       />
       {image.state === 'pending' ? (
-        <span className="absolute start-2 top-2 rounded-full bg-card px-2.5 py-1 text-caption text-foreground shadow-card">{PENDING_LABEL}</span>
+        <span className="absolute start-2 top-2 rounded-sm bg-card px-2 py-0.5 text-caption font-bold text-foreground shadow-card">{PENDING_LABEL}</span>
       ) : null}
     </div>
   );

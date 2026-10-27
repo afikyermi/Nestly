@@ -131,18 +131,20 @@ test.describe('AppShell: bottom navigation', () => {
     expect(b.width).toBeGreaterThan(b.height);
   });
 
-  test('[F1.2 c16][AC-005] it is a rail at the inline-start (right) edge from 1024: tall, on the right, with the content to its left', async ({
+  test('[F1.2 c16][AC-005] from 1024 the destinations sit in the middle of the top bar (§7.1, redesign 27.10.2026): a row, centred, the content below', async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP);
     await open(page, '/feed', 'signed-in');
     const b = await navOf(page).boundingBox();
     const m = await page.locator('main').boundingBox();
-    if (b === null || m === null) throw new Error('nav or main has no box');
-    expect(b.x + b.width, 'at the right (inline-start) side, within 48px of the edge').toBeGreaterThan(DESKTOP.width - 48);
-    expect(b.height, 'taller than wide').toBeGreaterThan(b.width);
-    expect(b.y + b.height, 'inside the viewport').toBeLessThanOrEqual(DESKTOP.height);
-    expect(m.x + m.width, 'the content sits to the left of the rail').toBeLessThanOrEqual(b.x + 1);
+    const bar = await page.locator('header').first().boundingBox();
+    if (b === null || m === null || bar === null) throw new Error('nav, main or header has no box');
+    expect(b.y, 'at the top').toBeLessThanOrEqual(bar.y + 1);
+    expect(b.y + b.height, 'inside the top bar').toBeLessThanOrEqual(bar.y + bar.height + 1);
+    expect(b.width, 'wider than tall').toBeGreaterThan(b.height);
+    expect(Math.abs(b.x + b.width / 2 - DESKTOP.width / 2), 'centred').toBeLessThanOrEqual(24);
+    expect(m.y, 'the content sits below the bar').toBeGreaterThanOrEqual(bar.y + bar.height - 1);
   });
 
   for (const route of PROTECTED_ROUTES.slice(0, 3)) {

@@ -26,7 +26,7 @@ export type MenuItemProps = MenuItemBase &
 const styles = [
   'flex min-h-12 w-full items-center gap-3 rounded-md px-3 py-2 text-start text-body text-foreground no-underline',
   'transition-colors duration-fast ease-standard hover:bg-muted',
-  'aria-[current=page]:bg-primary-soft aria-[current=page]:font-semibold aria-[current=page]:text-primary-strong',
+  'aria-[current=page]:bg-brand-subtle aria-[current=page]:font-bold aria-[current=page]:text-primary-strong',
   'aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-transparent',
 ];
 

@@ -11,7 +11,8 @@ import { StoryViewer } from './StoryViewer';
 import { useStories } from './use-stories';
 
 // The Stories tray at the top of the feed (FR-FEED-008, AC-102, AC-103): "הוספת סטורי" for a Regular account (a Professional has none,
-// FR-FEED-008 Actor), then one round button per author with live Stories the caller may see, the caller's own first. Nothing while loading
+// FR-FEED-008 Actor), then one tile per author with live Stories the caller may see, the caller's own first. A tile is 106×180 with corners
+// 14: the author's latest Story image filling it, the avatar in a white ring in its corner and the name at the bottom. Nothing while loading
 // or when it failed: the feed stays as it is.
 export function StoriesTray() {
   const { state, reload } = useStories();
@@ -26,36 +27,40 @@ export function StoriesTray() {
   if (!canAdd && state.data.groups.length === 0) return null;
   return (
     <section aria-label={TRAY_LABEL} className="mt-4 w-full max-w-md">
-      <ul className="flex gap-3 overflow-x-auto pb-1">
+      <ul className="flex gap-2 overflow-x-auto pb-1">
         {canAdd ? (
           <li>
             <button
               type="button"
               disabled={full}
               onClick={() => setComposing(true)}
-              className="flex w-20 flex-col items-center gap-1 rounded-md p-1 text-caption text-foreground focus-visible:outline-2 disabled:opacity-60"
+              className="relative flex h-45 w-26.5 flex-col items-center overflow-hidden rounded-lg bg-card text-caption font-bold text-foreground shadow-card focus-visible:outline-2 disabled:opacity-60"
             >
-              <span className="grid size-14 place-items-center rounded-full bg-primary-soft text-primary-strong">
-                <PlusIcon />
+              <span aria-hidden="true" className="h-29.5 w-full bg-brand-subtle" />
+              <span className="absolute top-25 grid size-9 place-items-center rounded-full bg-primary text-primary-foreground ring-4 ring-card">
+                <PlusIcon className="size-5" />
               </span>
-              <span>{ADD_STORY_LABEL}</span>
+              <span className="mt-auto mb-3 px-2 text-center">{ADD_STORY_LABEL}</span>
             </button>
           </li>
         ) : null}
         {state.data.groups.map((group) => {
           const name = group.isMine ? MY_STORY_LABEL : (group.authorName ?? MEMBER_FALLBACK);
+          const cover = group.items.at(-1)?.image.url ?? null;
           return (
             <li key={group.authorId}>
               <button
                 type="button"
                 onClick={() => setViewing(group)}
                 aria-label={group.isMine ? MY_STORY_LABEL : storyOf(group.authorName ?? MEMBER_FALLBACK)}
-                className="flex w-20 flex-col items-center gap-1 rounded-md p-1 text-caption text-foreground focus-visible:outline-2"
+                className="relative flex h-45 w-26.5 flex-col justify-between overflow-hidden rounded-lg bg-muted p-2 text-caption font-bold text-primary-foreground focus-visible:outline-2"
               >
-                <span className="rounded-full p-0.5 ring-2 ring-primary">
-                  <Avatar name={group.authorName ?? ''} decorative />
+                {cover === null ? null : <img src={cover} alt="" className="absolute inset-0 size-full object-cover" />}
+                <span aria-hidden="true" className="absolute inset-0 bg-linear-to-b from-foreground/10 via-transparent to-foreground/60" />
+                <span className="relative self-start rounded-full bg-primary p-0.5 ring-2 ring-card">
+                  <Avatar name={group.authorName ?? ''} size="s" decorative />
                 </span>
-                <span className="w-full truncate text-center">{name}</span>
+                <span className="relative w-full truncate text-start">{name}</span>
               </button>
             </li>
           );

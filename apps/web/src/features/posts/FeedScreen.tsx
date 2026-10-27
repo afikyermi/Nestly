@@ -1,5 +1,11 @@
 import { useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router';
+import { JourneyRow } from '@/components/domain/journey-row';
+import { ArrowUpIcon } from '@/components/ui/icons';
+import { useJourneyContexts } from '@/hooks/use-journey-contexts';
+import { useNewPosts } from './use-new-posts';
+import { newPostsText } from './feed-texts';
 import { ShellActionBarContext } from '@/components/layout/app-shell';
 import { postLinkOf, shareTargetOf, type FeedUnit, type PostView } from '@nestly/shared';
 import { InlineAlert } from '@/components/shared/inline-alert';
@@ -78,7 +84,7 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const toTopRef = useRef<() => void>(() => undefined);
   // A new snapshot replaces the list: focus that was inside it would drop to the page, so it goes to the heading, at the top.
-  const { state, loadMore, retry, toggleLike, hide, undoHide, remove, addPublished, addShared, reported, edited, gone, editClosed, commented, said, restoredScroll } = useFeed(() => {
+  const { state, loadMore, retry, refresh, toggleLike, hide, undoHide, remove, addPublished, addShared, reported, edited, gone, editClosed, commented, said, restoredScroll } = useFeed(() => {
     if (rootRef.current?.querySelector('[role="feed"]')?.contains(document.activeElement) !== true) return;
     headingRef.current?.focus();
     toTopRef.current();
@@ -110,8 +116,19 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
     setCardFocus((tick) => tick + 1);
   };
   const actionBar = useContext(ShellActionBarContext);
-  const { far, toTop } = useFeedScroll(rootRef, restoredScroll, right !== 'checking' && own.kind !== 'loading');
+  const { far, away, toTop } = useFeedScroll(rootRef, restoredScroll, right !== 'checking' && own.kind !== 'loading');
   toTopRef.current = toTop;
+  // AC-207: new posts while the reader is away from the top of the community feed; a press brings the new snapshot, nothing moves by itself.
+  const newPosts = useNewPosts(state.items, away, group === null && !reviewing && state.phase === 'ready');
+  const showNewPosts = () => {
+    newPosts.clear();
+    toTop();
+    refresh();
+    headingRef.current?.focus();
+  };
+  // AC-209: a Regular account's journeys, on the phone only; a Professional, a staff account and a Group have no row.
+  const navigate = useNavigate();
+  const journeys = useJourneyContexts(group === null && !reviewing && right === 'allowed');
   const sentinelRef =useSentinel(state.phase === 'ready' && !state.loading && state.nextCursor !== null, loadMore);
 
   // The edit form of an own card, in place (ux-polish-b c1, c2): the saved post, a post found gone and a closed form go back into the feed's state.
@@ -357,9 +374,24 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
       {none ? <p className="mt-1 text-body text-muted-foreground">{PLACEHOLDER_TEXT}</p> : null}
       {group === null ? <SystemNotices notices={state.notices} /> : null}
       {group === null ? <GroupSuggestions groups={state.groupSuggestions} /> : null}
+      {journeys === null || none ? null : (
+        <JourneyRow contexts={journeys} href={PATHS.home} onNavigate={(href) => void navigate(href)} className="mt-1 lg:hidden" />
+      )}
       {none ? null : stories}
       {/* One fixed place, before the list or the empty state: a form sending a post survives the feed changing phase. */}
       {write}
+      {newPosts.count > 0 && away ? (
+        <div className="sticky top-2 z-sticky mt-3 flex justify-center lg:top-20">
+          <button
+            type="button"
+            onClick={showNewPosts}
+            className="inline-flex min-h-11 items-center gap-2 rounded-full bg-foreground px-4 text-label font-bold text-background shadow-raised"
+          >
+            <ArrowUpIcon className="size-4" />
+            {newPostsText(newPosts.count)}
+          </button>
+        </div>
+      ) : null}
       {content}
       {offer.draft !== null ? (
         <OfferHelpSheet

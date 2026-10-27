@@ -134,7 +134,7 @@ export function MarketplaceScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      <form aria-label={FILTERS_LABEL} onSubmit={apply} className="grid grid-cols-1 gap-4 rounded-lg bg-card p-4 shadow-card sm:grid-cols-2">
+      <form aria-label={FILTERS_LABEL} onSubmit={apply} className="grid grid-cols-1 gap-4 border-b border-divider pb-5 sm:grid-cols-2">
         <FormField label={SEARCH_LABEL} className="sm:col-span-2">
           {(control) => <TextInput {...control} value={filters.q} onChange={(event) => set('q')(event.target.value)} />}
         </FormField>
@@ -179,15 +179,16 @@ export function MarketplaceScreen() {
           <h2 id={promotedId} className="text-h3">
             {PROMOTED_LISTINGS_HEADING}
           </h2>
-          <ul aria-label={PROMOTED_LISTINGS_HEADING} className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <ul aria-label={PROMOTED_LISTINGS_HEADING} className="mt-3 grid grid-cols-2 gap-x-2.5 gap-y-5 lg:grid-cols-3">
             {results.promoted.map(({ promotionId, listing }) => (
               <li key={promotionId}>
                 <MarketplaceCard
                   variant="listing"
+                  layout="tile"
                   title={
                     <Link
                       to={listingPath(listing.id)}
-                      className="text-primary-strong underline-offset-4 hover:underline"
+                      className="text-foreground no-underline underline-offset-4 hover:underline"
                       dir="auto"
                       onClick={() => void call((token) => reportPromotionClick(token, promotionId))}
                     >
@@ -207,11 +208,11 @@ export function MarketplaceScreen() {
       ) : null}
 
       {results.kind === 'loaded' && results.sponsored.length > 0 ? (
-        <section aria-labelledby={sponsoredId}>
-          <h2 id={sponsoredId} className="text-h3">
+        <section aria-labelledby={sponsoredId} className="rounded-lg bg-warm p-4">
+          <h2 id={sponsoredId} className="text-caption font-bold text-warm-foreground">
             {SPONSORED_HEADING}
           </h2>
-          <ul className="mt-3 flex flex-col gap-3">
+          <ul className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             {results.sponsored.map((unit) => (
               <li key={unit.id}>
                 <MarketplaceCard
@@ -256,13 +257,14 @@ export function MarketplaceScreen() {
         ) : null}
         {results.kind === 'loaded' && results.listings.length === 0 ? <p className="mt-2 text-muted-foreground">{NO_RESULTS}</p> : null}
         {results.kind === 'loaded' && results.listings.length > 0 ? (
-          <ul aria-label={RESULTS_LABEL} className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <ul aria-label={RESULTS_LABEL} className="mt-3 grid grid-cols-2 gap-x-2.5 gap-y-5 lg:grid-cols-3">
             {results.listings.map((listing) => (
               <li key={listing.id}>
                 <MarketplaceCard
                   variant="listing"
+                  layout="tile"
                   title={
-                    <Link to={listingPath(listing.id)} className="text-primary-strong underline-offset-4 hover:underline" dir="auto">
+                    <Link to={listingPath(listing.id)} className="text-foreground no-underline underline-offset-4 hover:underline" dir="auto">
                       {listing.title}
                     </Link>
                   }

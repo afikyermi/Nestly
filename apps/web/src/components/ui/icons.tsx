@@ -29,6 +29,13 @@ import {
   UserCheck,
   Users,
   Lock,
+  Bath,
+  Droplet,
+  Milk,
+  Moon,
+  Pill,
+  Ruler,
+  Syringe,
   Image as ImageLucide,
   X,
   type LucideIcon,
@@ -63,6 +70,12 @@ const Nest = createLucideIcon('nest', [
   ['path', { d: 'M6.2 15.6c1.9-1.1 3.9-1.1 5.8 0s3.9 1.1 5.8 0' }],
 ]);
 
+// A diaper (no Lucide equivalent).
+const Diaper = createLucideIcon('diaper', [
+  ['path', { d: 'M3.5 7h17v2.5c0 5-3.8 9-8.5 9s-8.5-4-8.5-9z' }],
+  ['path', { d: 'M8 17.2l1.2-4.2M16 17.2l-1.2-4.2' }],
+]);
+
 // An anonymous writer: a dashed person (no Lucide equivalent).
 const Anon = createLucideIcon('anon', [
   ['circle', { cx: '12', cy: '8.5', r: '3.8', strokeDasharray: '2.6 2.4' }],
@@ -88,6 +101,15 @@ export const UserCheckIcon = icon(UserCheck);
 // "רק אתם רואים" (the journey row) and the composer's photo hint.
 export const LockIcon = icon(Lock);
 export const ImageIcon = icon(ImageLucide);
+// The home's tracker tiles (redesign 27.10.2026): one icon per tracker.
+export const BreastfeedingIcon = icon(Droplet);
+export const BottleIcon = icon(Milk);
+export const SleepIcon = icon(Moon);
+export const MedicineIcon = icon(Pill);
+export const GrowthIcon = icon(Ruler);
+export const VaccineIcon = icon(Syringe);
+export const BathIcon = icon(Bath);
+export const DiaperIcon = icon(Diaper);
 export const CloseIcon = icon(X);
 export const LoaderIcon = icon(LoaderCircle);
 export const NestIcon = icon(Nest);
@@ -118,7 +140,7 @@ export const ChevronForwardIcon = icon(ChevronRight, true);
 export function NestFilledIcon({ className }: { className?: string }) {
   const mask = useId();
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false" className={cn('size-6 shrink-0', className)}>
+    <svg viewBox="0 0 24 24" fill="currentColor" strokeWidth={1.75} aria-hidden="true" focusable="false" className={cn('size-6 shrink-0', className)}>
       <defs>
         <mask id={mask}>
           <rect width="24" height="24" fill="white" />

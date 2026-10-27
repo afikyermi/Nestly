@@ -174,10 +174,10 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
       <p role="status" className={status === '' ? 'sr-only' : 'text-small text-muted-foreground'}>
         {status}
       </p>
-      <ol aria-label={THREAD_LABEL} className="flex flex-col gap-2 rounded-lg bg-card p-3 shadow-card">
+      <ol aria-label={THREAD_LABEL} className="flex flex-col gap-2 py-2">
         {thread.messages.map((message) => (
           <li key={message.id} className={`flex items-start gap-1 ${message.mine ? 'justify-start' : 'justify-end'}`}>
-            <div className={`max-w-sm rounded-lg px-3 py-2 ${message.mine ? 'bg-primary-soft text-primary-strong' : 'bg-muted text-foreground'}`}>
+            <div className={`max-w-sm rounded-xl px-3.5 py-2 text-foreground ${message.mine ? 'rounded-es-sm bg-primary-soft' : 'rounded-ee-sm border border-border bg-card'}`}>
               <span className="sr-only">{messageFrom(message.mine, name)}: </span>
               <p dir="auto" className="whitespace-pre-wrap wrap-anywhere">
                 {message.text}

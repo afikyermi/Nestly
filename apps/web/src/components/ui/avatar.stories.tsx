@@ -40,3 +40,6 @@ export const Photo: Story = { args: { name: 'נועה רז', src: PHOTO } };
 
 // I5: the profile page's large size.
 export const LargePhoto: Story = { args: { name: 'נועה רז', src: PHOTO, size: 'lg' } };
+
+// An anonymous writer: a grey circle with an outline and the dashed person.
+export const AnonymousWriter: Story = { args: { anonymous: true, decorative: true } };

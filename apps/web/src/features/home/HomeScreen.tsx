@@ -4,8 +4,10 @@ import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthedCall } from '@/hooks/use-authed-call';
+import { rememberHome } from '@/hooks/use-journey-contexts';
 import { HOME_TEXT, ERROR_TEXT } from '@/lib/tracker-texts';
 import { fetchHome } from '@/services/api/trackers';
+import { CommunityPosts } from './CommunityPosts';
 import { HomeContent } from './HomeContent';
 
 // The home's flow: load GET /api/home once, show it, or fail inline with a retry. A refused token or a stopped account is the session
@@ -18,7 +20,10 @@ export function HomeScreen() {
   const load = useCallback(async () => {
     setFailed(false);
     const result = await call(fetchHome);
-    if (result.kind === 'ok') setHome(result.value);
+    if (result.kind === 'ok') {
+      rememberHome(result.value);
+      setHome(result.value);
+    }
     else setFailed(true);
   }, [call]);
 
@@ -37,5 +42,10 @@ export function HomeScreen() {
     );
   }
   if (home === null) return <Skeleton className="h-64 w-full" />;
-  return <HomeContent home={home} hasChild={home.contexts.some((c) => c.kind === 'parenting')} />;
+  return (
+    <div className="flex flex-col gap-8">
+      <HomeContent home={home} hasChild={home.contexts.some((c) => c.kind === 'parenting')} />
+      <CommunityPosts contexts={home.contexts} />
+    </div>
+  );
 }
