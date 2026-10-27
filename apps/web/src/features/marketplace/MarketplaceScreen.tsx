@@ -68,6 +68,9 @@ interface Filters {
   sort: string;
 }
 
+const MORE_FILTERS_LABEL = 'עוד אפשרויות סינון';
+const FEWER_FILTERS_LABEL = 'פחות אפשרויות סינון';
+
 const NO_FILTERS: Filters = { q: '', category: '', city: '', condition: '', maxPrice: '', free: false, sort: 'match' };
 
 /** What the server takes: an empty or malformed filter is no filter (the server checks every value again). */
@@ -103,6 +106,8 @@ export function MarketplaceScreen() {
   const promotedId = useId();
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [applied, setApplied] = useState<Filters>(NO_FILTERS);
+  // Below 640 the search field and the actions show, and the other filters open on request (redesign 27.10.2026: the list comes first).
+  const [moreFilters, setMoreFilters] = useState(false);
   const [results, setResults] = useState<Results>({ kind: 'loading' });
   const latest = useRef(0);
 
@@ -138,6 +143,10 @@ export function MarketplaceScreen() {
         <FormField label={SEARCH_LABEL} className="sm:col-span-2">
           {(control) => <TextInput {...control} value={filters.q} onChange={(event) => set('q')(event.target.value)} />}
         </FormField>
+        <Button type="button" variant="soft" className="justify-self-start sm:hidden" aria-expanded={moreFilters} onClick={() => setMoreFilters((open) => !open)}>
+          {moreFilters ? FEWER_FILTERS_LABEL : MORE_FILTERS_LABEL}
+        </Button>
+        <div className={moreFilters ? 'contents' : 'hidden sm:contents'}>
         <FormField label={CATEGORY_LABEL}>
           {(control) => <SelectInput {...control} options={CATEGORY_OPTIONS} placeholder={ANY_CATEGORY} value={filters.category} onChange={set('category')} />}
         </FormField>
@@ -157,6 +166,7 @@ export function MarketplaceScreen() {
           <Checkbox checked={filters.free} onCheckedChange={(free) => setFilters((current) => ({ ...current, free }))}>
             {FREE_ONLY_LABEL}
           </Checkbox>
+        </div>
         </div>
         <div className="flex flex-wrap gap-3 sm:col-span-2">
           <Button type="submit">{APPLY_FILTERS}</Button>
