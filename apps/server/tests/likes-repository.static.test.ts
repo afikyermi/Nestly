@@ -1,14 +1,11 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { expandFunctionCalls } from './helpers/sql-functions.js';
 
 // F3.3-b2 (.work/comments-likes/spec.md c11, c12; .work/_initiatives/I3-algorithm.md "Display statement and like-state statement"), a static check by
 // design: the promise is about what the repositories' text contains. Same method as comments-repository.static.test.ts.
 const dir = new URL('../src/repositories/', import.meta.url);
 const files = readdirSync(dir).filter((f) => f.endsWith('.ts'));
-// Performance (27.10): a statement that runs as a plan-cached invoker function (migration 20261027400000) is read with its call: each
-// `nestly.read_…(` is followed by the statement it runs, so every check below reads the same SQL as before.
-const code = (text: string): string => expandFunctionCalls(text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1'));
+const code = (text: string): string => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 const sources = new Map(files.map((f) => [f, code(readFileSync(new URL(f, dir), 'utf8'))] as const));
 const statements = (text: string): string[] => text.match(/`[^`]*`/g) ?? [];
 const all = [...sources.entries()].flatMap(([file, text]) => statements(text).map((statement) => ({ file, statement })));

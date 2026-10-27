@@ -9,7 +9,6 @@ import { buildRegisterApp, captureLog, CLOCK_NOW, post, validBody } from '../hel
 import { listComments, listReplies } from '../helpers/comments-api.js';
 import { getPost } from '../helpers/posts-api.js';
 import { deleteLike, putLike, type LikeKind } from '../helpers/likes-api.js';
-import { expandedStatement } from '../helpers/sql-functions.js'; // a plan-cached function's call is read with the statement it runs (migration 20261027400000)
 
 // I3 F3.3-b2, likes and displayed counts against the real database (CI `db` job, as app_server); criteria c10-c12 of .work/comments-likes/spec.md
 // and the F3.3 guards of .work/_initiatives/I3-algorithm.md (Evaluation). Expected values come from those documents only.
@@ -46,7 +45,7 @@ async function start(logStream?: Writable, database: Database = createDatabase(u
   return app;
 }
 function recording(statements: string[]): Database {
-  const client = postgres(url(), { max: 1, prepare: false, debug: (_connection: number, query: string) => void statements.push(expandedStatement(query)) });
+  const client = postgres(url(), { max: 1, prepare: false, debug: (_connection: number, query: string) => void statements.push(query) });
   return { db: drizzle({ client }), client, close: () => client.end() };
 }
 async function closeAll(): Promise<void> {

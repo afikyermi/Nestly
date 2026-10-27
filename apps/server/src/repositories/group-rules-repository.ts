@@ -7,7 +7,6 @@ import { GROUP_ENFORCEMENT_KINDS, GROUP_ENFORCEMENT_REASONS, type GroupEnforceme
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
-import { camelColumns } from './plan-cached.js';
 
 const isoMs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`);
 
@@ -88,8 +87,9 @@ export async function readMutedHere(tx: IdentityTx, target: 'post' | 'comment', 
 /** Of these Groups, the ones the caller is muted in now (their own records only; §11.16). Display only: the policies refuse the writes. */
 export async function readMutedGroupIds(tx: IdentityTx, groupIds: readonly string[]): Promise<ReadonlySet<string>> {
   if (groupIds.length === 0) return new Set();
-  // the statement as the plan-cached invoker function nestly.read_muted_group_ids (migration 20261027400000)
-  const rows = await tx.execute(sql`select ${camelColumns('group_id')} from nestly.read_muted_group_ids(${sql.param([...groupIds])}::uuid[])`);
+  const rows = await tx.execute(sql`
+    select distinct e.group_id as "groupId" from nestly.group_member_enforcements e
+    where e.group_id = any(${sql.param([...groupIds])}::uuid[]) and e.user_id = (select auth.uid()) and e.kind = 'warn_mute' and e.mute_until > now()`);
   return new Set(z.array(z.object({ groupId: z.guid() })).parse(rows).map((r) => r.groupId));
 }
 
