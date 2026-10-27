@@ -144,3 +144,10 @@
 6. **2FA ב-Vercel:** נדחה; החיבורים נקבעים בקוד (§23.1).
 7. **החלטה שלא מכוסה:** Claude מחליט לפי ההמלצה, רושם שורה ב"ממתין לך" (מה ולמה) וממשיך; מה שהכללים שומרים לאפיק — נרשם, ו-Claude ממשיך בעבודה אחרת.
 8. **migrations ממוזגים לפי סדר ה-timestamp**, אחד בכל פעם, ו-`migrate` אחרי כל אחד.
+
+## 24. אפיק 26.10 (לילה) — תוכן הדמו
+1. **סודות:** ב-`preview-e2e` — `DEMO_ACCOUNTS` ו-`SUPABASE_PUBLISHABLE_KEY`. ב-Production: Confirm email כבוי; environment `demo-production` מוגבל ל-main, **בלי** Required reviewers (הריצה לא מחכה לאישור), עם `DEMO_ACCOUNTS` (סיסמאות שונות מ-Preview) ו-`SUPABASE_PUBLISHABLE_KEY`.
+2. **אין `PRODUCTION_DB_ADMIN_URL`:** ב-Production אין הזזת זמנים (shift); התוכן נכנס רק דרך האתר בהרשאות המשתמשים ומתוארך לזמן הריצה — מקובל.
+3. **המשתמש של המרצה:** אפיק יוצר בעצמו; הכלי לא יוצר אותו.
+4. **seed ב-Production:** Claude מריץ בעצמו (`demo-seed.yml`, צעד seed בלבד), רק אחרי ש-Preview עבר טוב. סטורי — רק ביום ההצגה, באישור אפיק לשעה.
+5. **עדיפות עד הדמו:** תוכן הדמו לפני Turnstile (מעדכן את §23.2); Turnstile רק אם נשאר זמן.
