@@ -57,11 +57,14 @@ const QUERIES: Record<string, string> = {
                             'nestly.search_scope', 'nestly.profile_view_target', 'nestly.block_ending']) as n`,
   // A path that turns the staff view on later in the transaction, as the admin reads do (admin-repository.ts): the setting is 'on',
   // and the users the caller reads then (its permissions decide, not the setting).
+  // The statement time limit of an identity transaction (27.10), and a statement that runs past it.
+  timeout: "select current_setting('statement_timeout') as v",
+  overrun: 'select pg_sleep(6)',
   staffon: `select s.v, (select current_setting('nestly.staff_view', true)) as after, (select string_agg(id::text, ',' order by id) from nestly.users) as ids
             from (select pg_catalog.set_config('nestly.staff_view', 'on', true) as v offset 0) as s`,
 };
 const OUTSIDE =
-  "select pg_backend_pid()::int as pid, current_user::text as cu, current_setting('role') as role, coalesce(current_setting('request.jwt.claims', true), '') as claims";
+  "select current_setting('statement_timeout') as timeout, pg_backend_pid()::int as pid, current_user::text as cu, current_setting('role') as role, coalesce(current_setting('request.jwt.claims', true), '') as claims";
 
 let key: TestKey;
 let jwks: JwksServer;
@@ -405,5 +408,21 @@ describe('[F1.1-c c25] end to end through the server: the caller reads its own U
     expect(res.status).toBe(200);
     expect(res.rows).toEqual([]);
     expect(ids((await call(app, 'users', ACCOUNT_A)).rows)).toEqual([ACCOUNT_A]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+describe('a statement of an identity transaction stops after 5 s (27.10, load test)', () => {
+  it('the limit is set inside the transaction and gone after it; a longer statement is cancelled and the request fails', { timeout: 30_000 }, async () => {
+    const app = await serverApp();
+    const inside = await call(app, 'timeout', ACCOUNT_A);
+    expect(inside.status, inside.body).toBe(200);
+    expect(inside.rows[0]?.v).toBe('5s');
+    const [after] = await outside(app);
+    expect(after?.timeout).toBe('0');
+    const started = Date.now();
+    const overrun = await call(app, 'overrun', ACCOUNT_A);
+    expect(overrun.status).toBe(500);
+    expect(Date.now() - started).toBeLessThan(5900);
   });
 });
