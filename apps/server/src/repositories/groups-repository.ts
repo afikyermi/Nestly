@@ -5,6 +5,9 @@
 // No statement carries the caller's id as a value: ownership, membership and decisions default to auth.uid() in the database.
 
 import {
+  GROUP_ACTIVITY_HALF_LIFE_HOURS,
+  GROUP_ACTIVITY_MIN_EVENTS,
+  GROUP_ACTIVITY_WINDOW_DAYS,
   GROUP_ENFORCEMENT_REASONS,
   GROUP_NOTIFICATION_MODES,
   GROUP_PRIVACIES,
@@ -55,7 +58,7 @@ const escapeLike = (text: string): string => text.replace(/[\\%_]/g, (c) => `\\$
 /**
  * The columns of a Group as a list shows it, with the caller's own relation: the Role from the caller's own access copy, a pending request,
  * a pending invitation and a block, all read under the caller's own-row policies. `memberRows` counts the member rows the caller may read
- * (all of a Public Group; of a Private Group only when the caller belongs to it).
+ * (all of a Public Group; of a Private Group only when the caller belongs to it). nestly.group_summaries() repeats these columns: change both.
  */
 function summaryColumns(): SQL {
   return sql`g.id, g.name, g.description, g.privacy,
@@ -73,15 +76,13 @@ function summaryColumns(): SQL {
  */
 export async function readGroupSummaries(tx: IdentityTx, scope: 'mine' | 'discover', q: string | null, limit: number): Promise<GroupSummaryRow[]> {
   const like = q === null ? null : `%${escapeLike(q.toLowerCase())}%`;
+  // The statement is nestly.group_summaries (migration 20261027300000): a SECURITY INVOKER plpgsql function, so its plan is cached per
+  // connection; it runs under the caller's policies exactly as the statement did.
   const rows = await tx.execute(sql`
-    select ${summaryColumns()}
-    from nestly.groups g
-    left join nestly.group_access a on a.group_id = g.id and a.user_id = (select auth.uid())
-    where g.status = 'active'
-      ${scope === 'mine' ? sql`and a.role is not null` : sql``}
-      ${like === null ? sql`` : sql`and (lower(g.name) like ${like} or lower(coalesce(g.description, '')) like ${like})`}
-    order by ${scope === 'mine' ? sql`g.name, g.id` : like === null ? sql`${groupActivityScore()} desc, g.created_at desc, g.id desc` : sql`(lower(g.name) like ${like}) desc, ${groupActivityScore()} desc, g.created_at desc, g.id desc`}
-    limit ${limit}`);
+    select s.id, s.name, s.description, s.privacy, s.member_rows as "memberRows", s.my_role as "myRole", s.requested,
+           s.invitation_id as "invitationId", s.blocked
+    from nestly.group_summaries(${scope}::text, ${like}::text, ${limit}::integer, ${GROUP_ACTIVITY_MIN_EVENTS}::integer,
+                                ${GROUP_ACTIVITY_HALF_LIFE_HOURS}::float8, ${GROUP_ACTIVITY_WINDOW_DAYS}::integer) s`);
   return z.array(summaryRow).parse(rows);
 }
 
