@@ -11,25 +11,13 @@ import type { IdentityTx } from '../db/identity-transaction.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
 
 const isoMs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`);
-const LIST_LIMIT = 100;
 const THREAD_LIMIT = 500;
 
 /** The other party of a conversation row `c`, as SQL. */
 const other = sql.raw(`case when c.user_a = (select auth.uid()) then c.user_b else c.user_a end`);
 
-/** A standing Chat Block between the two parties of `c`, either way. */
-const chatBlocked = sql.raw(`exists (select 1 from nestly.chat_blocks b where b.lifted_at is null
-  and ((b.blocker_id = c.user_a and b.blocked_id = c.user_b) or (b.blocker_id = c.user_b and b.blocked_id = c.user_a)))`);
-
-/** The caller's unread messages in `c`: from the other side, after its own read marker. */
-const unreadIn = sql.raw(`(select count(*)::int from nestly.messages m
-  where m.conversation_id = c.id and m.sender_id <> (select auth.uid())
-    and m.created_at > coalesce((select r.last_read_at from nestly.chat_reads r where r.user_id = (select auth.uid()) and r.conversation_id = c.id), '-infinity'))`);
-
-/** The caller's unread Support replies in `s`. */
-const unreadSupport = sql.raw(`(select count(*)::int from nestly.support_messages m
-  where m.support_request_id = s.id and m.author_kind = 'support'
-    and m.created_at > coalesce((select r.last_read_at from nestly.chat_reads r where r.user_id = (select auth.uid()) and r.support_request_id = s.id), '-infinity'))`);
+// The Chat screen's list reads and the badge are plan-cached SECURITY INVOKER functions (migration 20261027200000): the same SQL, read as the
+// caller under the same policies, planned once per database connection instead of on every request (27.10.2026, performance).
 
 const conversationRow = z.object({
   id: z.guid(),
@@ -42,27 +30,15 @@ const conversationRow = z.object({
   canSend: z.boolean(),
 });
 
-/** The caller's conversations, latest activity first (the opening message counts as the first message of a request's conversation). */
+/**
+ * The caller's conversations, latest activity first, at most 100 (the opening message counts as the first message of a request's
+ * conversation; the other party's name; unread messages after the caller's read marker; no standing Chat Block either way).
+ */
 export async function readConversations(tx: IdentityTx): Promise<ConversationItem[]> {
-  const rows = z.array(conversationRow).parse(
-    await tx.execute(sql`
-      select c.id, ${other} as "otherUserId", coalesce(n.full_name, pp.full_name) as "otherName",
-             coalesce(lm.body, op.opening_message, oo.opening_message) as "lastText",
-             to_char(coalesce(lm.created_at, op.created_at, oo.created_at) at time zone 'UTC', ${isoMs}) as "lastAt",
-             coalesce(lm.mine, op.mine, oo.mine) as "lastMine",
-             ${unreadIn} as unread, not ${chatBlocked} as "canSend"
-      from nestly.conversations c
-      left join nestly.regular_names n on n.user_id = ${other}
-      left join nestly.professional_profiles pp on pp.user_id = ${other}
-      left join lateral (select m.body, m.created_at, m.sender_id = (select auth.uid()) as mine from nestly.messages m
-                          where m.conversation_id = c.id order by m.created_at desc, m.id desc limit 1) lm on true
-      left join lateral (select r.opening_message, r.created_at, r.requester_id = (select auth.uid()) as mine from nestly.chat_requests r
-                          where r.id = c.chat_request_id) op on true
-      left join lateral (select o.opening_message, o.created_at, o.professional_id = (select auth.uid()) as mine from nestly.outreach_requests o
-                          where o.id = c.outreach_request_id) oo on true
-      order by coalesce(lm.created_at, op.created_at, oo.created_at, c.created_at) desc, c.id
-      limit ${LIST_LIMIT}`),
-  );
+  const rows = z.array(conversationRow).parse(await tx.execute(sql`
+      select id, other_user_id as "otherUserId", other_name as "otherName", last_text as "lastText", last_at as "lastAt", last_mine as "lastMine",
+             unread, can_send as "canSend"
+      from nestly.chat_conversations()`));
   return rows.map((row) => ({
     id: row.id,
     otherUserId: row.otherUserId,
@@ -75,19 +51,13 @@ export async function readConversations(tx: IdentityTx): Promise<ConversationIte
 
 const requestRow = z.object({ id: z.guid(), userId: z.guid(), name: z.string().nullable(), text: z.string(), at: z.string() });
 
-/** Pending requests to the caller (`incoming`) or its own pending requests (`outgoing`), newest first. */
+/** Pending requests to the caller (`incoming`) or its own pending requests (`outgoing`), newest first, at most 100. */
 export async function readPendingRequests(tx: IdentityTx, direction: 'incoming' | 'outgoing'): Promise<ChatRequestItem[]> {
-  const mine = direction === 'incoming' ? sql`r.target_id` : sql`r.requester_id`;
-  const theirs = direction === 'incoming' ? sql`r.requester_id` : sql`r.target_id`;
-  return z.array(requestRow).parse(
-    await tx.execute(sql`
-      select r.id, ${theirs} as "userId", coalesce(n.full_name, pp.full_name) as name, r.opening_message as text, to_char(r.created_at at time zone 'UTC', ${isoMs}) as at
-      from nestly.chat_requests r left join nestly.regular_names n on n.user_id = ${theirs}
-      left join nestly.professional_profiles pp on pp.user_id = ${theirs}
-      where ${mine} = (select auth.uid()) and r.status = 'pending'
-      order by r.created_at desc, r.id
-      limit ${LIST_LIMIT}`),
-  );
+  const rows =
+    direction === 'incoming'
+      ? await tx.execute(sql`select id, user_id as "userId", name, message as text, sent_at as at from nestly.chat_pending_incoming()`)
+      : await tx.execute(sql`select id, user_id as "userId", name, message as text, sent_at as at from nestly.chat_pending_outgoing()`);
+  return z.array(requestRow).parse(rows);
 }
 
 const supportRow = z.object({
@@ -102,18 +72,8 @@ const supportRow = z.object({
 
 /** The caller's Support threads that Support has answered (FR-ADMIN-001: the thread shows in Chat once there is a reply), latest first. */
 export async function readSupportThreads(tx: IdentityTx): Promise<SupportThreadItem[]> {
-  const rows = z.array(supportRow).parse(
-    await tx.execute(sql`
-      select s.id, s.topic, s.status, lm.body as "lastText", to_char(lm.created_at at time zone 'UTC', ${isoMs}) as "lastAt",
-             lm.author_kind = 'support' as "fromSupport", ${unreadSupport} as unread
-      from nestly.support_requests s
-      join lateral (select m.body, m.created_at, m.author_kind from nestly.support_messages m
-                     where m.support_request_id = s.id order by m.created_at desc, m.id desc limit 1) lm on true
-      where s.user_id = (select auth.uid())
-        and exists (select 1 from nestly.support_messages m where m.support_request_id = s.id and m.author_kind = 'support')
-      order by lm.created_at desc, s.id
-      limit ${LIST_LIMIT}`),
-  );
+  const rows = z.array(supportRow).parse(await tx.execute(sql`
+      select id, topic, status, last_text as "lastText", last_at as "lastAt", from_support as "fromSupport", unread from nestly.chat_support_threads()`));
   return rows.map((row) => ({
     id: row.id,
     topic: row.topic,
@@ -123,14 +83,9 @@ export async function readSupportThreads(tx: IdentityTx): Promise<SupportThreadI
   }));
 }
 
-/** The badge's number as one scalar expression (FR-CHAT-001): unread messages, unread Support replies, and pending requests to the caller. */
-export const chatUnreadSql = sql`((select coalesce(sum(${unreadIn}), 0) from nestly.conversations c)
-            + (select coalesce(sum(${unreadSupport}), 0) from nestly.support_requests s where s.user_id = (select auth.uid()))
-            + (select count(*) from nestly.chat_requests r where r.target_id = (select auth.uid()) and r.status = 'pending'))::int`;
-
 /** The badge (FR-CHAT-001): unread messages, unread Support replies, and pending requests to the caller. */
 export async function readUnreadCount(tx: IdentityTx): Promise<number> {
-  const rows = z.array(z.object({ count: z.number().int() })).parse(await tx.execute(sql`select ${chatUnreadSql} as count`));
+  const rows = z.array(z.object({ count: z.number().int() })).parse(await tx.execute(sql`select nestly.chat_unread_count() as count`));
   return rows[0]?.count ?? 0;
 }
 
