@@ -230,12 +230,25 @@ function groupHighlightsOnly(asOf: string): SQL {
 export function rankingStatement(parameters: RankingParameters): SQL {
   const { asOf, config, after } = parameters;
   const tagColumn = parameters.profile === 'content' ? sql`` : usesIntent(parameters) ? sql`p.stage_tag, p.body, ` : sql`p.stage_tag, `;
+  // Performance (27.10): the work does not grow with every post ever written. Tier 0 is the scored window only: the candidates are read by
+  // the created_at index from a bound one second wider than the window (the exact float8 tier test below still decides the tier, so a post at
+  // the edge lands where it always did). Tier 1 (score 0, ordered by created_at desc, id desc: the index's own order) is read in index order
+  // after the cursor and stops at the page's size. A page whose cursor is already in tier 1 reads no tier 0 at all (none of it is after the
+  // cursor). The rows, their order and the keyset are the same as one statement scoring every post.
+  const windowHours = config.scoredWindowDays * 24;
+  const windowEdge = sql`(${asOf}::timestamptz - make_interval(secs => ${windowHours * 3600 + 1}::float8))`;
+  const ageHours = sql`extract(epoch from (${asOf}::timestamptz - p.created_at))::float8 / 3600::float8`;
+  const scoresTier0 = after === null || after.tier === 0;
+  // In tier 1 every score is 0, so the cursor's own test reduces to (created_at, id) below the cursor's: the same test, usable by the index.
+  const tier1Keyset =
+    after !== null && after.tier === 1 && after.score === 0 ? sql` and (p.created_at, p.id) < (${after.createdAt}::timestamptz, ${after.id}::uuid)` : sql``;
   return sql`
     with candidates as (
       select p.id, p.author_id, p.is_anonymous, p.shared_post_id, ${tagColumn}p.created_at,
-             extract(epoch from (${asOf}::timestamptz - p.created_at))::float8 / 3600::float8 as age_hours
+             ${ageHours} as age_hours
       from nestly.posts p
-      where p.created_at <= ${asOf}::timestamptz and ${groupHighlightsOnly(asOf)}
+      where p.created_at <= ${asOf}::timestamptz and p.created_at >= ${windowEdge} and ${scoresTier0 ? sql`true` : sql`false`}
+        and ${groupHighlightsOnly(asOf)}
     ), tiered as (
       select c.*, case when c.age_hours <= ${config.scoredWindowDays * 24}::float8 then 0 else 1 end as tier
       from candidates c
@@ -245,10 +258,26 @@ export function rankingStatement(parameters: RankingParameters): SQL {
           ${scoreTerms(parameters)}
         end as score
       from tiered t
+    ), older as (
+      select s.id, s.author_id, s.is_anonymous, s.shared_post_id, s.created_at, s.tier, s.score
+      from (
+        select p.id, p.author_id, p.is_anonymous, p.shared_post_id, p.created_at, 1 as tier, 0::float8 as score
+        from nestly.posts p
+        where p.created_at <= ${asOf}::timestamptz and p.created_at < ${windowEdge} + make_interval(secs => 2::float8)${tier1Keyset}
+          and ${ageHours} > ${windowHours}::float8
+          and ${groupHighlightsOnly(asOf)}
+      ) s
+      where ${afterCursor(after)}
+      order by s.created_at desc, s.id desc
+      limit ${config.pageSize + 1}
+    ), ranked as (
+      select r.id, r.author_id, r.is_anonymous, r.shared_post_id, r.created_at, r.tier, r.score from scored r where r.tier = 0
+      union all
+      select o.id, o.author_id, o.is_anonymous, o.shared_post_id, o.created_at, o.tier, o.score from older o
     )
     select s.id, s.author_id as "authorId", s.is_anonymous as "isAnonymous", s.shared_post_id as "sharedPostId", s.tier, s.score,
            ${isoText(sql`s.created_at`)} as "createdAt"
-    from scored s
+    from ranked s
     where ${afterCursor(after)}
     order by s.tier asc, s.score desc, s.created_at desc, s.id desc
     limit ${config.pageSize + 1}`;
@@ -307,28 +336,46 @@ export type DisplayPost = z.infer<typeof displayRow>;
  * statement: `is_mine` and the original's `originalIsMine` (F3.5 c7) are computed here.
  */
 export function displayStatement(ids: readonly string[]): SQL {
+  // Performance (27.10): each name table is named once. A policy-heavy table (regular_names) costs the planner the same for every
+  // reference, so the page's rows and their originals come first, then the names of both authors in one read of each name table
+  // (a CTE named more than once is computed once). Each name row is still the one the caller's policy shows for that user id: the same
+  // rows as a join per author.
   return sql`
+    with page as (
+      select p.id, p.is_share, p.is_anonymous, p.body, p.audience, p.stage_tag, p.created_at, p.author_id, p.group_id,
+             o.id as original_id, o.body as original_body, o.audience as original_audience, o.created_at as original_created_at,
+             o.is_anonymous as original_is_anonymous, o.author_id as original_author_id
+      from nestly.posts p
+      left join nestly.posts o on o.id = p.shared_post_id
+      where p.id in (${sql.join(
+        ids.map((id) => sql`${id}::uuid`),
+        sql`, `,
+      )})
+    ), authors as (
+      select a.author_id as user_id from page a where a.author_id is not null
+      union
+      select a.original_author_id from page a where a.original_author_id is not null
+    ), names as (
+      select n.user_id, n.full_name from nestly.regular_names n where n.user_id in (select w.user_id from authors w)
+    ), profiles as (
+      select pp.user_id, pp.full_name, pp.field, pp.field_other from nestly.professional_profiles pp where pp.user_id in (select w.user_id from authors w)
+    )
     select p.id, p.is_share as "isShare", p.is_anonymous as "isAnonymous", p.body, p.audience, p.stage_tag as "stageTag",
            ${isoText(sql`p.created_at`)} as "createdAt",
            coalesce(p.author_id = (select auth.uid()), false) as "isMine", ${offerHelpState('p')} as "offerHelp",
            coalesce(n.full_name, ap.full_name) as "authorName", ap.field as "authorField", ap.field_other as "authorFieldOther",
-           o.id as "originalId", o.body as "originalBody", o.audience as "originalAudience",
-           ${isoText(sql`o.created_at`)} as "originalCreatedAt", o.is_anonymous as "originalIsAnonymous",
-           coalesce(o.author_id = (select auth.uid()), false) as "originalIsMine",
+           p.original_id as "originalId", p.original_body as "originalBody", p.original_audience as "originalAudience",
+           ${isoText(sql`p.original_created_at`)} as "originalCreatedAt", p.original_is_anonymous as "originalIsAnonymous",
+           coalesce(p.original_author_id = (select auth.uid()), false) as "originalIsMine",
            coalesce(oa.full_name, oap.full_name) as "originalAuthorName", oap.field as "originalAuthorField",
            oap.field_other as "originalAuthorFieldOther",
            gg.id as "groupId", gg.name as "groupName", gg.privacy as "groupPrivacy"
-    from nestly.posts p
+    from page p
     left join nestly.groups gg on gg.id = p.group_id
-    left join nestly.regular_names n on n.user_id = p.author_id
-    left join nestly.professional_profiles ap on ap.user_id = p.author_id
-    left join nestly.posts o on o.id = p.shared_post_id
-    left join nestly.regular_names oa on oa.user_id = o.author_id
-    left join nestly.professional_profiles oap on oap.user_id = o.author_id
-    where p.id in (${sql.join(
-      ids.map((id) => sql`${id}::uuid`),
-      sql`, `,
-    )})`;
+    left join names n on n.user_id = p.author_id
+    left join profiles ap on ap.user_id = p.author_id
+    left join names oa on oa.user_id = p.original_author_id
+    left join profiles oap on oap.user_id = p.original_author_id`;
 }
 
 /** The display rows of the page's ids, in no particular order: the caller orders them by the ranked list. */
