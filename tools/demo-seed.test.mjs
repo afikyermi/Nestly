@@ -15,6 +15,7 @@ import { loadContent } from './demo-seed/content.ts';
 import { Api, Auth } from './demo-seed/http.ts';
 import { illustrationPng, knownMotif } from './demo-seed/illustration.ts';
 import { firstListLength, SCREENS, walk } from './demo-seed/walk.ts';
+import { percentile, reportLines, runLoad, summarize, timingOf } from './demo-seed/load.ts';
 import { buildPlan, describeStep } from './demo-seed/plan.ts';
 import { createContext, dryRun, runPlan } from './demo-seed/runner.ts';
 import { buildShift, SHIFT_COLUMNS, touchedTables } from './demo-seed/shift.ts';
@@ -511,4 +512,71 @@ test('the shift checks the deferred constraints before the end: a dry run meets 
     assert.equal(report.reason, 'the shift failed and was rolled back (SQLSTATE 42501 table posts constraint posts_anonymous_author_fkey routine check_enable_rls function nestly.guard_x at deferred constraints)');
     assert.equal(refused.log.at(-1), 'rollback');
   }
+});
+
+test('the load test: percentiles, Server-Timing, the share within 2 s; GET only, every persona signed in once, nothing secret logged', async () => {
+  assert.equal(percentile([], 95), 0);
+  assert.equal(percentile([10, 20, 30, 40], 50), 20);
+  assert.equal(percentile([10, 20, 30, 40], 95), 40);
+  assert.equal(timingOf('cold;dur=1, inflight;desc=2, acq;dur=12.5, total;dur=80', 'acq'), 12.5);
+  assert.equal(timingOf('cold;dur=1', 'total'), null);
+  assert.equal(timingOf(null, 'cold'), null);
+  const s = summarize([
+    { path: '/api/feed', status: 200, ms: 2500, cold: true, serverMs: 300, acqMs: 0 },
+    { path: '/api/feed', status: 200, ms: 400, cold: false, serverMs: 350, acqMs: 0 },
+    { path: '/api/chat', status: 503, ms: 100, cold: false, serverMs: null, acqMs: null },
+    { path: '/api/chat', status: 200, ms: 90, cold: false, serverMs: 50, acqMs: 5 },
+  ]);
+  assert.equal(s.requests, 4);
+  assert.equal(s.errors, 1);
+  assert.equal(s.withinTarget, 2);
+  assert.equal(s.cold, 1);
+  assert.equal(s.byPath[0].path, '/api/feed');
+  assert.equal(s.byPath[0].overTarget, 1);
+
+  const calls = [];
+  let clock = 0;
+  const auth = new Auth({
+    supabaseUrl: 'https://xmihorrkegrdlbhpktny.supabase.co',
+    publishableKey: 'k',
+    fetch: async (url, init) => {
+      calls.push({ url, method: init.method });
+      const { email } = JSON.parse(init.body);
+      if (email === 'nestly-demo-bad@gmail.com') return { status: 400, headers: { get: () => null }, text: async () => '{}' };
+      return { status: 200, headers: { get: () => null }, text: async () => JSON.stringify({ access_token: `tok-${email}`, user: { id: 'u' } }) };
+    },
+  });
+  const lines = [];
+  const result = await runLoad(
+    {
+      baseUrl: 'https://nestly-abc123-afikyermis-projects.vercel.app/',
+      auth,
+      accounts: new Map([
+        ['michal', { email: 'nestly-demo-michal@gmail.com', password: 'secret-pw-1' }],
+        ['bad', { email: 'nestly-demo-bad@gmail.com', password: 'secret-pw-3' }],
+      ]),
+      personas: [{ key: 'michal', kind: 'regular' }, { key: 'bad', kind: 'regular' }, { key: 'nobody', kind: 'professional' }],
+      fetch: async (url, init) => {
+        calls.push({ url, method: 'GET', auth: init.headers.authorization });
+        clock += 30;
+        return { status: 200, headers: { get: () => 'cold;dur=0, total;dur=20' }, arrayBuffer: async () => new ArrayBuffer(0) };
+      },
+      log: (l) => lines.push(l),
+      now: () => clock,
+      random: () => 0,
+      sleep: async (ms) => {
+        clock += ms;
+      },
+    },
+    { users: 3, durationMs: 1000, rampMs: 0, thinkMs: 100 },
+  );
+  assert.equal(calls.filter((c) => c.url.includes('/auth/v1/token')).length, 2);
+  const api = calls.filter((c) => c.url.includes('/api/'));
+  assert.ok(api.length > 0 && api.every((c) => c.method === 'GET' && c.auth === 'Bearer tok-nestly-demo-michal@gmail.com'));
+  assert.ok(api.every((c) => !c.url.includes('//api')));
+  assert.equal(result.summary.requests, api.length);
+  assert.equal(result.summary.share, 1);
+  assert.deepEqual(result.signInFailed.map((f) => f.split(':')[0]), ['bad', 'nobody']);
+  const logged = [...lines, ...reportLines(result.summary, result.samples, 1), ...result.signInFailed].join('\n');
+  assert.ok(!/secret-pw|@gmail|tok-/.test(logged));
 });
