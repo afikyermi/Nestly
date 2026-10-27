@@ -49,7 +49,7 @@ export function SearchBox() {
       <Link
         to={PATHS.search}
         aria-label={SEARCH_LABEL}
-        className="inline-flex size-11 items-center justify-center rounded-md text-foreground hover:bg-muted md:hidden"
+        className="inline-flex size-11 items-center justify-center rounded-full text-primary-foreground hover:bg-primary-strong md:hidden"
       >
         <SearchIcon />
       </Link>
@@ -66,6 +66,7 @@ export function SearchBox() {
         }}
         className="relative hidden md:block"
       >
+        <SearchIcon className="pointer-events-none absolute start-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
         <label htmlFor={`${panelId}-q`} className="sr-only">
           {SEARCH_PLACEHOLDER_LABEL}
         </label>
@@ -77,12 +78,13 @@ export function SearchBox() {
           aria-controls={open ? panelId : undefined}
           onFocus={() => setFocused(true)}
           onChange={(event) => setText(event.target.value)}
-          className={cn(inputStyles, "min-h-11 w-64 lg:w-80")}
+          placeholder={SEARCH_PLACEHOLDER_LABEL}
+          className={cn(inputStyles, "min-h-10 w-56 rounded-full border-transparent ps-10 @7xl:w-80")}
         />
         {open ? (
           <div
             id={panelId}
-            className="absolute end-0 top-full z-popover mt-1 w-96 rounded-md bg-card p-3 text-card-foreground shadow-card"
+            className="absolute start-0 top-full z-popover mt-2 w-96 rounded-lg bg-card p-3 text-card-foreground shadow-raised"
           >
             {view.kind === "idle" ? (
               <p className="text-small text-muted-foreground">{PROMPT_TEXT}</p>

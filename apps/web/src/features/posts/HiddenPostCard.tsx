@@ -21,7 +21,7 @@ export function HiddenPostCard({ unitId, position, pending, onUndo }: HiddenPost
       aria-setsize={-1}
       data-unit-id={unitId}
       tabIndex={0}
-      className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-card p-4 text-body text-muted-foreground shadow-card md:p-5"
+      className="flex flex-wrap items-center justify-between gap-3 bg-card p-4 text-body text-muted-foreground lg:rounded-lg lg:p-5 lg:shadow-card"
     >
       <p>{HIDDEN_CARD_TEXT}</p>
       <Button variant="soft" pending={pending} onClick={onUndo} data-hide-undo="">

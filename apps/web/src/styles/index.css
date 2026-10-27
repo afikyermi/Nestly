@@ -4,10 +4,10 @@
 
 @layer base {
   /* A focused control is never fully hidden under the sticky bars (WCAG 2.2 SC 2.4.11): the top bar is
-     14 spacing units high (56px). Below 1024 `main` is the scroller and both bars sit outside it (AppShell), so it needs
+     16 spacing units high from 1024 (64px). Below 1024 `main` is the scroller and both bars sit outside it (AppShell), so it needs
      no such padding; from 1024 the nav is a rail and the document scrolls. */
   html {
-    scroll-padding-top: calc(var(--spacing) * 14);
+    scroll-padding-top: calc(var(--spacing) * 16);
     font-family: var(--font-sans);
     background-color: var(--color-background);
     color: var(--color-foreground);
@@ -29,6 +29,39 @@
      two lines down the content column after the route hold's redirect (F2.0 c14). Focus still moves there; only the ring goes. */
   main[tabindex="-1"]:focus-visible {
     outline: none;
+  }
+}
+
+/* The like (redesign 27.10.2026): the nest presses in and sends out two ripples, 600ms. Off under reduced motion (below). */
+@keyframes like-pop {
+  0% { transform: scale(1); }
+  30% { transform: scale(0.82); }
+  70% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+@keyframes like-ripple {
+  from { opacity: 0.6; transform: scale(0.6); }
+  to { opacity: 0; transform: scale(1.7); }
+}
+
+@utility animate-like-pop {
+  animation: like-pop var(--duration-ripple) var(--ease-standard);
+
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    border: 2px solid var(--color-primary);
+    opacity: 0;
+    pointer-events: none;
+    animation: like-ripple var(--duration-ripple) var(--ease-standard);
+  }
+
+  &::after {
+    animation-delay: 120ms;
   }
 }
 

@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.51 · 27.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.52 · 27.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -161,7 +161,7 @@
 | FR-ALG-010 | Group Highlights v1 וחשיפת קבוצות פעילות | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 199
+## קריטריוני קבלה — 203
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -366,6 +366,10 @@
 | AC-204 | מחיר 0 מוצג למסירה | [15-acceptance.md](15-acceptance.md) |
 | AC-205 | חנות ל-Professional: צפייה ופנייה | [15-acceptance.md](15-acceptance.md) |
 | AC-206 | גרף מודעות שנמכרו ל-Admin | [15-acceptance.md](15-acceptance.md) |
+| AC-207 | N פוסטים חדשים בלי קפיצה של הפיד | [15-acceptance.md](15-acceptance.md) |
+| AC-208 | מהקהילה, בשלבים שלכם בבית | [15-acceptance.md](15-acceptance.md) |
+| AC-209 | שורת המסע בראש הפיד בטלפון | [15-acceptance.md](15-acceptance.md) |
+| AC-210 | פעולות פוסט כאייקונים בטלפון | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 

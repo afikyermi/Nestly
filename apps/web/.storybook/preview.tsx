@@ -2,7 +2,7 @@ import type { Decorator, Preview } from '@storybook/react-vite';
 import { DirectionProvider } from '@/components/ui/direction-provider';
 import '@/styles/index.css';
 
-// Every story renders as the app does: Hebrew, right to left, in Rubik. The attributes are
+// Every story renders as the app does: Hebrew, right to left, in Assistant. The attributes are
 // set on the document at load, before the first story, as index.html does for the app.
 document.documentElement.lang = 'he';
 document.documentElement.dir = 'rtl';

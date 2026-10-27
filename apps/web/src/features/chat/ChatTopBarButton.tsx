@@ -93,11 +93,11 @@ export function ChatTopBarButton({ current }: { current: string }) {
           type="button"
           aria-label={label}
           data-testid="chat-button"
-          className="relative inline-flex size-11 items-center justify-center rounded-md text-foreground hover:bg-muted"
+          className="relative inline-flex size-11 items-center justify-center rounded-full text-primary-foreground hover:bg-primary-strong"
         >
           <MessageIcon className="size-6" />
           {unread > 0 ? (
-            <span aria-hidden="true" className="absolute end-1 top-1 min-w-5 rounded-full bg-primary px-1 text-center text-caption text-primary-foreground">
+            <span aria-hidden="true" className="absolute end-0.5 top-0.5 min-w-5 rounded-full bg-card px-1 text-center text-caption font-bold text-badge-foreground tabular-nums">
               {unread > 99 ? '99+' : unread}
             </span>
           ) : null}

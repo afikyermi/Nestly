@@ -6,7 +6,7 @@ import { MenuItem } from '@/components/shared/menu-item';
 import { NotificationBell } from '@/features/notifications/NotificationBell';
 import { NotificationsProvider, useNotifications } from '@/features/notifications/NotificationsProvider';
 import { SearchBox } from '@/features/search/SearchBox';
-import { BagIcon, HomeIcon, MessageIcon, NestIcon, SparkIcon, UserIcon } from '@/components/ui/icons';
+import { BagIcon, HomeIcon, MessageIcon, NestFilledIcon, NestIcon, SparkIcon, UserIcon } from '@/components/ui/icons';
 import { MARKETPLACE_NAV_LABEL } from '@/lib/marketplace-texts';
 import { AccountKindProvider, useAccountKindQuery } from '@/hooks/use-account-kind';
 import {
@@ -34,6 +34,7 @@ import { SHARE_SITE_LABEL } from '@/lib/share-link-texts';
 import { RULES_TITLE } from '@/pages/community-rules/community-rules-texts';
 import { HOTLINES_TITLE } from '@/pages/medical-hotlines/medical-hotlines-texts';
 import { parseSettingsSection, SETTINGS_SECTIONS, settingsSectionHash, STAFF_SETTINGS_SECTIONS } from '@/lib/settings-sections';
+import { DesktopShortcuts } from './DesktopShortcuts';
 import { normalizePath, PATHS } from './paths';
 
 // The destinations of a community account (AC-005, §7.1, in the sketch's order): home, the Marketplace (I12, "חנות", FR-MKT-001), feed, the
@@ -43,23 +44,27 @@ import { normalizePath, PATHS } from './paths';
 // A staff account (I14 completion, Afik 21.10.2026): home (the admin area), the Marketplace, the feed and the directory, for review; no personal
 // profile (a work-only account).
 const navItems = (professional: boolean, staff = false) => [
-  { key: 'home', label: 'בית', href: staff ? PATHS.admin : PATHS.home, icon: <HomeIcon /> },
-  ...(professional ? [] : [{ key: 'marketplace', label: MARKETPLACE_NAV_LABEL, href: PATHS.marketplace, icon: <BagIcon /> }]),
-  { key: 'feed', label: 'פיד', href: PATHS.feed, icon: <NestIcon /> },
+  { key: 'home', label: 'בית', href: staff ? PATHS.admin : PATHS.home, icon: <HomeIcon />, currentIcon: <HomeIcon className="fill-current" /> },
+  ...(professional ? [] : [{ key: 'marketplace', label: MARKETPLACE_NAV_LABEL, href: PATHS.marketplace, icon: <BagIcon />, currentIcon: <BagIcon className="fill-current" /> }]),
+  { key: 'feed', label: 'פיד', href: PATHS.feed, icon: <NestIcon />, currentIcon: <NestFilledIcon /> },
   professional
-    ? { key: 'chats', label: CHATS_NAV_LABEL, href: PATHS.chat, icon: <MessageIcon />, badge: <ChatsNavBadge /> }
-    : { key: 'services', label: DIRECTORY_NAV_LABEL, href: PATHS.services, icon: <SparkIcon /> },
-  ...(staff ? [] : [{ key: 'profile', label: 'פרופיל', href: professional ? PATHS.proProfile : PATHS.profile, icon: <UserIcon /> }]),
+    ? { key: 'chats', label: CHATS_NAV_LABEL, href: PATHS.chat, icon: <MessageIcon />, currentIcon: <MessageIcon className="fill-current" />, badge: <ChatsNavBadge /> }
+    : { key: 'services', label: DIRECTORY_NAV_LABEL, href: PATHS.services, icon: <SparkIcon />, currentIcon: <SparkIcon className="fill-current" /> },
+  ...(staff ? [] : [{ key: 'profile', label: 'פרופיל', href: professional ? PATHS.proProfile : PATHS.profile, icon: <UserIcon />, currentIcon: <UserIcon className="fill-current" /> }]),
 ];
 
-/** The top bar's search and bell (AC-033): a Regular or Professional account only. An Admin or Moderator account has neither. */
-// I8: the Chat Center's button (FR-CHAT-001) sits between the search and the bell; it is given only to a community account (BR-034).
+/** The top bar's search (AC-033): a Regular or Professional account only. An Admin or Moderator account has none. */
+function TopBarSearch() {
+  const { state } = useNotifications();
+  return state.kind === 'unavailable' ? null : <SearchBox />;
+}
+
+/** The top bar's bell (AC-033), after the Chat Center's button (I8, FR-CHAT-001: given only to a community account, BR-034). */
 function TopBarActions({ chat }: { chat: ReactNode }) {
   const { state } = useNotifications();
   if (state.kind === 'unavailable') return chat === null ? null : <>{chat}</>;
   return (
     <>
-      <SearchBox />
       {chat}
       <NotificationBell />
     </>
@@ -110,6 +115,8 @@ export function ProtectedLayout() {
     <AccountKindProvider value={kind}>
     <NotificationsProvider>
     <AppShell
+      topBarSearch={<TopBarSearch />}
+      shortcuts={<DesktopShortcuts kind={staff.kind === 'staff' ? 'staff' : professional ? 'professional' : 'regular'} current={current} onNavigate={go} />}
       topBarActions={<TopBarActions chat={staff.kind === 'none' ? <ChatTopBarButton current={current} /> : null} />}
       navItems={navItems(professional, staff.kind === 'staff').map((item) => ({
         ...item,

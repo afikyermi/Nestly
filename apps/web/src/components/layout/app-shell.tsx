@@ -34,7 +34,11 @@ export interface AppShellProps {
   onMenuOpenChange?: ((open: boolean) => void) | undefined;
   /** Passed to the navigation: called with an item's href on a plain click (client-side routing). */
   onNavigate?: ((href: string) => void) | undefined;
+  /** The global search, handed to the TopBar (an icon below 1024, a field beside the logo from 1024). */
+  topBarSearch?: ReactNode;
   topBarActions?: ReactNode;
+  /** From 1024 only: the shortcuts column at the inline-start edge (redesign 27.10.2026, NFR-USE-001); hidden below 1024. */
+  shortcuts?: ReactNode;
   /** Below 1024 `main` scrolls inside the frame: when this changes (the route's path, not its hash) `main` goes back to the top. */
   scrollResetKey?: string | undefined;
   /** Placement only. */
@@ -42,8 +46,8 @@ export interface AppShellProps {
 }
 
 // Below 1024 the frame is one screen high and `main` scrolls inside it, so the bottom bar sits under the content and never over it
-// (WCAG 2.5.8: nothing a user can press is covered by the bar). The frame of every protected page: skip link, top bar, primary navigation (bar below 1024, rail from
-// 1024), one main landmark, and the side drawer the Hamburger opens. It knows nothing about routing,
+// (WCAG 2.5.8: nothing a user can press is covered by the bar). The frame of every protected page: skip link, top bar, primary navigation (bar below 1024, icons in
+// the middle of the top bar from 1024), from 1024 a shortcuts column at the start, one main landmark, and the side drawer the Hamburger opens. It knows nothing about routing,
 // auth or data: the route guard wraps it, and the caller passes links and copy in.
 export function AppShell({
   children,
@@ -57,7 +61,9 @@ export function AppShell({
   menuOpen,
   onMenuOpenChange,
   onNavigate,
+  topBarSearch,
   topBarActions,
+  shortcuts,
   scrollResetKey,
   className,
 }: AppShellProps) {
@@ -127,23 +133,28 @@ export function AppShell({
           focusMainOnClose.current = false;
           setDrawerOpen(true);
         }}
+        search={topBarSearch}
         actions={topBarActions}
       />
-      <div className="flex min-h-0 flex-1 flex-col lg:min-h-fit lg:flex-row lg:gap-6 lg:px-6">
+      <div className="flex min-h-0 flex-1 flex-col lg:min-h-fit lg:flex-row lg:gap-6 lg:px-6 lg:pt-5">
         <BottomNavigation
           className="order-last lg:order-none"
           items={navItems}
           label={navLabel}
           onNavigate={onNavigate}
         />
+        {shortcuts === undefined ? null : (
+          <div className="sticky top-21 hidden w-60 shrink-0 self-start lg:block @7xl:w-72">{shortcuts}</div>
+        )}
         <main
           id={mainId}
           ref={mainRef}
           tabIndex={-1}
-          className="min-h-0 min-w-0 flex-1 scroll-py-4 overflow-y-auto px-4 py-5 print:overflow-visible lg:mx-auto lg:max-w-2xl lg:overflow-visible lg:px-0"
+          className="min-h-0 min-w-0 flex-1 scroll-py-4 overflow-y-auto px-4 py-5 print:overflow-visible lg:mx-auto lg:max-w-2xl lg:overflow-visible lg:px-0 lg:pt-0"
         >
           <ShellActionBarContext value={actionBar}>{children}</ShellActionBarContext>
         </main>
+        {shortcuts === undefined ? null : <div aria-hidden="true" className="hidden w-72 shrink-0 @7xl:block" />}
         <div ref={setActionBar} className="flex justify-end px-4 py-2 empty:hidden lg:fixed lg:end-6 lg:bottom-6 lg:z-sticky lg:p-0" />
       </div>
       <SideDrawer

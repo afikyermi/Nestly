@@ -2,6 +2,7 @@ import { useId, type ReactNode } from 'react';
 import type { CommentView } from '@nestly/shared';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { LikeButton } from '@/components/shared/like-button';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { MoreActionsMenu } from '@/components/ui/more-actions-menu';
 import { COMMENT_MORE_LABEL, REPORT_COMMENT_ITEM } from '@/lib/report-texts';
@@ -53,7 +54,8 @@ interface CommentBlockProps extends CommentActions {
   children?: ReactNode;
 }
 
-// One comment or reply (F3.3 w1; FR-FEED-003): the author line, the time, the text and its actions. The text is the person's own, so it is
+// One comment or reply (F3.3 w1; FR-FEED-003): a quiet thread, never chat bubbles (redesign 27.10.2026): a 32px avatar, the author line
+// with its "⋯", the text, and a line of time · like · reply. Its actions. The text is the person's own, so it is
 // plain text (never markup), keeps its line breaks and takes its own direction. The item is named by its author line. Its "⋯" sits in the
 // author line, before the text and the replies, so it is the first menu button inside the item (focus returns to it after the menu's action).
 function CommentBlock({ comment, onReply, onLike, menu, children, readOnly = false }: CommentBlockProps) {
@@ -63,14 +65,16 @@ function CommentBlock({ comment, onReply, onLike, menu, children, readOnly = fal
       aria-labelledby={authorId}
       data-comment-id={comment.id}
       tabIndex={-1}
-      className="flex flex-col gap-2 rounded-md bg-muted/40 p-3 outline-offset-2"
+      className="flex flex-col gap-1 outline-offset-2"
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span id={authorId} className="text-label">
+      <div className="flex items-start gap-2.5">
+        <Avatar decorative size="s" className="mt-1" {...(comment.author === undefined ? { anonymous: true } : { name: authorLine(comment) })} />
+        <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex items-center justify-between gap-x-3">
+        <span id={authorId} className="text-label font-bold">
           {authorLine(comment)}
         </span>
-        <div className="flex items-center gap-1">
-          <PublishedTime iso={comment.createdAt} className="text-small text-muted-foreground" />
+        <div className="-my-2 flex items-center">
           {readOnly ? null : <MoreActionsMenu
             label={COMMENT_MORE_LABEL}
             menuLabel={MORE_ACTIONS_MENU_LABEL}
@@ -85,17 +89,24 @@ function CommentBlock({ comment, onReply, onLike, menu, children, readOnly = fal
           />}
         </div>
       </div>
-      <p dir="auto" className="whitespace-pre-wrap wrap-anywhere">
+      <p dir="auto" className="text-small whitespace-pre-wrap wrap-anywhere">
         {comment.body}
       </p>
-      {readOnly ? null : <div className="flex flex-wrap items-center gap-x-2">
-        <LikeButton label={LIKE_LABEL} count={comment.likeCount} liked={comment.likedByMe} onToggle={() => onLike(comment.id)} />
-        {onReply !== undefined ? (
-          <Button variant="text" data-reply-button onClick={onReply}>
-            {REPLY_LABEL}
-          </Button>
-        ) : null}
-      </div>}
+      <div className="-ms-2 flex flex-wrap items-center gap-x-1 text-caption text-muted-foreground">
+        <PublishedTime iso={comment.createdAt} className="ps-2 pe-1 text-caption text-muted-foreground" />
+        {readOnly ? null : (
+          <>
+            <LikeButton label={LIKE_LABEL} count={comment.likeCount} liked={comment.likedByMe} onToggle={() => onLike(comment.id)} />
+            {onReply !== undefined ? (
+              <Button variant="text" data-reply-button onClick={onReply} className="px-2 text-caption font-bold text-muted-foreground no-underline hover:underline">
+                {REPLY_LABEL}
+              </Button>
+            ) : null}
+          </>
+        )}
+      </div>
+        </div>
+      </div>
       {children}
     </li>
   );
@@ -116,7 +127,7 @@ export function CommentItem({ item, onReply, onMoreReplies, onLike, menu, replyB
   return (
     <CommentBlock comment={item} onReply={() => onReply(item.id)} onLike={onLike} menu={menu} readOnly={readOnly}>
       {item.replies.length > 0 ? (
-        <ul aria-label={REPLIES_LIST_LABEL} className="flex flex-col gap-2 border-s-2 border-border ps-3">
+        <ul aria-label={REPLIES_LIST_LABEL} className="ms-4 flex flex-col gap-3 border-s-2 border-divider ps-5">
           {item.replies.map((reply) => (
             <CommentBlock key={reply.id} comment={reply} onLike={onLike} menu={menu} readOnly={readOnly} />
           ))}
@@ -129,7 +140,7 @@ export function CommentItem({ item, onReply, onMoreReplies, onLike, menu, replyB
         </div>
       ) : null}
       {(more && item.replyState !== 'gone') || item.replyState === 'error' ? (
-        <div>
+        <div className="ms-10">
           <Button
             variant="text"
             pending={item.replyState === 'loading'}
