@@ -12,12 +12,12 @@ const code = (text: string): string => text.replace(/\/\*[\s\S]*?\*\//g, '').rep
 // Performance (27.10): the feed's statements run as plan-cached invoker functions (migration 20261027400000); a call `select * from
 // nestly.read_…(` is replaced by the statement it runs, so the checks below read the same SQL as before. The display statement's Offer Help
 // column is offer-help-state.ts's text, verbatim (it reads the caller's own offers; its own checks: tests/db/feed.db.test.ts, I11-C).
-const OFFER_HELP = /case when \(select nestly\.caller_account_type\(\)\)[\s\S]*?end as "offerHelp"/g;
+const OFFER_HELP = /case when \(select nestly\.caller_account_type\(\)\)[\s\S]*?end as offer_help/g;
 const source = files
   .map((name) =>
     expandFunctionCalls(code(readFileSync(new URL(name, repositories), 'utf8')))
       .replace(/select \* from (nestly\.read_\w+\()/g, '$1')
-      .replace(OFFER_HELP, 'null as "offerHelp"'),
+      .replace(OFFER_HELP, 'null as offer_help'),
   )
   .join('\n');
 /** The one status test the allow-list grants: an accepted friendship (`f.status = 'accepted'`, Friend term only). */

@@ -13,6 +13,7 @@ import { GROUP_PRIVACIES, JOURNEY_STAGES, OFFER_HELP_STATES, POST_AUDIENCES, PRO
 import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
+import { camelColumns } from './plan-cached.js';
 
 /** The cursor's timestamp format (shared/feed/cursor.ts), produced here and parsed back there. */
 const TIMESTAMP_TEXT = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'`);
@@ -44,7 +45,7 @@ const configRow = z.object({
  */
 export async function readFeedConfigRows(tx: IdentityTx): Promise<FeedConfigRow[]> {
   // the plan-cached invoker function of the statement (migration 20261027400000)
-  const rows = await tx.execute(sql`select * from nestly.read_feed_config_rows()`);
+  const rows = await tx.execute(sql`select ${camelColumns('version', 'is_active', 'w_fresh', 'half_life_hours', 'w_friend', 'w_quality', 'quality_cap', 'w_stage', 'scored_window_days', 'max_same_creator_in_window', 'diversity_window', 'max_anonymous_in_window', 'page_size', 'w_intent', 'intent_half_life_hours')} from nestly.read_feed_config_rows()`);
   return z.array(configRow).parse(rows).map(({ version, isActive, ...values }) => ({ version, isActive, values }));
 }
 
@@ -137,6 +138,8 @@ const rankedRow = z.object({
   createdAt: dbTimestamp,
 });
 
+const RANKED_COLUMNS = camelColumns('id', 'author_id', 'is_anonymous', 'shared_post_id', 'tier', 'score', 'created_at');
+
 /** No tier-1 cursor: every post's (created_at, id) is below this, so the tier-1 keyset keeps every row (as no keyset did). */
 const NO_TIER1_KEYSET = { createdAt: 'infinity', id: 'ffffffff-ffff-ffff-ffff-ffffffffffff' } as const;
 
@@ -167,16 +170,16 @@ export function rankingStatement(parameters: RankingParameters): SQL {
       p_after_tier => ${cursor.tier}::integer, p_after_score => ${cursor.score}::float8,
       p_after_created_at => ${cursor.createdAt}::timestamptz, p_after_id => ${cursor.id}::uuid, p_limit => ${config.pageSize + 1}::integer`;
   if (parameters.profile === 'content') {
-    return sql`select * from nestly.read_feed_ranking_content(${window},
+    return sql`select ${RANKED_COLUMNS} from nestly.read_feed_ranking_content(${window},
       p_w_quality => ${config.wQuality}::float8, p_quality_cap => ${config.qualityCap}::float8,
       p_w_friend => ${config.wFriend}::float8, p_viewer_id => ${parameters.viewerId ?? null}::uuid,
       ${keyset})`;
   }
   const regular = sql`p_w_friend => ${config.wFriend}::float8, p_w_quality => ${config.wQuality}::float8, p_quality_cap => ${config.qualityCap}::float8,
       p_w_stage => ${config.wStage}::float8, p_stages => ${sql.param([...parameters.stages])}::text[]`;
-  if (!usesIntent(parameters)) return sql`select * from nestly.read_feed_ranking_regular(${window}, ${regular}, ${keyset})`;
+  if (!usesIntent(parameters)) return sql`select ${RANKED_COLUMNS} from nestly.read_feed_ranking_regular(${window}, ${regular}, ${keyset})`;
   const intents = parameters.intents ?? [];
-  return sql`select * from nestly.read_feed_ranking_regular_intent(${window}, ${regular},
+  return sql`select ${RANKED_COLUMNS} from nestly.read_feed_ranking_regular_intent(${window}, ${regular},
       p_w_intent => ${config.wIntent ?? 0}::float8, p_intent_patterns => ${sql.param(intents.map((x) => x.pattern))}::text[],
       p_intent_weights => ${sql.param(intents.map((x) => x.weight))}::float8[],
       ${keyset})`;
@@ -229,6 +232,12 @@ const displayRow = z.object({
 
 export type DisplayPost = z.infer<typeof displayRow>;
 
+const DISPLAY_COLUMNS = camelColumns(
+  'id', 'is_share', 'is_anonymous', 'body', 'audience', 'stage_tag', 'created_at', 'is_mine', 'offer_help', 'author_name', 'author_field',
+  'author_field_other', 'original_id', 'original_body', 'original_audience', 'original_created_at', 'original_is_anonymous', 'original_is_mine',
+  'original_author_name', 'original_author_field', 'original_author_field_other', 'group_id', 'group_name', 'group_privacy',
+);
+
 /**
  * The display statement: the text, the audience, the author's name where the caller's policy shows one, and the original of a share
  * where the caller may read it, for the page's ids only. A post no longer readable is simply absent. The author's id never leaves the
@@ -236,7 +245,7 @@ export type DisplayPost = z.infer<typeof displayRow>;
  * nestly.read_feed_display (migration 20261027400000; its Offer Help column is offer-help-state.ts's, verbatim).
  */
 export function displayStatement(ids: readonly string[]): SQL {
-  return sql`select * from nestly.read_feed_display(${sql.param([...ids])}::uuid[])`;
+  return sql`select ${DISPLAY_COLUMNS} from nestly.read_feed_display(${sql.param([...ids])}::uuid[])`;
 }
 
 /** The display rows of the page's ids, in no particular order: the caller orders them by the ranked list. */

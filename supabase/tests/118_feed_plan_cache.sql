@@ -95,14 +95,14 @@ select is(pg_temp.ranked('a', 'intent'), '1', '[perf 27.10] read_feed_ranking_re
 select is(pg_temp.ranked('b', 'intent'), '0', '[perf 27.10] read_feed_ranking_regular_intent: a stranger never gets it');
 select is(pg_temp.ranked('p', 'content'), '0', '[perf 27.10] read_feed_ranking_content: a Professional never gets it');
 
-select is(pg_temp.q('a', format('select count(*)::text from nestly.read_feed_display(%s) where "isMine"', pg_temp.ids('friends'))), '1',
+select is(pg_temp.q('a', format('select count(*)::text from nestly.read_feed_display(%s) where is_mine', pg_temp.ids('friends'))), '1',
   '[perf 27.10] read_feed_display: the author reads her post, marked hers');
 select is(pg_temp.q('b', format('select count(*)::text from nestly.read_feed_display(%s)', pg_temp.ids('friends'))), '0',
   '[perf 27.10] read_feed_display: a stranger reads no row of it');
 
-select is(pg_temp.q('a', format('select "likeCount"::text from nestly.read_post_counts(%s)', pg_temp.ids('friends'))), '1',
+select is(pg_temp.q('a', format('select like_count::text from nestly.read_post_counts(%s)', pg_temp.ids('friends'))), '1',
   '[perf 27.10] read_post_counts: the author sees the like on her post');
-select is(pg_temp.q('b', format('select "likeCount"::text from nestly.read_post_counts(%s)', pg_temp.ids('friends'))), '0',
+select is(pg_temp.q('b', format('select like_count::text from nestly.read_post_counts(%s)', pg_temp.ids('friends'))), '0',
   '[perf 27.10] read_post_counts: a stranger counts 0 likes on a post it cannot read');
 
 select is(pg_temp.q('a', format('select count(*)::text from nestly.read_liked_target_ids(%s)', pg_temp.ids('friends'))), '1',

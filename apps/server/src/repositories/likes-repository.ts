@@ -13,6 +13,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
+import { camelColumns } from './plan-cached.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
 
 export type LikeTarget = 'post' | 'comment';
@@ -64,7 +65,7 @@ const postCountRows = z.array(z.object({ targetId: z.guid(), likeCount: z.number
 export async function readPostCounts(tx: IdentityTx, postIds: readonly string[]): Promise<Map<string, { likeCount: number; commentCount: number }>> {
   if (postIds.length === 0) return new Map();
   // the statement as the plan-cached invoker function nestly.read_post_counts (migration 20261027400000)
-  const rows = await tx.execute(sql`select * from nestly.read_post_counts(${uuidArray(postIds)})`);
+  const rows = await tx.execute(sql`select ${camelColumns('target_id', 'like_count', 'comment_count')} from nestly.read_post_counts(${uuidArray(postIds)})`);
   return new Map(postCountRows.parse(rows).map(({ targetId, likeCount, commentCount }) => [targetId, { likeCount, commentCount }]));
 }
 
@@ -72,7 +73,7 @@ export async function readPostCounts(tx: IdentityTx, postIds: readonly string[])
 export async function readLikedTargetIds(tx: IdentityTx, ids: readonly string[]): Promise<Set<string>> {
   if (ids.length === 0) return new Set();
   // `select target_id from reaction_owners where target_id = any(ids)` as the plan-cached invoker function (migration 20261027400000)
-  const rows = await tx.execute(sql`select * from nestly.read_liked_target_ids(${uuidArray(ids)})`);
+  const rows = await tx.execute(sql`select target_id from nestly.read_liked_target_ids(${uuidArray(ids)})`);
   return new Set(
     z
       .array(z.object({ target_id: z.guid() }))

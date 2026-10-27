@@ -34,7 +34,7 @@ create function nestly.read_feed_ranking_regular(
   p_w_stage float8, p_stages text[],
   p_scores_tier0 boolean, p_tier1_created_at timestamptz, p_tier1_id uuid,
   p_after_tier integer, p_after_score float8, p_after_created_at timestamptz, p_after_id uuid, p_limit integer)
-returns table ("id" uuid, "authorId" uuid, "isAnonymous" boolean, "sharedPostId" uuid, "tier" integer, "score" float8, "createdAt" text)
+returns table (id uuid, author_id uuid, is_anonymous boolean, shared_post_id uuid, tier integer, score float8, created_at text)
 language plpgsql stable security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
@@ -95,8 +95,8 @@ begin
       union all
       select o.id, o.author_id, o.is_anonymous, o.shared_post_id, o.created_at, o.tier, o.score from older o
     )
-    select s.id, s.author_id as "authorId", s.is_anonymous as "isAnonymous", s.shared_post_id as "sharedPostId", s.tier, s.score,
-           to_char(s.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "createdAt"
+    select s.id, s.author_id, s.is_anonymous, s.shared_post_id, s.tier, s.score,
+           to_char(s.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as created_at
     from ranked s
     where (s.tier > p_after_tier::integer
     or (s.tier = p_after_tier::integer and (s.score < p_after_score::float8
@@ -114,7 +114,7 @@ create function nestly.read_feed_ranking_regular_intent(
   p_w_stage float8, p_stages text[], p_w_intent float8, p_intent_patterns text[], p_intent_weights float8[],
   p_scores_tier0 boolean, p_tier1_created_at timestamptz, p_tier1_id uuid,
   p_after_tier integer, p_after_score float8, p_after_created_at timestamptz, p_after_id uuid, p_limit integer)
-returns table ("id" uuid, "authorId" uuid, "isAnonymous" boolean, "sharedPostId" uuid, "tier" integer, "score" float8, "createdAt" text)
+returns table (id uuid, author_id uuid, is_anonymous boolean, shared_post_id uuid, tier integer, score float8, created_at text)
 language plpgsql stable security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
@@ -179,8 +179,8 @@ begin
       union all
       select o.id, o.author_id, o.is_anonymous, o.shared_post_id, o.created_at, o.tier, o.score from older o
     )
-    select s.id, s.author_id as "authorId", s.is_anonymous as "isAnonymous", s.shared_post_id as "sharedPostId", s.tier, s.score,
-           to_char(s.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "createdAt"
+    select s.id, s.author_id, s.is_anonymous, s.shared_post_id, s.tier, s.score,
+           to_char(s.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as created_at
     from ranked s
     where (s.tier > p_after_tier::integer
     or (s.tier = p_after_tier::integer and (s.score < p_after_score::float8
@@ -197,7 +197,7 @@ create function nestly.read_feed_ranking_content(
   p_w_fresh float8, p_half_life_hours float8, p_w_quality float8, p_quality_cap float8, p_w_friend float8, p_viewer_id uuid,
   p_scores_tier0 boolean, p_tier1_created_at timestamptz, p_tier1_id uuid,
   p_after_tier integer, p_after_score float8, p_after_created_at timestamptz, p_after_id uuid, p_limit integer)
-returns table ("id" uuid, "authorId" uuid, "isAnonymous" boolean, "sharedPostId" uuid, "tier" integer, "score" float8, "createdAt" text)
+returns table (id uuid, author_id uuid, is_anonymous boolean, shared_post_id uuid, tier integer, score float8, created_at text)
 language plpgsql stable security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
@@ -253,8 +253,8 @@ begin
       union all
       select o.id, o.author_id, o.is_anonymous, o.shared_post_id, o.created_at, o.tier, o.score from older o
     )
-    select s.id, s.author_id as "authorId", s.is_anonymous as "isAnonymous", s.shared_post_id as "sharedPostId", s.tier, s.score,
-           to_char(s.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "createdAt"
+    select s.id, s.author_id, s.is_anonymous, s.shared_post_id, s.tier, s.score,
+           to_char(s.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as created_at
     from ranked s
     where (s.tier > p_after_tier::integer
     or (s.tier = p_after_tier::integer and (s.score < p_after_score::float8
@@ -268,11 +268,11 @@ $fn$;
 -- The display statement (readDisplayPosts) ------------------------------------------------------------------------------------------------
 create function nestly.read_feed_display(p_ids uuid[])
 returns table (
-  "id" uuid, "isShare" boolean, "isAnonymous" boolean, "body" text, "audience" text, "stageTag" text, "createdAt" text, "isMine" boolean,
-  "offerHelp" text, "authorName" text, "authorField" text, "authorFieldOther" text,
-  "originalId" uuid, "originalBody" text, "originalAudience" text, "originalCreatedAt" text, "originalIsAnonymous" boolean,
-  "originalIsMine" boolean, "originalAuthorName" text, "originalAuthorField" text, "originalAuthorFieldOther" text,
-  "groupId" uuid, "groupName" text, "groupPrivacy" text)
+  id uuid, is_share boolean, is_anonymous boolean, body text, audience text, stage_tag text, created_at text, is_mine boolean,
+  offer_help text, author_name text, author_field text, author_field_other text,
+  original_id uuid, original_body text, original_audience text, original_created_at text, original_is_anonymous boolean,
+  original_is_mine boolean, original_author_name text, original_author_field text, original_author_field_other text,
+  group_id uuid, group_name text, group_privacy text)
 language plpgsql stable security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
@@ -295,20 +295,20 @@ begin
     ), profiles as (
       select pp.user_id, pp.full_name, pp.field, pp.field_other from nestly.professional_profiles pp where pp.user_id in (select w.user_id from authors w)
     )
-    select p.id, p.is_share as "isShare", p.is_anonymous as "isAnonymous", p.body, p.audience, p.stage_tag as "stageTag",
-           to_char(p.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "createdAt",
-           coalesce(p.author_id = (select auth.uid()), false) as "isMine", case when (select nestly.caller_account_type()) = 'professional' and not p.is_share
+    select p.id, p.is_share, p.is_anonymous, p.body, p.audience, p.stage_tag,
+           to_char(p.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as created_at,
+           coalesce(p.author_id = (select auth.uid()), false) as is_mine, case when (select nestly.caller_account_type()) = 'professional' and not p.is_share
       and (p.author_id is null or not exists (select 1 from nestly.professional_profiles opp where opp.user_id = p.author_id))
     then case when exists (select 1 from nestly.outreach_requests oro where oro.post_id = p.id and oro.professional_id = (select auth.uid()))
               then 'sent' else 'available' end
-    end as "offerHelp",
-           coalesce(n.full_name, ap.full_name) as "authorName", ap.field as "authorField", ap.field_other as "authorFieldOther",
-           p.original_id as "originalId", p.original_body as "originalBody", p.original_audience as "originalAudience",
-           to_char(p.original_created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "originalCreatedAt", p.original_is_anonymous as "originalIsAnonymous",
-           coalesce(p.original_author_id = (select auth.uid()), false) as "originalIsMine",
-           coalesce(oa.full_name, oap.full_name) as "originalAuthorName", oap.field as "originalAuthorField",
-           oap.field_other as "originalAuthorFieldOther",
-           gg.id as "groupId", gg.name as "groupName", gg.privacy as "groupPrivacy"
+    end as offer_help,
+           coalesce(n.full_name, ap.full_name) as author_name, ap.field as author_field, ap.field_other as author_field_other,
+           p.original_id, p.original_body, p.original_audience,
+           to_char(p.original_created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as original_created_at, p.original_is_anonymous,
+           coalesce(p.original_author_id = (select auth.uid()), false) as original_is_mine,
+           coalesce(oa.full_name, oap.full_name) as original_author_name, oap.field as original_author_field,
+           oap.field_other as original_author_field_other,
+           gg.id as group_id, gg.name as group_name, gg.privacy as group_privacy
     from page p
     left join nestly.groups gg on gg.id = p.group_id
     left join names n on n.user_id = p.author_id
@@ -321,20 +321,20 @@ $fn$;
 -- The feed's configuration rows (readFeedConfigRows) -------------------------------------------------------------------------------------
 create function nestly.read_feed_config_rows()
 returns table (
-  "version" integer, "isActive" boolean, "wFresh" float8, "halfLifeHours" integer, "wFriend" float8, "wQuality" float8, "qualityCap" integer,
-  "wStage" float8, "scoredWindowDays" integer, "maxSameCreatorInWindow" integer, "diversityWindow" integer, "maxAnonymousInWindow" integer,
-  "pageSize" integer, "wIntent" float8, "intentHalfLifeHours" integer)
+  version integer, is_active boolean, w_fresh float8, half_life_hours integer, w_friend float8, w_quality float8, quality_cap integer,
+  w_stage float8, scored_window_days integer, max_same_creator_in_window integer, diversity_window integer, max_anonymous_in_window integer,
+  page_size integer, w_intent float8, intent_half_life_hours integer)
 language plpgsql stable security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
 #variable_conflict use_column
 begin
   return query
-    select version, is_active as "isActive", w_fresh::float8 as "wFresh", half_life_hours as "halfLifeHours", w_friend::float8 as "wFriend",
-           w_quality::float8 as "wQuality", quality_cap as "qualityCap", w_stage::float8 as "wStage", scored_window_days as "scoredWindowDays",
-           max_same_creator_in_window as "maxSameCreatorInWindow", diversity_window as "diversityWindow",
-           max_anonymous_in_window as "maxAnonymousInWindow", page_size as "pageSize",
-           w_intent::float8 as "wIntent", intent_half_life_hours as "intentHalfLifeHours"
+    select version, is_active, w_fresh::float8 as w_fresh, half_life_hours, w_friend::float8 as w_friend,
+           w_quality::float8 as w_quality, quality_cap, w_stage::float8 as w_stage, scored_window_days,
+           max_same_creator_in_window, diversity_window,
+           max_anonymous_in_window, page_size,
+           w_intent::float8 as w_intent, intent_half_life_hours
     from nestly.algorithm_configurations
     where surface = 'regular_feed';
 end
@@ -342,24 +342,24 @@ $fn$;
 
 -- The displayed counts of posts (readPostCounts) ------------------------------------------------------------------------------------------
 create function nestly.read_post_counts(p_ids uuid[])
-returns table ("targetId" uuid, "likeCount" integer, "commentCount" integer)
+returns table (target_id uuid, like_count integer, comment_count integer)
 language plpgsql stable security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
 #variable_conflict use_column
 begin
   return query
-    select t.id as "targetId",
-           (select count(*)::int from nestly.reactions r where r.post_id = t.id) as "likeCount",
+    select t.id as target_id,
+           (select count(*)::int from nestly.reactions r where r.post_id = t.id) as like_count,
            (select count(*)::int from nestly.comments c
-             where c.post_id = t.id and (c.parent_id is null or exists (select 1 from nestly.comments p where p.id = c.parent_id))) as "commentCount"
+             where c.post_id = t.id and (c.parent_id is null or exists (select 1 from nestly.comments p where p.id = c.parent_id))) as comment_count
     from unnest(p_ids) as t(id);
 end
 $fn$;
 
 -- The like-state (readLikedTargetIds) -----------------------------------------------------------------------------------------------------
 create function nestly.read_liked_target_ids(p_ids uuid[])
-returns table ("target_id" uuid)
+returns table (target_id uuid)
 language plpgsql stable security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
@@ -372,14 +372,14 @@ $fn$;
 
 -- The images of posts (readImagesOfPosts) -------------------------------------------------------------------------------------------------
 create function nestly.read_post_images(p_ids uuid[])
-returns table ("id" uuid, "status" text, "width" integer, "height" integer, "postId" uuid, "position" smallint)
+returns table (id uuid, status text, width integer, height integer, post_id uuid, image_position smallint)
 language plpgsql stable security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
 #variable_conflict use_column
 begin
   return query
-    select m.id, m.status, m.width, m.height, m.post_id as "postId", m.position
+    select m.id, m.status, m.width, m.height, m.post_id, m.position as image_position
     from nestly.media_assets m
     where m.post_id = any(p_ids)
     order by m.post_id, m.position;
@@ -388,42 +388,42 @@ $fn$;
 
 -- The caller's muted Groups among these (readMutedGroupIds) -------------------------------------------------------------------------------
 create function nestly.read_muted_group_ids(p_ids uuid[])
-returns table ("groupId" uuid)
+returns table (group_id uuid)
 language plpgsql stable security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
 #variable_conflict use_column
 begin
   return query
-    select distinct e.group_id as "groupId" from nestly.group_member_enforcements e
+    select distinct e.group_id from nestly.group_member_enforcements e
     where e.group_id = any(p_ids) and e.user_id = (select auth.uid()) and e.kind = 'warn_mute' and e.mute_until > now();
 end
 $fn$;
 
 -- The Professionals among these posts' authors (readProfessionalAuthors) ------------------------------------------------------------------
 create function nestly.read_professional_authors(p_ids uuid[])
-returns table ("id" uuid, "posts" integer)
+returns table (id uuid, posts integer)
 language plpgsql stable security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
 #variable_conflict use_column
 begin
   return query
-    select p.author_id as id, count(*)::integer as posts from nestly.posts p join nestly.professional_profiles pr on pr.user_id = p.author_id
+    select p.author_id, count(*)::integer as posts from nestly.posts p join nestly.professional_profiles pr on pr.user_id = p.author_id
     where p.id = any (p_ids) and p.author_id <> (select auth.uid()) group by p.author_id;
 end
 $fn$;
 
 -- The running promotions another account may be shown, one function per kind (readPromotedCandidates) -------------------------------------
 create function nestly.read_promoted_post_candidates()
-returns table ("promotionId" uuid, "targetId" uuid)
+returns table (promotion_id uuid, target_id uuid)
 language plpgsql volatile security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
 #variable_conflict use_column
 begin
   return query
-    select p.id as "promotionId", p.post_id as "targetId" from nestly.promotions p
+    select p.id as promotion_id, p.post_id as target_id from nestly.promotions p
     where p.target_kind = 'post' and p.status = 'active' and p.starts_at <= now() and p.ends_at > now()
       and p.owner_id <> (select auth.uid()) and exists (select 1 from nestly.posts po where po.id = p.post_id and po.status = 'active' and po.audience = 'everyone' and po.group_id is null and not po.is_share)
     order by random() limit 500;
@@ -431,14 +431,14 @@ end
 $fn$;
 
 create function nestly.read_promoted_profile_candidates()
-returns table ("promotionId" uuid, "targetId" uuid)
+returns table (promotion_id uuid, target_id uuid)
 language plpgsql volatile security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
 #variable_conflict use_column
 begin
   return query
-    select p.id as "promotionId", p.owner_id as "targetId" from nestly.promotions p
+    select p.id as promotion_id, p.owner_id as target_id from nestly.promotions p
     where p.target_kind = 'profile' and p.status = 'active' and p.starts_at <= now() and p.ends_at > now()
       and p.owner_id <> (select auth.uid()) and exists (select 1 from nestly.professional_profiles pr where pr.user_id = p.owner_id)
     order by random() limit 500;
@@ -446,14 +446,14 @@ end
 $fn$;
 
 create function nestly.read_promoted_listing_candidates()
-returns table ("promotionId" uuid, "targetId" uuid)
+returns table (promotion_id uuid, target_id uuid)
 language plpgsql volatile security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
 #variable_conflict use_column
 begin
   return query
-    select p.id as "promotionId", p.listing_id as "targetId" from nestly.promotions p
+    select p.id as promotion_id, p.listing_id as target_id from nestly.promotions p
     where p.target_kind = 'listing' and p.status = 'active' and p.starts_at <= now() and p.ends_at > now()
       and p.owner_id <> (select auth.uid()) and exists (select 1 from nestly.marketplace_listings l where l.id = p.listing_id and l.status = 'active' and not l.is_hidden and l.expires_at > now())
     order by random();
@@ -462,23 +462,23 @@ $fn$;
 
 -- The newest promotion settings (readPromotionConfig) -------------------------------------------------------------------------------------
 create function nestly.read_promotion_config()
-returns table ("version" integer, "dailyCap" integer, "directoryUnitsPerPage" integer, "feedGapMin" integer, "feedGapMax" integer,
-               "feedLowPosts" integer, "feedHighPosts" integer)
+returns table (version integer, daily_cap integer, directory_units_per_page integer, feed_gap_min integer, feed_gap_max integer,
+               feed_low_posts integer, feed_high_posts integer)
 language plpgsql stable security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
 #variable_conflict use_column
 begin
   return query
-    select version, daily_cap as "dailyCap", directory_units_per_page as "directoryUnitsPerPage", feed_gap_min as "feedGapMin",
-      feed_gap_max as "feedGapMax", feed_low_posts as "feedLowPosts", feed_high_posts as "feedHighPosts"
+    select version, daily_cap, directory_units_per_page, feed_gap_min,
+      feed_gap_max, feed_low_posts, feed_high_posts
     from nestly.promotion_settings order by version desc limit 1;
 end
 $fn$;
 
 -- The feed's posts of the last 48 hours the caller can read (readRecentPostCount) ---------------------------------------------------------
 create function nestly.read_recent_post_count()
-returns table ("n" bigint)
+returns table (n bigint)
 language plpgsql stable security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
@@ -491,14 +491,14 @@ $fn$;
 
 -- The posts among these whose text matches one of the patterns (readMatchingPosts) --------------------------------------------------------
 create function nestly.read_matching_posts(p_ids uuid[], p_patterns text[])
-returns table ("id" uuid, "byTopic" boolean)
+returns table (id uuid, by_topic boolean)
 language plpgsql stable security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
 #variable_conflict use_column
 begin
   return query
-    select p.id, (p.body ~* any (p_patterns)) is true as "byTopic" from nestly.posts p
+    select p.id, (p.body ~* any (p_patterns)) is true as by_topic from nestly.posts p
     where p.id = any (p_ids)
       and (p.body ~* any (p_patterns)) is true;
 end
@@ -506,14 +506,14 @@ $fn$;
 
 -- The caller's own impressions today of these promotions (readTodayImpressions) -----------------------------------------------------------
 create function nestly.read_today_impressions(p_ids uuid[])
-returns table ("id" uuid, "times" integer)
+returns table (id uuid, times integer)
 language plpgsql stable security invoker
 set search_path = '' set plan_cache_mode = force_generic_plan
 as $fn$
 #variable_conflict use_column
 begin
   return query
-    select e.promotion_id as id, e.times from nestly.promotion_events e
+    select e.promotion_id, e.times from nestly.promotion_events e
     where e.kind = 'impression' and e.occurred_on = (now() at time zone 'Asia/Jerusalem')::date and e.promotion_id = any (p_ids);
 end
 $fn$;
