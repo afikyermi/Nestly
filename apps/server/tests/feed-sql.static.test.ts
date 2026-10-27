@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { expandFunctionCalls } from './helpers/sql-functions.js';
 
 // I3 F3.2a2 criterion 2 (.work/feed-view/spec.md; allow-list in .work/_initiatives/I3-algorithm.md -> "Feed-query allow-list"): a static
 // check on the text of the feed's SQL by design. The ranking query and the display statement may name only the allow-list; eligibility
@@ -8,7 +9,17 @@ import { describe, expect, it } from 'vitest';
 const repositories = new URL('../src/repositories/', import.meta.url);
 const files = readdirSync(repositories).filter((name) => /^feed.*\.ts$/.test(name));
 const code = (text: string): string => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
-const source = files.map((name) => code(readFileSync(new URL(name, repositories), 'utf8'))).join('\n');
+// Performance (27.10): the feed's statements run as plan-cached invoker functions (migration 20261027400000); a call `select * from
+// nestly.read_…(` is replaced by the statement it runs, so the checks below read the same SQL as before. The display statement's Offer Help
+// column is offer-help-state.ts's text, verbatim (it reads the caller's own offers; its own checks: tests/db/feed.db.test.ts, I11-C).
+const OFFER_HELP = /case when \(select nestly\.caller_account_type\(\)\)[\s\S]*?end as offer_help/g;
+const source = files
+  .map((name) =>
+    expandFunctionCalls(code(readFileSync(new URL(name, repositories), 'utf8')))
+      .replace(/select \* from (nestly\.read_\w+\()/g, '$1')
+      .replace(OFFER_HELP, 'null as offer_help'),
+  )
+  .join('\n');
 /** The one status test the allow-list grants: an accepted friendship (`f.status = 'accepted'`, Friend term only). */
 const withoutFriendTest = source.replace(/\b\w+\.status\s*=\s*'accepted'/gi, '');
 /** Names of common table expressions (`with x as (`, `, y as (`): they are not tables. */

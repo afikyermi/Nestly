@@ -29,6 +29,7 @@ import {
 } from '../../src/services/promotions-service.js';
 import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
 import { afterResponseIdle, buildRegisterApp, CLOCK_NOW, EMPTY_DATE, post, validBody } from '../helpers/register-app.js';
+import { expandedStatement } from '../helpers/sql-functions.js'; // a plan-cached function's call is read with the statement it runs (migration 20261027400000)
 
 // Monetization (I13; Afik 21.10.2026 §11.1–11.6) through the services against the real database (CI `db` job, as app_server): a Professional
 // buys a promotion of its profile with a simulated payment (FR-SERV-010, NFR-SEC-007, AC-098); the Directory shows it apart from the organic list
@@ -250,7 +251,7 @@ describe('[I13] promotions', () => {
 
 // ---- the rules around a running promotion: purchase refusals, the feed, privacy and the staff views ----------------------------------------
 const recording = (statements: string[]): Database => {
-  const client = postgres(url(), { max: 1, prepare: false, onnotice: () => undefined, debug: (_c: number, query: string) => void statements.push(query) });
+  const client = postgres(url(), { max: 1, prepare: false, onnotice: () => undefined, debug: (_c: number, query: string) => void statements.push(expandedStatement(query)) });
   return { db: drizzle({ client }), client, close: () => client.end() };
 };
 /** The promoted slot of the viewer's feed that serves `promotionId`, page by page (at most 4); undefined when none does. */

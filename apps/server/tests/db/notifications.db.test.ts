@@ -363,6 +363,37 @@ describe("[FR-NOTIF-003 BR-037 AC-046] a Friend's child's birthday", () => {
       if (childId !== undefined) await removeOwnChild(database(), { userId: ACCOUNT_A }, childId);
     }
   });
+
+  it('[AC-192] the check runs once per Israel day: a Friend accepted later that day comes at once, a child added after that day\'s check waits', T, async () => {
+    const app = await start();
+    await side`select tests.fx_nt_pref(${ACCOUNT_B}::uuid, 'birthdays', true)`;
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+    const bornYearsAgo = (years: number): string => `${Number(today.slice(0, 4)) - years}${today.slice(4)}`;
+    const birthdaysOfB = async (): Promise<number> => (await list(app, hB)).items.filter((item) => item.type === 'child_birthday').length;
+    const childIds: string[] = [];
+    const addChild = async (name: string, years: number): Promise<void> => {
+      const added = await addOwnChild(database(), { userId: ACCOUNT_A }, { name, sex: 'girl', birthDate: bornYearsAgo(years) });
+      if (added.kind !== 'journeys') throw new Error(`could not add a child: ${added.kind}`);
+      const id = added.journeys.children.find((c) => c.name === name)?.id;
+      if (id !== undefined) childIds.push(id);
+    };
+    try {
+      // B's first entry of the day: no Friend yet, nothing to deliver; the day's check is recorded
+      expect(await birthdaysOfB(), 'no Friend, no birthday').toBe(0);
+      await addChild('תמר', 2);
+      expect((await sendTo(app, hA, ACCOUNT_B)).statusCode).toBe(201);
+      expect((await act(app, hB, 'accept', ACCOUNT_A)).statusCode).toBe(200);
+      // a Friend accepted after the check: the next entry runs it again, the same day
+      const afterFriend = await birthdaysOfB();
+      expect(afterFriend, 'the new Friend\'s child\'s birthday appears the same day').toBeGreaterThan(0);
+      // a second birthday that appears after the day's check waits for the next day's first entry
+      await addChild('נועה', 1);
+      expect(await birthdaysOfB(), 'not delivered again the same day').toBe(afterFriend);
+      expect(await birthdaysOfB(), 'nor on another entry').toBe(afterFriend);
+    } finally {
+      for (const id of childIds) await removeOwnChild(database(), { userId: ACCOUNT_A }, id);
+    }
+  });
 });
 
 describe('[FR-SEARCH-001 AC-039 AC-065 AC-078] search', () => {

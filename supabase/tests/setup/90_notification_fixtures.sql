@@ -6,7 +6,7 @@
 --   tests.fx_nt_types(recipient)           their types, oldest first, comma-separated ('' when none)
 --   tests.fx_nt_one(recipient, type)       'actor=<uuid|-> target=<kind>:<uuid> critical=<t|f> read=<t|f>' of the one of that type, or ''
 --   tests.fx_nt_actor_count(user)          notifications whose actor is the user
---   tests.fx_nt_purge()                    deletes every notification and preference (a test section starts clean)
+--   tests.fx_nt_purge()                    deletes every notification, preference and birthday check (a test section starts clean)
 --   tests.fx_nt_total()                    every notification
 --   tests.fx_nt_pref(user, category, on)   a notification preference row, written as postgres
 --   tests.fx_nt_follow(user, friend, on)   a friend-content preference row, written as postgres
@@ -61,6 +61,7 @@ begin
   delete from nestly.notifications;
   delete from nestly.notification_preferences;
   delete from nestly.friend_content_notification_preferences;
+  delete from nestly.birthday_checks;
 end
 $$;
 

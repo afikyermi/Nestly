@@ -6,6 +6,7 @@ import { feedPageResponse, parseFeedCursor, serializeFeedCursor, type FeedPageRe
 import { createDatabase, type Database } from '../../src/db/client.js';
 import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, toRecord, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
 import { CLOCK_NOW, buildRegisterApp, captureLog, post, refusingDatabase, validBody } from '../helpers/register-app.js';
+import { expandedStatement } from '../helpers/sql-functions.js'; // a plan-cached function's call is read with the statement it runs (migration 20261027400000)
 
 // I3 F3.2a2, GET /api/feed under RLS (CI db job, as app_server); criteria c1-c12 of .work/feed-view/spec.md. Expected values are hand-computed from the I3-algorithm.md
 // formula (v1: wFresh 1, half-life 24 h, wFriend .5, wQuality .2, cap 20, 14 days, page 20, caps 2/5). Ranking tests fix asOf in the past with a "top" cursor;
@@ -47,7 +48,7 @@ async function start(database: Database = createDatabase(url()), logStream?: Wri
   return app;
 }
 function recording(statements: string[]): Database {
-  const client = postgres(url(), { max: 1, prepare: false, debug: (_connection: number, query: string) => void statements.push(query) });
+  const client = postgres(url(), { max: 1, prepare: false, debug: (_connection: number, query: string) => void statements.push(expandedStatement(query)) });
   return { db: drizzle({ client }), client, close: () => client.end() };
 }
 const bearerFor = async (sub: string): Promise<string> => `Bearer ${await token({ key, sub })}`;

@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.50 · 27.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.51 · 27.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -161,7 +161,7 @@
 | FR-ALG-010 | Group Highlights v1 וחשיפת קבוצות פעילות | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 
-## קריטריוני קבלה — 198
+## קריטריוני קבלה — 199
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -358,6 +358,7 @@
 | AC-189 | חסימה מבטלת מחיקה מתוכננת | [15-acceptance.md](15-acceptance.md) |
 | AC-190 | עותק הטקסט בדיווחים מתרוקן במחיקה | [15-acceptance.md](15-acceptance.md) |
 | AC-191 | פרטי ההתחברות נמחקים פעם אחת | [15-acceptance.md](15-acceptance.md) |
+| AC-192 | יום הולדת של ילד נבדק פעם ביום | [15-acceptance.md](15-acceptance.md) |
 | AC-200 | קטגוריית מכשירי חשמל | [15-acceptance.md](15-acceptance.md) |
 | AC-201 | תיאור מודעה עד 1,000 תווים | [15-acceptance.md](15-acceptance.md) |
 | AC-202 | מודעה שנמכרה נשמרת ויוצאת מהרשימה | [15-acceptance.md](15-acceptance.md) |

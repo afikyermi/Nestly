@@ -14,7 +14,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | identity_link_checks | Identity link checks; Rules: recovery; users/session guard |
 | friendships, regular_names | Friendships and regular names; users/regular_profiles FKs; Cross-user profile read |
 | security_limits, profile_open_counts, security_events | Profile open limits and security events; Cross-user profile read |
-| notifications, notification_preferences, friend_content_notification_preferences, people_search_counts | Notifications and People Search; Profile open limits and security events (the limit pattern); Friendships and regular names |
+| notifications, notification_preferences, friend_content_notification_preferences, people_search_counts, birthday_checks | Notifications and People Search; Profile open limits and security events (the limit pattern); Friendships and regular names |
 | profile_view consumers | Cross-user profile read plus the affected input/output table sections above |
 | staff_roles, moderator_permissions, audit_log, report_reasons, user_enforcements | Safety and admin core |
 | user_blocks | Blocking a user (I4); Friendships and regular names; Notifications and People Search |
@@ -492,6 +492,7 @@ FR-SEARCH-001, FR-ALG-008, BR-035/038/061/063, VAL-037, AC-040/041/042/074/078; 
 | `friend_content_notification_preferences.user_id`, `friend_id`, `is_enabled` | uuid · uuid · boolean true | PK (user, friend): "tell me when this Friend posts". Insert needs an accepted Friendship; off by default (no row) |
 | `people_search_counts.user_id`, `searched_at`, `is_refusal_recorded` | uuid PK · timestamptz[] · boolean | as `profile_open_counts`: the instants inside the window |
 | `search_intents.user_id`, `topic`, `created_at` | uuid (`auth.uid()`) · text (format CHECK) · timestamptz | Intent Signal (Afik 20.10.2026): the topic or category the fixed rules detected for a search - never the typed text. Owner reads and inserts (Regular/Professional); no update, no client delete; deleted after 30 days by `purge_search_intents()` (EXECUTE app_jobs only, `search_intents_{select,delete}_jobs` policies); the schedule is the retention job's. Not readable by Admin through the product |
+| `birthday_checks.user_id`, `checked_at` | uuid PK → users ON DELETE CASCADE · timestamptz not null | AC-192 (`20261027100000_birthdays_daily.sql`, Afik 27.10.2026): the instant of the account's last child-birthday check. RLS + FORCE, no grant to any runtime role; `birthday_checks_select_ / _insert_ / _update_birthday` TO app_owner, own row (`auth.uid()`) while `nestly.notify_scope = 'birthday'`. `deliver_child_birthdays()` returns 0 when `checked_at` is on today's Israel date and no Friendship of the caller was accepted (`responded_at`) after it; otherwise it records now() and delivers. Goes with the account (cascade, also through the I9 purge); pgTAP file 115 |
 | `security_limits` | | gains the `people_search` row (seeded 60 / 3600 s); `security_events.kind` gains `people_search_limit` |
 
 | | `notifications` | preferences (both) | `people_search_counts` |
@@ -506,7 +507,7 @@ FR-SEARCH-001, FR-ALG-008, BR-035/038/061/063, VAL-037, AC-040/041/042/074/078; 
 `security_limits`; absent or invalid raises `NS001`), the call over the limit returns one row `outcome = 'limited'` and records one `people_search_limit` event per stretch.
 Rows: id and full name of other active Regular accounts, ranked exact name, name prefix, a word prefix, anywhere; then name and id; at most 50 per call, offset up to 200.
 Posts are searched by the server through the caller's own RLS (`posts_select_viewer`), so hides, audience, Friends-only and later blocks and Private Groups apply with no search code.
-**Cleanup order:** the three notification tables after `journey_contexts`, `search_intents` and `people_search_counts` after `profile_open_counts`.
+**Cleanup order:** the three notification tables after `journey_contexts`, `search_intents`, `people_search_counts` and `birthday_checks` after `profile_open_counts`.
 
 ## Blocking a user (I4)
 
