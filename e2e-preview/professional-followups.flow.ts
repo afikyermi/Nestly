@@ -63,7 +63,8 @@ test.describe.serial('[I11 follow-ups] a Professional and a follower on the Prev
 
     // I11-C (§11.20): בית · פיד · שיחות · פרופיל; "בקשות עזרה" from the home and the menu
     const nav = page.getByRole('navigation', { name: 'ניווט ראשי' });
-    expect((await nav.getByRole('link').allTextContents()).map((text) => text.split(/[\d,]/)[0])).toEqual(['בית', 'פיד', 'שיחות', 'פרופיל']);
+    // polled: until the account kind loads, the bar shows the community tabs
+    await expect.poll(async () => (await nav.getByRole('link').allTextContents()).map((text) => text.split(/[\d,]/)[0])).toEqual(['בית', 'פיד', 'שיחות', 'פרופיל']);
     await main.getByRole('link', { name: 'לכל הפוסטים בתחום שלך' }).click();
     await expect(page).toHaveURL(/\/help-requests$/);
     await expect(main.getByRole('heading', { level: 1, name: 'בקשות עזרה' })).toBeVisible();

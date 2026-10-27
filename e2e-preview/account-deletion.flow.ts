@@ -31,7 +31,8 @@ async function signUp(page: Page, fullName: string): Promise<{ user: TestUser; a
   await expect(page).toHaveURL(/\/recovery-questions$/, { timeout: SLOW });
   await page.getByLabel(/חיית המחמד/).fill(user.answers.pet);
   await page.getByLabel(/כינו אתכם/).fill(user.answers.nickname);
-  const bell = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/notifications' && r.request().method() === 'GET', { timeout: SLOW });
+  // the bell reads its counters on page open; the list only when they change (perf, 26.10)
+  const bell = page.waitForResponse((r) => ['/api/notifications', '/api/notifications/counts'].includes(new URL(r.url()).pathname) && r.request().method() === 'GET', { timeout: SLOW });
   await page.getByRole('button', { name: 'שמירה', exact: true }).click();
   await expect(page).toHaveURL(/\/feed$/, { timeout: SLOW });
   const authorization = (await (await bell).request().headerValue('authorization')) ?? '';
