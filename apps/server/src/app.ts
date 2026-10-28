@@ -56,6 +56,9 @@ import { registerStripBypassHeader } from './plugins/strip-bypass-header.js';
 import { registerServerTiming, serverTimingEnabled } from './lib/server-timing.js';
 import { noteOf, reportableFailure } from './lib/failure-report.js';
 import { registerAfterResponse } from './lib/after-response.js';
+import { registerAssistantRoutes } from './routes/assistant.js';
+import { createAssistantModel, type AssistantModel } from './assistant/assistant-model.js';
+import { readAssistantLimits, type AssistantLimits } from './assistant/assistant-limits.js';
 
 export interface AppDependencies {
   /** Defaults to the process environment. */
@@ -79,6 +82,10 @@ export interface AppDependencies {
   readonly serverTiming?: boolean;
   /** Fetch Auth's signing keys when the app is built, not on the first request (lib/token-verifier.ts). Defaults to off; the deployed function passes true. */
   readonly prefetchSigningKeys?: boolean;
+  /** The assistant's model (assistant/assistant-model.ts). Defaults to Gemini when GEMINI_API_KEY is set, else unavailable; a test passes a fake. */
+  readonly assistant?: AssistantModel;
+  /** The assistant's limits per account (BR-092). Defaults to the environment's, else 20 an hour and 60 a day. */
+  readonly assistantLimits?: AssistantLimits;
 }
 
 export function buildApp(deps: AppDependencies = {}): FastifyInstance {
@@ -214,6 +221,7 @@ export function buildApp(deps: AppDependencies = {}): FastifyInstance {
   registerAdminActionRoutes(app, { database });
   registerTeamRoutes(app, { database });
   registerStaffWorkRoutes(app, { database });
+  registerAssistantRoutes(app, { database, model: deps.assistant ?? createAssistantModel(), limits: deps.assistantLimits ?? readAssistantLimits() });
 
   return app;
 }

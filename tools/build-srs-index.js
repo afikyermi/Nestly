@@ -22,7 +22,7 @@ const NAMES = path.join(__dirname, 'srs-ac-names.json');
 const DOMAIN_ORDER = [
   'auth.md', 'registration.md', 'feed.md', 'home-tracking.md', 'marketplace.md', 'services.md', 'chat.md',
   'relationships-groups.md', 'profile-settings.md', 'search.md', 'notifications.md', 'navigation.md',
-  'professional.md', 'moderation.md', 'admin.md', 'algorithms-data.md',
+  'professional.md', 'moderation.md', 'admin.md', 'algorithms-data.md', 'assistant.md',
 ];
 const FAMILIES = [
   ['BR', /^\| (BR-\d+) \|/, 'חוקים עסקיים'], ['VAL', /^\| (VAL-\d+) \|/, 'ולידציות'],
