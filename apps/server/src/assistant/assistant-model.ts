@@ -1,5 +1,5 @@
-// The Nestly assistant's model (Afik 28.10.2026; FR-AI-001, ERR-055, NFR-PRIV-008): Google's Gemini API, free tier. Flash-Lite by default;
-// GEMINI_MODEL switches it (Flash, for example) with no code change. The key is GEMINI_API_KEY, set by Afik in Vercel (Preview and
+// The Nestly assistant's model (Afik 28.10.2026; FR-AI-001, ERR-055, NFR-PRIV-008): Google's Gemini API, free tier. Flash-Lite (gemini-3.5-flash-lite) by default;
+// GEMINI_MODEL switches it (gemini-3.6-flash, for example) with no code change. The key is GEMINI_API_KEY, set by Afik in Vercel (Preview and
 // Production); without it the assistant is unavailable and nothing is called. CI never calls Google: tests pass their own AssistantModel.
 //
 // What leaves for Google: the standing instructions, the user's new message and at most ASSISTANT_HISTORY_MAX earlier messages of the same
@@ -11,7 +11,7 @@ import { ASSISTANT_INSTRUCTIONS } from './instructions.js';
 
 const KEY_ENV = 'GEMINI_API_KEY';
 const MODEL_ENV = 'GEMINI_MODEL';
-const DEFAULT_MODEL = 'gemini-2.5-flash-lite';
+const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 const MODEL_NAME = /^[a-z0-9][a-z0-9.-]{0,63}$/;
 const API = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -82,11 +82,16 @@ export function createAssistantModel(env: Env = process.env, fetchImpl: Fetch = 
 }
 
 /**
- * A short, plain answer. A 2.5 model that thinks (Flash does by default) would spend the output budget and the time limit on thinking, so
- * thinking is off for those; other models keep their own default.
+ * A short, plain answer. Thinking spends the output budget and the time limit, so it is kept at its least: a Gemini 3 model by level
+ * (Flash-Lite allows "minimal", Flash "low"), a 2.5 model by a budget of 0 (the two parameters together are refused). Others keep their default.
  */
 export function generationConfig(model: string): Record<string, unknown> {
-  return { temperature: 0.4, maxOutputTokens: 1024, ...(model.startsWith('gemini-2.5-') ? { thinkingConfig: { thinkingBudget: 0 } } : {}) };
+  const thinking = model.startsWith('gemini-3')
+    ? { thinkingConfig: { thinkingLevel: model.includes('flash-lite') ? 'minimal' : 'low' } }
+    : model.startsWith('gemini-2.5-')
+      ? { thinkingConfig: { thinkingBudget: 0 } }
+      : {};
+  return { temperature: 0.4, maxOutputTokens: 1024, ...thinking };
 }
 
 /** The answer's text from a generateContent body; a blocked or empty one is a failure (the user sees the same message). */

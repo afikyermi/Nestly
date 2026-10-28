@@ -152,7 +152,7 @@ describe('[FR-AI-001 NFR-PRIV-008 ERR-055] the Gemini client', () => {
     const reply = await model.answer([{ role: 'user', text: 'שאלה קודמת' }, { role: 'assistant', text: 'תשובה קודמת' }], 'שאלה חדשה');
     expect(reply).toEqual({ kind: 'ok', answer: 'שלום\n• אחת\n• שתיים' });
     const [call] = calls;
-    expect(call?.url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent');
+    expect(call?.url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent');
     expect(new Headers(call?.init.headers).get('x-goog-api-key')).toBe('k-test');
     const raw = call?.init.body;
     const sent: unknown = JSON.parse(typeof raw === 'string' ? raw : '');
@@ -163,15 +163,15 @@ describe('[FR-AI-001 NFR-PRIV-008 ERR-055] the Gemini client', () => {
         { role: 'model', parts: [{ text: 'תשובה קודמת' }] },
         { role: 'user', parts: [{ text: 'שאלה חדשה' }] },
       ],
-      generationConfig: { temperature: 0.4, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } },
+      generationConfig: { temperature: 0.4, maxOutputTokens: 1024, thinkingConfig: { thinkingLevel: 'minimal' } },
     });
   });
 
   it('GEMINI_MODEL switches the model with no code change; a malformed name is ignored', async () => {
     const calls: Call[] = [];
-    await createAssistantModel({ GEMINI_API_KEY: 'k', GEMINI_MODEL: 'gemini-2.5-flash' }, answering(200, OK_BODY, calls)).answer([], 'x');
+    await createAssistantModel({ GEMINI_API_KEY: 'k', GEMINI_MODEL: 'gemini-3.6-flash' }, answering(200, OK_BODY, calls)).answer([], 'x');
     await createAssistantModel({ GEMINI_API_KEY: 'k', GEMINI_MODEL: '../evil?x=1' }, answering(200, OK_BODY, calls)).answer([], 'x');
-    expect(calls.map((c) => c.url.split('/models/')[1])).toEqual(['gemini-2.5-flash:generateContent', 'gemini-2.5-flash-lite:generateContent']);
+    expect(calls.map((c) => c.url.split('/models/')[1])).toEqual(['gemini-3.6-flash:generateContent', 'gemini-3.5-flash-lite:generateContent']);
   });
 
   it('an answer past the time limit, a refusal, an exhausted quota or a blocked answer is a failure', async () => {
@@ -190,9 +190,11 @@ describe('[FR-AI-001 NFR-PRIV-008 ERR-055] the Gemini client', () => {
     expect(plainText('פתיחה:\n\n* א\n  * ב')).toBe('פתיחה:\n\n• א\n• ב');
   });
 
-  it('turns thinking off for a 2.5 model (Flash thinks by default), and leaves other models their default', () => {
+  it('keeps thinking at its least: a Gemini 3 model by level, a 2.5 model by a budget of 0, never both', () => {
+    expect(generationConfig('gemini-3.5-flash-lite')).toEqual({ temperature: 0.4, maxOutputTokens: 1024, thinkingConfig: { thinkingLevel: 'minimal' } });
+    expect(generationConfig('gemini-3.6-flash')).toEqual({ temperature: 0.4, maxOutputTokens: 1024, thinkingConfig: { thinkingLevel: 'low' } });
     expect(generationConfig('gemini-2.5-flash')).toEqual({ temperature: 0.4, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } });
-    expect(generationConfig('gemini-3-flash')).toEqual({ temperature: 0.4, maxOutputTokens: 1024 });
+    expect(generationConfig('learnlm-x')).toEqual({ temperature: 0.4, maxOutputTokens: 1024 });
   });
 
   it('marks an answer cut at the length limit, and never returns more than the next message may send back (4,000)', () => {
