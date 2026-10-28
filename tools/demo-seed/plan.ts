@@ -140,6 +140,76 @@ export function buildPlan(content: Content, mode: Mode): Step[] {
   return steps;
 }
 
+/**
+ * Every persona a step touches: its actor, the persona it acts on, and the owner of the content it acts on (a post's author, a reply's
+ * parent author, a Group's owner, a listing's owner).
+ */
+export function personasOf(step: Step, content: Content): string[] {
+  const commentAuthor = (post: string, key: string | undefined) => content.posts.find((p) => p.key === post)?.comments.find((c) => c.key === key)?.author;
+  const groupOwner = (key: string | undefined) => content.groups.find((g) => g.key === key)?.owner;
+  /** A post's author and, for a Group post, the Group's owner (whose Group it lives in). */
+  const postPeople = (key: string) => {
+    const p = content.posts.find((x) => x.key === key);
+    return [p?.author, groupOwner(p?.group)];
+  };
+  const listingOwner = (key: string) => content.listings.find((l) => l.key === key)?.owner;
+  const targetOf = (t: Target | { kind: 'user'; user: string }) =>
+    t.kind === 'user' ? [t.user] : t.kind === 'post' ? postPeople(t.post) : [...postPeople(t.post), commentAuthor(t.post, t.comment)];
+  const others = (() => {
+    switch (step.kind) {
+      case 'friend-request':
+      case 'chat-start':
+        return [step.target];
+      case 'friend-accept':
+      case 'chat-accept':
+        return [step.requester];
+      case 'follow':
+      case 'review':
+        return [step.professional];
+      case 'group':
+      case 'group-join':
+        return [groupOwner(step.group)];
+      case 'group-approve':
+      case 'group-role':
+        return [groupOwner(step.group), step.member];
+      case 'post':
+        return postPeople(step.post);
+      case 'comment': {
+        const c = content.posts.find((p) => p.key === step.post)?.comments.find((x) => x.key === step.comment);
+        return [...postPeople(step.post), commentAuthor(step.post, c?.replyTo)];
+      }
+      case 'like':
+      case 'report':
+        return targetOf(step.target);
+      case 'share':
+      case 'offer-help':
+        return postPeople(step.post);
+      case 'offer-accept':
+        return [step.professional];
+      case 'listing-contact':
+        return [listingOwner(step.listing)];
+      case 'message':
+        return [step.other];
+      default:
+        return [];
+    }
+  })();
+  return [...new Set([step.actor, ...others.filter((k): k is string => k !== undefined)])];
+}
+
+/**
+ * The plan narrowed to the steps that touch one of `only` (a new persona added after the first seed): those steps in their order, after
+ * the account step of every persona they touch (a sign-in that creates nothing for an existing account). Nothing else is run, so content
+ * that was changed or removed in the product since the first seed is never written again.
+ */
+export function focusPlan(steps: readonly Step[], content: Content, only: readonly string[]): Step[] {
+  const wanted = new Set(only);
+  const kept = steps.filter((s) => s.kind !== 'account' && personasOf(s, content).some((k) => wanted.has(k)));
+  const touched = new Set([...only, ...kept.flatMap((s) => personasOf(s, content))]);
+  const accounts = steps.filter((s) => s.kind === 'account' && touched.has(s.actor));
+  return [...accounts, ...kept];
+}
+
 /** One line per step for the dry run: the kind, the actor and what it acts on (keys only, never a text). */
 export function describeStep(step: Step): string {
   const on = (() => {

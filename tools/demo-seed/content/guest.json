@@ -1,0 +1,227 @@
+{
+  "regulars": [
+    { "key": "guest", "fullName": "נועה לביא", "parentGender": "woman", "stages": ["pregnant", "has_child"], "pregnancyWeek": 26, "children": [{ "name": "אלה", "sex": "girl", "ageMonths": 22 }], "joinedDaysAgo": 45, "avatar": "star", "profileVisibility": "open", "story": "חשבון הכניסה של המרצה: אמא לאלה (שנה ועשרה חודשים) ובהריון שני, שבוע 26. מכינה את אלה להיות אחות גדולה, פתחה את הקבוצה 'הריון עם פעוט בבית', נעזרת ביועצת השינה ומוסרת ציוד שאלה גדלה ממנו." }
+  ],
+  "friendships": [
+    { "from": "orit", "to": "guest", "accept": true, "ageHours": 950 },
+    { "from": "tamar", "to": "guest", "accept": true, "ageHours": 900 },
+    { "from": "guest", "to": "dana", "accept": true, "ageHours": 880 },
+    { "from": "roni", "to": "guest", "accept": true, "ageHours": 870 },
+    { "from": "guest", "to": "hila", "accept": true, "ageHours": 760 },
+    { "from": "guest", "to": "maya", "accept": true, "ageHours": 650 },
+    { "from": "yael", "to": "guest", "accept": false, "ageHours": 6 }
+  ],
+  "follows": [
+    { "follower": "guest", "professional": "liat", "ageHours": 1000 },
+    { "follower": "guest", "professional": "sigal", "ageHours": 900 },
+    { "follower": "guest", "professional": "merav", "ageHours": 760 },
+    { "follower": "guest", "professional": "amit", "ageHours": 700 },
+    { "follower": "guest", "professional": "keren", "ageHours": 400 }
+  ],
+  "groups": [
+    {
+      "key": "sibling-on-way", "owner": "guest", "ageHours": 820,
+      "name": "הריון עם פעוט בבית",
+      "description": "למי שבהריון כשכבר יש פעוט בבית: עייפות כפולה, הכנת הגדולים לאח או לאחות, ציוד שעובר מילד לילד, וכל מה שבאמצע.",
+      "rules": "1. כל משפחה והקצב שלה — משתפים, לא שופטים.\n2. בלי עצות רפואיות חד-משמעיות — לשאלות רפואיות פונים לרופא או לאחות.\n3. לא מעלים תמונות של ילדים אחרים בלי רשות.\n4. בלי פרסום ומכירות. ציוד למסירה — במרקטפלייס.",
+      "privacy": "public",
+      "members": [{ "user": "orit", "ageHours": 800, "role": "moderator" }, { "user": "hila", "ageHours": 780 }, { "user": "merav", "ageHours": 760 }, { "user": "maya", "ageHours": 680 }]
+    }
+  ],
+  "posts": [
+    {
+      "key": "g-sib-guest-welcome", "author": "guest", "group": "sibling-on-way", "ageHours": 810, "audience": "everyone",
+      "body": "ברוכים הבאים לקבוצה 💛\nפתחתי אותה כי חיפשתי מקום למי שבהריון כשכבר יש פעוט בבית — עם כל העייפות, הגעגוע לזמן שקט עם הגדולים וההתרגשות. ספרו מי אתם, באיזה שבוע ובני כמה הגדולים.",
+      "likes": ["orit", "hila", "maya", "merav"],
+      "comments": [
+        { "key": "c-gsw-1", "author": "orit", "ageHours": 795, "body": "אורית, אמא לשלושה. פה כדי להגיד שזה אפשרי, ושהתקופה הזו עוברת מהר יותר ממה שנדמה 😄" },
+        { "key": "c-gsw-2", "author": "hila", "ageHours": 775, "body": "הילה, נגה בגן חובה. עוד לא בהריון, אבל חושבת על זה ורוצה ללמוד מכן." },
+        { "key": "c-gsw-3", "author": "maya", "ageHours": 670, "body": "מאיה, שבוע 28 ויונתן בן שנתיים וחצי. סוף סוף מקום כזה!" },
+        { "key": "c-gsw-4", "author": "guest", "ageHours": 665, "body": "מאיה, אנחנו כמעט באותו שבוע! כיף שהצטרפת 🤗", "replyTo": "c-gsw-3", "likes": ["maya"] }
+      ]
+    },
+    {
+      "key": "g-sib-maya-routine", "author": "maya", "group": "sibling-on-way", "ageHours": 300, "audience": "everyone",
+      "body": "טיפ שעבד אצלנו השבוע: רבע שעה כל ערב שהיא רק של יונתן — בלי טלפון ובלי 'רגע, אמא עייפה'. הוא בוחר מה משחקים. מאז יש הרבה פחות בכי בשעת השינה.",
+      "likes": ["guest", "orit", "hila", "merav"],
+      "comments": [
+        { "key": "c-gsm-1", "author": "guest", "ageHours": 296, "body": "מאמצת מהיום! אלה כבר יודעת להגיד 'עכשיו שלי' 😄" },
+        { "key": "c-gsm-2", "author": "orit", "ageHours": 290, "body": "עשינו את זה עם כל אחד מהשלושה, וזה עדיין הזמן הכי שווה ביום." },
+        { "key": "c-gsm-3", "author": "maya", "ageHours": 285, "body": "תעדכני איך הולך!", "replyTo": "c-gsm-1" }
+      ]
+    },
+    {
+      "key": "g-sl-guest-bed", "author": "guest", "group": "sleep", "ageHours": 400, "audience": "everyone",
+      "body": "מתלבטת: להעביר את אלה ממיטת התינוק למיטת מעבר עכשיו, או לחכות לאחרי הלידה? אני רוצה את מיטת התינוק בשביל הקטן או הקטנה, אבל מפחדת לשבור משהו שעובד.",
+      "likes": ["roni", "dana", "liat", "avi"],
+      "comments": [
+        { "key": "c-gsb-1", "author": "roni", "ageHours": 396, "body": "אנחנו העברנו חודשיים לפני הלידה, והפכנו את זה לחגיגה: היא בחרה מצעים לבד. עבר חלק." },
+        { "key": "c-gsb-2", "author": "liat", "ageHours": 390, "body": "הכלל שלי: שינוי כזה עושים לפחות חודשיים לפני הלידה, או מחכים כמה חודשים אחריה — כדי שלא תקשר אותו לתינוק. ואם יש לכן מספיק זמן, להשאיר את אותו טקס שינה בדיוק ולשנות רק את המיטה." },
+        { "key": "c-gsb-3", "author": "guest", "ageHours": 388, "body": "זה בדיוק מה שהייתי צריכה לשמוע. מתחילות בסוף השבוע 💪", "replyTo": "c-gsb-2" },
+        { "key": "c-gsb-4", "author": "dana", "ageHours": 380, "body": "בהצלחה! תספרי לנו איך הלילה הראשון." }
+      ]
+    },
+    {
+      "key": "g-mn-guest-leave", "author": "guest", "group": "money", "ageHours": 300, "audience": "everyone",
+      "body": "מתכננת חופשת לידה שנייה. בשנה האחרונה עבדתי חלק מהזמן במשרה חלקית — מישהו כבר עבר את זה ויודע איך זה משפיע על דמי הלידה? ואיך בניתם תקציב לחודשים האלה עם עוד ילד בגן?",
+      "likes": ["yossi", "alon", "hila", "orit"],
+      "comments": [
+        { "key": "c-gml-1", "author": "yossi", "ageHours": 296, "body": "בנינו טבלה פשוטה: כל ההוצאות הקבועות מול ההכנסה בחודשי החופשה, ואז ראינו מה אפשר לדחות. הגן היה הסעיף הכי גדול." },
+        { "key": "c-gml-2", "author": "alon", "ageHours": 290, "body": "שאלה חשובה. דמי הלידה מחושבים לפי ההכנסה בחודשים שלפני היציאה לחופשה, ולכן משרה חלקית יכולה להשפיע. את הזכאות והחישוב המדויק כדאי לבדוק באתר הביטוח הלאומי ובתלושים, ולתכנן את התקציב לפי הסכום הנמוך. אם תרצי, אפשר לעבור על זה יחד בצ'אט." },
+        { "key": "c-gml-3", "author": "guest", "ageHours": 288, "body": "תודה אלון, זה עושה סדר. נבדוק עם התלושים קודם.", "replyTo": "c-gml-2" },
+        { "key": "c-gml-4", "author": "hila", "ageHours": 280, "body": "ותכיני מראש כרית קטנה לחודש הראשון אחרי שהחופשה נגמרת — אצלנו התשלום הראשון מהעבודה הגיע מאוחר מהצפוי." }
+      ]
+    },
+    {
+      "key": "guest-big-sister", "author": "guest", "ageHours": 200, "audience": "everyone", "stageTag": "pregnant",
+      "body": "שבוע 26, ואלה (שנה ועשרה חודשים) כבר מנשקת לי את הבטן ואומרת 'בייבי' 🥹\nאיך הכנתם את הגדולים לאח או לאחות? קנינו ספר על תינוק חדש בבית ובובה-תינוק, ואני תוהה מה עוד באמת עוזר — ומה כדאי לא לשנות לה בחודשים הקרובים.",
+      "likes": ["maya", "tamar", "orit", "dana", "roni", "hila", "avi", "merav", "sigal"],
+      "comments": [
+        { "key": "c-gbs-1", "author": "maya", "ageHours": 198, "body": "אנחנו בדיוק באותו מקום! יונתן קורא לבטן 'האח שלי' ומדי פעם מנסה להאכיל אותה בבמבה 😂" },
+        { "key": "c-gbs-2", "author": "orit", "ageHours": 195, "body": "מה שהכי עזר אצלנו: לא להכניס שינויים גדולים — גן חדש, מעבר מיטה, גמילה מחיתולים — בחודשיים שלפני הלידה ואחריה. ומתנה קטנה 'מהתינוק' לגדולה בביקור הראשון 🎁", "likes": ["guest", "maya", "tamar"] },
+        { "key": "c-gbs-3", "author": "guest", "ageHours": 193, "body": "רעיון המתנה מקסים, לוקחת!", "replyTo": "c-gbs-2" },
+        { "key": "c-gbs-4", "author": "merav", "ageHours": 192, "body": "רגשות מעורבים אצל הגדולים — גם התרגשות וגם קנאה — הם חלק טבעי מהמעבר, גם אם הם מופיעים רק אחרי הלידה. מה שעוזר להרבה ילדים: זמן קבוע ביום רק איתם, גם רבע שעה, ולתת שם לרגש בלי לבטל אותו ('את כועסת שאמא מחזיקה את התינוק')." },
+        { "key": "c-gbs-5", "author": "hila", "ageHours": 185, "body": "נגה אהבה לעזור: להביא חיתול, לבחור בגד לתינוק. התחושה שהיא 'הגדולה שעוזרת' עשתה לה טוב." },
+        { "key": "c-gbs-6", "author": "guest", "ageHours": 180, "body": "תודה מירב, המשפט הזה עם השם לרגש — שומרת אותו.", "replyTo": "c-gbs-4" }
+      ],
+      "shares": [{ "by": "maya", "ageHours": 178, "audience": "friends", "text": "מי שבהריון עם פעוט בבית — התגובות כאן זהב" }]
+    },
+    {
+      "key": "guest-sleep-alone", "author": "guest", "ageHours": 140, "audience": "everyone", "stageTag": "has_child",
+      "body": "שאלה למי שכבר עבר את זה: אלה נרדמת רק כשאני לידה, ולפעמים זה לוקח שעה. בעוד שלושה חודשים יהיה פה גם תינוק שמתעורר בלילה 😅\nאיך מתחילים להרגיל אותה להירדם לבד — בעדינות ובלי דרמה?",
+      "likes": ["roni", "avi", "dana", "maya", "liat", "yossi", "orit"],
+      "comments": [
+        { "key": "c-gus-1", "author": "roni", "ageHours": 139, "body": "אצלנו עבד 'הכיסא': כל כמה ערבים מזיזים את הכיסא קצת יותר רחוק מהמיטה, עד שיוצאים מהחדר. לקח שלושה שבועות, אבל כמעט בלי בכי." },
+        { "key": "c-gus-2", "author": "liat", "ageHours": 136, "body": "שאלה מצוינת, וזה בדיוק הזמן: שלושה חודשים מספיקים לשינוי הדרגתי, וכדאי לסיים אותו לפני הלידה ולא בשבועות שאחריה. שלחתי לך הצעה לשיחה, ואשמח לבנות איתך תוכנית." },
+        { "key": "c-gus-3", "author": "guest", "ageHours": 134, "body": "אישרתי, תודה ליאת! 🙏", "replyTo": "c-gus-2" },
+        { "key": "c-gus-4", "author": "avi", "ageHours": 120, "body": "אנחנו עוד בתנומות של 50 דקות, אז אני רק לומד ממך 😄" },
+        { "key": "c-gus-5", "author": "dana", "ageHours": 110, "body": "שומרת את הפוסט לעוד שנה וחצי 😅" }
+      ]
+    },
+    {
+      "key": "guest-hospital-bag", "author": "guest", "ageHours": 60, "audience": "everyone", "stageTag": "pregnant",
+      "body": "התחלתי לארגן תיק לידה שני, והפעם עם רשימה 📝\nמה לא היה לכן בתיק בפעם הקודמת ונורא חסר? ומה לקחתן ולא נגעתן בו בכלל?",
+      "likes": ["michal", "tamar", "maya", "yael", "sigal", "avi"],
+      "comments": [
+        { "key": "c-ghb-1", "author": "michal", "ageHours": 58, "body": "מטען עם כבל ארוך! הייתי בטוחה שאשכח אותו, ובאמת שכחתי 😅" },
+        { "key": "c-ghb-2", "author": "guest", "ageHours": 57, "body": "נכנס לרשימה ראשון 😂", "replyTo": "c-ghb-1" },
+        { "key": "c-ghb-3", "author": "sigal", "ageHours": 54, "body": "מה שתמיד חסר: כרית קטנה מהבית, שפתון לחות, נעלי בית נוחות וחטיפים לבן או לבת הזוג. ובהריון שני — לסגור מראש מי נשאר עם הגדולה, ולהשאיר לה בבית משהו קטן שיזכיר לה אותך." },
+        { "key": "c-ghb-4", "author": "tamar", "ageHours": 50, "body": "גם אני מתחילה עכשיו, אז אני מעתיקה מכן 🙈" }
+      ]
+    },
+    {
+      "key": "guest-weekend", "author": "guest", "ageHours": 20, "audience": "friends", "stageTag": "has_child",
+      "body": "סוף שבוע של שתיים, לפני שנהיה שלוש 💛 אלה גילתה שלוליות, ואני גיליתי שאין דבר כזה מכנסיים רזרביים אחד מספיק.",
+      "likes": ["maya", "tamar", "orit", "dana", "roni", "hila"],
+      "comments": [
+        { "key": "c-gw-1", "author": "tamar", "ageHours": 18, "body": "הכי מתוק! תשמרי את הרגעים האלה 🥰" },
+        { "key": "c-gw-2", "author": "dana", "ageHours": 16, "body": "שני זוגות רזרביים. לפחות 😂" },
+        { "key": "c-gw-3", "author": "guest", "ageHours": 15, "body": "למדתי את הלקח, מחר שלושה 😅", "replyTo": "c-gw-2" },
+        { "key": "c-gw-4", "author": "orit", "ageHours": 10, "body": "והמגפיים — מידה אחת גדולה, הן גדלות בלילה." }
+      ]
+    }
+  ],
+  "helpOffers": [
+    {
+      "post": "guest-sleep-alone", "professional": "liat", "ageHours": 137, "accept": true, "acceptAgeHours": 135,
+      "text": "היי נועה, ראיתי את השאלה שלך על ההירדמות של אלה. אשמח לבנות איתך תוכנית הדרגתית ועדינה שתסתיים לפני הלידה. אם מתאים לך — נדבר כאן.",
+      "conversation": [
+        { "from": "liat", "ageHours": 133, "text": "שמחה שאישרת! ספרי לי איך נראה הערב שלכן עכשיו: מתי ארוחת ערב, אמבטיה ושינה, ומה קורה אם את יוצאת מהחדר?" },
+        { "from": "guest", "ageHours": 131, "text": "ארוחה בשש, אמבטיה בשבע, ספר ושיר, ואז אני שוכבת לידה עד שהיא נרדמת. אם אני יוצאת היא קמה ובאה אחריי 🙈" },
+        { "from": "liat", "ageHours": 128, "text": "זה בסיס טוב — יש לכן טקס קבוע. נתחיל ככה: בשבוע הראשון את יושבת ליד המיטה במקום לשכב, ובכל שלושה ערבים זזה קצת לכיוון הדלת. אותו טקס בדיוק, ואותו משפט לילה טוב בכל ערב." },
+        { "from": "guest", "ageHours": 126, "text": "נשמע אפשרי. מתחילות הערב!" },
+        { "from": "liat", "ageHours": 76, "text": "איך עברו שלושת הערבים הראשונים?" },
+        { "from": "guest", "ageHours": 74, "text": "הערב הראשון היה קשה, אבל אתמול היא נרדמה תוך עשרים דקות כשאני על הכיסא 🎉" },
+        { "from": "liat", "ageHours": 70, "text": "מעולה! זה בדיוק הקצב. ממשיכות, ונדבר שוב בסוף השבוע." }
+      ],
+      "review": { "ageHours": 30, "rating": 5, "text": "ליאת בנתה איתנו תוכנית פשוטה ועדינה, בלי בכי ובלי לחץ, ובדקה איתי מה שלומנו כל כמה ימים. אחרי שבוע אלה נרדמת כשאני על הכיסא ליד הדלת. ממליצה בחום." }
+    },
+    {
+      "post": "guest-big-sister", "professional": "merav", "ageHours": 190, "accept": false,
+      "text": "נועה, אם תרצי לדבר על ההכנה של אלה לאח או לאחות, ועל מה שעובר עלייך סביב זה, אשמח לשיחה קצרה — בלי התחייבות."
+    }
+  ],
+  "listings": [
+    { "key": "l-guest-clothes", "owner": "guest", "ageHours": 100, "title": "שקית בגדי חורף לילדה, מידה 18–24 חודשים", "category": ["clothing"], "condition": "used", "price": 0, "city": "center", "image": "shirt" },
+    { "key": "l-guest-bike", "owner": "guest", "ageHours": 98, "title": "אופני איזון מעץ לגיל שנתיים", "category": ["toys"], "condition": "good", "price": 120, "city": "center", "image": "bike" }
+  ],
+  "contacts": [
+    {
+      "listing": "l-yossi-highchair", "from": "guest", "ageHours": 90,
+      "text": "היי יוסי, כיסא האוכל עוד זמין? מחפשת כיסא שני לקראת התינוק.",
+      "replies": [
+        { "from": "yossi", "ageHours": 88, "text": "זמין, כן. הוא נקי ומתקפל לגמרי." },
+        { "from": "guest", "ageHours": 87, "text": "מעולה, אפשר לבוא לראות ביום ראשון אחר הצהריים?" },
+        { "from": "yossi", "ageHours": 85, "text": "סגור 👍 אשלח לך כתובת ביום ראשון בבוקר." }
+      ]
+    },
+    {
+      "listing": "l-guest-bike", "from": "roni", "ageHours": 80,
+      "text": "היי נועה, האופניים עוד זמינים? איתמר בדיוק מתחיל להתעניין 😊",
+      "replies": [
+        { "from": "guest", "ageHours": 78, "text": "זמינים! אפשר לאסוף אצלי, רוב הערבים אחרי שש." },
+        { "from": "roni", "ageHours": 76, "text": "מעולה, אכתוב לך מחר לתיאום." }
+      ]
+    },
+    {
+      "listing": "l-guest-clothes", "from": "orit", "ageHours": 60,
+      "text": "נועה, אם הבגדים עוד אצלך — שקד בדיוק נכנסת למידות האלה. אשמח מאוד!",
+      "replies": [{ "from": "guest", "ageHours": 58, "text": "שמורים בשבילך 💛 מתי נוח לך לאסוף?" }]
+    }
+  ],
+  "chats": [
+    {
+      "from": "guest",
+      "to": "maya",
+      "messages": [
+        { "from": "guest", "ageHours": 280, "text": "מאיה, הטיפ של רבע השעה עם יונתן — ניסיתי אתמול עם אלה וזה עבד! תודה 🙏" },
+        { "from": "maya", "ageHours": 279, "text": "איזה כיף! מה היא בחרה לשחק?" },
+        { "from": "guest", "ageHours": 277, "text": "מסיבת תה לבובות. שלוש פעמים ברצף 😂" },
+        { "from": "maya", "ageHours": 270, "text": "קלאסי. נפגשות בגינה עם הילדים ביום שישי?" },
+        { "from": "guest", "ageHours": 40, "text": "ראיתי את הפוסט שלך על שבוע 28 וצחקתי בקול 😂 עדיין על יום שישי?" },
+        { "from": "maya", "ageHours": 38, "text": "בטח! בעשר בגינה ליד הספרייה?" }
+      ]
+    },
+    {
+      "from": "guest",
+      "to": "sigal",
+      "messages": [
+        { "from": "guest", "ageHours": 170, "text": "היי סיגל, ראיתי את התגובות שלך בקבוצה. אני בשבוע 26 בהריון שני ושוקלת ליווי של דולה הפעם. אפשר לשמוע איך זה נראה?" },
+        { "from": "sigal", "ageHours": 165, "text": "היי נועה, בשמחה! מתחילים בשיחת היכרות, ואחריה שתי פגישות הכנה, וזמינות מלאה משבוע 38. בלידה שנייה אנחנו גם מתכננות יחד מה קורה עם הגדולה." },
+        { "from": "guest", "ageHours": 160, "text": "זה בדיוק מה שמטריד אותי. אפשר לקבוע שיחת היכרות בווידאו?" },
+        { "from": "sigal", "ageHours": 150, "text": "בטח. מה דעתך על יום שלישי בערב? אשלח לך קישור." }
+      ]
+    },
+    {
+      "from": "michal",
+      "to": "guest",
+      "pending": true,
+      "messages": [
+        { "from": "michal", "ageHours": 8, "text": "היי נועה, ראיתי את הפוסט שלך על תיק הלידה. אני בשבוע 34 בהריון ראשון — אשמח לשאול אותך כמה שאלות על השבועות האחרונים, אם זה בסדר 🙂" }
+      ]
+    }
+  ],
+  "trackers": [
+    {
+      "persona": "guest",
+      "child": "אלה",
+      "events": [
+        { "kind": "sleep", "hoursAgo": 11, "minutes": 600 },
+        { "kind": "diaper", "hoursAgo": 3, "choice": "wet" },
+        { "kind": "bath", "hoursAgo": 13 },
+        { "kind": "sleep", "hoursAgo": 19, "minutes": 90 },
+        { "kind": "sleep", "hoursAgo": 35, "minutes": 570 },
+        { "kind": "bath", "hoursAgo": 37 },
+        { "kind": "sleep", "hoursAgo": 43, "minutes": 75 },
+        { "kind": "growth", "hoursAgo": 400, "weightKg": 11.2, "heightCm": 85 },
+        { "kind": "growth", "hoursAgo": 1300, "weightKg": 10.6, "heightCm": 82 }
+      ]
+    }
+  ],
+  "support": [
+    { "persona": "guest", "topic": "usage", "text": "שלום, אחרי הלידה — איך מוסיפים את התינוק לפרופיל? ומה קורה למעקב ההריון אחרי שמוסיפים?" }
+  ],
+  "stories": [
+    { "author": "guest", "audience": "friends", "caption": "פינת המשחק החדשה של אלה 🧸", "image": "toys" }
+  ]
+}

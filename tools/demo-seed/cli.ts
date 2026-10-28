@@ -4,7 +4,8 @@
 //   node tools/demo-seed/cli.ts plan [seed|stories]          the dry run: the content is checked and the steps are printed; no network
 //   node tools/demo-seed/cli.ts run  <seed|stories> <preview|production>
 //        env: DEMO_BASE_URL (preview: the deployment URL; production: https://nestly-blue.vercel.app), DEMO_ACCOUNTS (JSON, a secret),
-//             SUPABASE_PUBLISHABLE_KEY, VERCEL_AUTOMATION_BYPASS_SECRET (preview only), DEMO_ALLOW_SIGNUP=1 to create missing accounts
+//             SUPABASE_PUBLISHABLE_KEY, VERCEL_AUTOMATION_BYPASS_SECRET (preview only), DEMO_ALLOW_SIGNUP=1 to create missing accounts,
+//             DEMO_ONLY=<key,...> to run only the steps that touch these personas (plan and run; a persona added after the first seed)
 //   node tools/demo-seed/cli.ts walk preview                  the role walk after the seed: every persona signs in and reads its first
 //        screens (GET only); the env of run, without DEMO_ALLOW_SIGNUP. Preview only: on production Afik walks it signed in himself.
 //   node tools/demo-seed/cli.ts load <preview|production>      the load test (load.ts): the personas sign in, then LOAD_USERS users read their
@@ -19,9 +20,9 @@ import path from 'node:path';
 import { actionHandlers } from './actions.ts';
 import { generateAccounts, maskAccounts, parseAccounts } from './accounts.ts';
 import { checkContent } from './check.ts';
-import { loadContent } from './content.ts';
+import { type Content, loadContent, personaKinds } from './content.ts';
 import { Api, Auth } from './http.ts';
-import { buildPlan, type Mode } from './plan.ts';
+import { buildPlan, focusPlan, type Mode, type Step } from './plan.ts';
 import { createContext, dryRun, runPlan } from './runner.ts';
 import { checkTarget, type Target } from './target.ts';
 import { reportLines, runLoad, TARGET_MS } from './load.ts';
@@ -37,6 +38,21 @@ function mode(value: string | undefined): Mode {
   if (value === undefined || value === 'seed') return 'seed';
   if (value === 'stories') return 'stories';
   return fail('the mode is seed or stories');
+}
+
+/**
+ * DEMO_ONLY (comma-separated persona keys, optional): run only the steps that touch these personas (plan.ts focusPlan) - how a persona
+ * added after the first seed is seeded without writing the rest again. Empty: the whole plan.
+ */
+function steps(data: Content, m: Mode): Step[] {
+  const all = buildPlan(data, m);
+  const only = (process.env['DEMO_ONLY'] ?? '').split(',').map((k) => k.trim()).filter((k) => k !== '');
+  if (only.length === 0) return all;
+  const kinds = personaKinds(data);
+  const unknown = only.filter((k) => !kinds.has(k));
+  if (unknown.length > 0) return fail(`DEMO_ONLY names unknown personas: ${unknown.join(', ')}`);
+  log(`demo-seed: only the steps that touch ${only.join(', ')}`);
+  return focusPlan(all, data, only);
 }
 
 function content() {
@@ -72,9 +88,9 @@ async function run(args: string[]): Promise<void> {
     log,
     allowSignUp: process.env['DEMO_ALLOW_SIGNUP'] === '1',
   });
-  const steps = buildPlan(data, m);
-  log(`demo-seed: ${steps.length} steps, mode ${m}, target ${target}`);
-  const report = await runPlan(steps, ctx, actionHandlers);
+  const plan = steps(data, m);
+  log(`demo-seed: ${plan.length} steps, mode ${m}, target ${target}`);
+  const report = await runPlan(plan, ctx, actionHandlers);
   log(`demo-seed: done ${report.done}, already there ${report.skipped}, failed ${report.failed.length}`);
   for (const f of report.failed) log(`  failed: ${f.step} - ${f.reason}`);
   if (report.failed.length > 0) process.exit(1);
@@ -172,8 +188,7 @@ function makeAccounts(args: string[]): void {
 
 const [command, ...rest] = process.argv.slice(2);
 if (command === 'plan') {
-  const steps = buildPlan(content(), mode(rest[0]));
-  dryRun(steps, log);
+  dryRun(steps(content(), mode(rest[0])), log);
 } else if (command === 'run') {
   await run(rest);
 } else if (command === 'walk') {

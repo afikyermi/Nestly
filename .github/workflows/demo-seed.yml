@@ -14,6 +14,8 @@
 #   stories        the Stories only - on the demo day itself (a Story expires after 24 hours, FR-FEED-008).
 #   load           read only: the personas sign in, then load_users users read their screens at once (tools/demo-seed/load.ts); the
 #                  report (share within 2 s, percentiles, slowest paths) is the job summary. Production: at most 500 users, 60 s.
+#   only           plan, seed, stories: comma-separated persona keys - run only the steps that touch them (a persona added after the
+#                  first seed, e.g. "guest"). Content changed or removed in the product since the first seed is then never written again.
 #
 # Secrets and variables (Afik creates them; this file never prints one):
 #   Preview  - environment `preview-e2e` (main only): DEMO_ACCOUNTS (secret), SUPABASE_PUBLISHABLE_KEY (variable, nestly-preview);
@@ -46,6 +48,10 @@ on:
         description: "seed: create the demo accounts that do not exist yet (tick it for the first seed only)"
         type: boolean
         default: false
+      only:
+        description: "plan, seed, stories: only the steps that touch these persona keys (comma-separated, e.g. guest); empty = all"
+        type: string
+        default: ""
       load_users:
         description: "load: concurrent users"
         type: string
@@ -87,6 +93,8 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run build -w @nestly/shared
       - name: Dry run
+        env:
+          DEMO_ONLY: ${{ inputs.only }}
         run: |
           node tools/demo-seed/cli.ts plan seed
           node tools/demo-seed/cli.ts plan stories
@@ -114,6 +122,7 @@ jobs:
           STEP: ${{ inputs.step }}
           DEMO_BASE_URL: ${{ inputs.base_url }}
           DEMO_ALLOW_SIGNUP: ${{ inputs.allow_signup && '1' || '0' }}
+          DEMO_ONLY: ${{ inputs.only }}
           DEMO_ACCOUNTS: ${{ secrets.DEMO_ACCOUNTS }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
@@ -168,6 +177,7 @@ jobs:
         env:
           STEP: ${{ inputs.step }}
           DEMO_ALLOW_SIGNUP: ${{ inputs.allow_signup && '1' || '0' }}
+          DEMO_ONLY: ${{ inputs.only }}
           DEMO_ACCOUNTS: ${{ secrets.DEMO_ACCOUNTS }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
         run: node tools/demo-seed/cli.ts run "$STEP" production
