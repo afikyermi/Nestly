@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDatabase, type Database } from '../../src/db/client.js';
 import type { AssistantModel, AssistantReply } from '../../src/assistant/assistant-model.js';
 import { AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreEnv, startJwks, token, type App, type JwksServer, type TestKey } from '../helpers/identity-fixtures.js';
-import { buildRegisterApp, CLOCK_NOW, post, validBody } from '../helpers/register-app.js';
+import { buildRegisterApp, captureLog, CLOCK_NOW, post, validBody } from '../helpers/register-app.js';
 
 // The Nestly assistant (Afik 28.10.2026) through the route against the real database (CI `db` job, as app_server), with a fake model (no test
 // calls Google): a Regular account is answered; its messages are counted and the one past the limit is 429 and never reaches the model
@@ -22,6 +22,7 @@ let ben = '';
 let admin = '';
 const asked: string[] = [];
 let next: AssistantReply = { kind: 'ok', answer: 'תשובה' };
+const log = captureLog();
 
 const model: AssistantModel = {
   available: true,
@@ -45,6 +46,8 @@ const ask = async (userId: string, message: string) => {
     payload: JSON.stringify({ text: message, history: [] }),
   });
   const body: unknown = JSON.parse(res.body);
+  // A 5xx carries the server's own log line (a fixed line and the SQLSTATE, never a text) into the failure message.
+  if (res.statusCode >= 500) return { status: res.statusCode, body, log: log.lines().filter((line) => line.includes('assistant')).join('') };
   return { status: res.statusCode, body };
 };
 
@@ -57,7 +60,7 @@ beforeAll(async () => {
   database = createDatabase(url());
   app = await buildRegisterApp(
     { SUPABASE_JWKS_URL: jwks.url, SUPABASE_JWT_ISSUER: ISSUER, SUPABASE_JWT_AUDIENCE: AUDIENCE, DATABASE_URL: url() },
-    { database, clock: () => CLOCK_NOW, assistant: model, assistantLimits: { perHour: 3, perDay: 5 } },
+    { database, clock: () => CLOCK_NOW, logStream: log.stream, assistant: model, assistantLimits: { perHour: 3, perDay: 5 } },
   );
   const made: string[] = [];
   for (const fullName of ['Ana Assistant', 'Ben Assistant']) {
