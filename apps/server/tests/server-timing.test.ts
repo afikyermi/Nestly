@@ -235,3 +235,11 @@ describe('Server-Timing', () => {
     expect(alone['inflight']).toBe(1);
   });
 });
+
+describe('[assistant] an outside call of the request', () => {
+  it('is added after the statements with a fixed word and its duration, never content', async () => {
+    const { serverTimingValue } = await import('../src/lib/server-timing.js');
+    const value = serverTimingValue({ cold: false, inflight: 1, dbWait: 0, db: 2, total: 812, outside: { name: 'assistant', desc: 'error-404', dur: 790.4 } });
+    expect(value.endsWith(', assistant;desc="error-404";dur=790.4')).toBe(true);
+  });
+});

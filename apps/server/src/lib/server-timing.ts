@@ -39,6 +39,8 @@ interface RequestTiming {
   split: number;
   /** Each statement's start, and its end once known (the next statement or its transaction's end). */
   readonly statements: { readonly at: number; end?: number }[];
+  /** An outside call the request waited for (the assistant's model): its name, outcome and duration. */
+  outside?: { readonly name: string; readonly desc: string; readonly dur: number };
 }
 
 /** The most statements the header lists; later ones are not timed one by one (db still counts them). */
@@ -47,6 +49,15 @@ export const STATEMENT_LIMIT = 30;
 function closeLast(timing: RequestTiming, at: number): void {
   const last = timing.statements.at(-1);
   if (last !== undefined && last.end === undefined) last.end = at;
+}
+
+/**
+ * Records an outside call of the current request for the header (the assistant's model: `assistant;desc="ok";dur=1234`). `desc` is a fixed
+ * word and a status code, never content. A no-op outside a timed request (tests, local).
+ */
+export function markOutsideCall(name: string, desc: string, dur: number): void {
+  const timing = store.getStore();
+  if (timing !== undefined) timing.outside = { name, desc, dur };
 }
 
 /** Marks a statement being sent (the client's debug hook, db/client.ts). A no-op outside a timed request. */
@@ -208,6 +219,7 @@ export function serverTimingValue(timing: {
   db: number;
   total: number;
   statements?: readonly number[];
+  outside?: { readonly name: string; readonly desc: string; readonly dur: number };
 }): string {
   const statements = (timing.statements ?? []).map((dur, i) => `, s${i + 1};dur=${ms(dur)}`).join('');
   const { parts } = timing;
@@ -217,7 +229,8 @@ export function serverTimingValue(timing: {
       : `, acq;dur=${ms(parts.acq)}${parts.conn === undefined ? '' : `, conn;dur=${ms(parts.conn)}`}, begin;dur=${ms(parts.begin)}`;
   return (
     `cold;dur=${timing.cold ? 1 : 0}, inflight;desc=${timing.inflight}, dbwait;dur=${ms(timing.dbWait)}${split}, ` +
-    `db;dur=${ms(timing.db)}, total;dur=${ms(timing.total)}${statements}`
+    `db;dur=${ms(timing.db)}, total;dur=${ms(timing.total)}${statements}` +
+    (timing.outside === undefined ? '' : `, ${timing.outside.name};desc="${timing.outside.desc}";dur=${ms(timing.outside.dur)}`)
   );
 }
 
@@ -261,6 +274,7 @@ export function registerServerTiming(app: FastifyInstance, enabled: boolean): vo
           db: timing.db,
           total: now - timing.start,
           statements,
+          ...(timing.outside === undefined ? {} : { outside: timing.outside }),
         }),
       );
     }
