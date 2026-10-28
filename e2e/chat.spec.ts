@@ -105,15 +105,15 @@ test.describe('[I8 FR-ADMIN-002 AC-024] the Support inbox', () => {
     const net = await setupChat(page, { staff: true });
     await signIn(page);
     await page.goto('/admin/support');
-    await expect(page.getByRole('navigation', { name: 'מסכי הניהול' }).getByRole('link', { name: 'פניות Support' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'מסכי הניהול' }).getByRole('link', { name: 'פניות תמיכה' })).toBeVisible();
     await expect(page.getByRole('banner').getByRole('button', { name: /^הודעות/ })).toHaveCount(0); // BR-034: no social chat for staff
-    const list = main(page).getByRole('list', { name: 'פניות Support' });
+    const list = main(page).getByRole('list', { name: 'פניות תמיכה' });
     await expect(list).toContainText('ליאור אברהם');
     await list.getByRole('button', { name: /^פתיחת הפנייה/ }).click();
-    await main(page).getByLabel('תגובה בשם Support').fill('תוקן, אפשר לנסות שוב');
+    await main(page).getByLabel('תגובה בשם צוות התמיכה').fill('תוקן, אפשר לנסות שוב');
     await main(page).getByRole('button', { name: 'שמירה', exact: true }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'התגובה נשלחה בשם Support' })).toBeVisible();
-    await main(page).getByLabel('תגובה בשם Support').fill('נבדק מול הצוות הטכני');
+    await expect(page.getByRole('status').filter({ hasText: 'התגובה נשלחה בשם צוות התמיכה' })).toBeVisible();
+    await main(page).getByLabel('תגובה בשם צוות התמיכה').fill('נבדק מול הצוות הטכני');
     await main(page).getByRole('checkbox', { name: 'הערה פנימית (רק הצוות רואה)' }).check();
     await main(page).getByRole('button', { name: 'שמירה', exact: true }).click();
     await expect(main(page).getByRole('list', { name: 'ההודעות בפנייה' })).toContainText('הערה פנימית');

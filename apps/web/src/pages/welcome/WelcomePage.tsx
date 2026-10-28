@@ -9,7 +9,10 @@ import { useGoogleSignIn } from '@/hooks/use-google-sign-in';
 import { documentTitle } from '@/lib/document-title';
 import { LegalLinks } from '@/pages/legal/LegalLinks';
 
-// Welcome (PG-001, FR-AUTH-001): what a Guest sees on opening the site. One primary action. The Google
+/** The brand line (Afik 27.10.2026, OP-022). */
+const BRAND_LINE = 'קהילה שמחזיקה אתכם, בכל שלב.';
+
+// Welcome (PG-001, FR-AUTH-001): what a Guest sees on opening the site, with the logo and the brand line (OP-022). One primary action. The Google
 // action is a text button, without the provider's logo (FR-AUTH-005, F1.8). Under the actions, the public documents (BR-078, PG-061).
 export function WelcomePage() {
   const toRegister = useLinkClickHandler(PATHS.register);
@@ -36,6 +39,7 @@ export function WelcomePage() {
           <div className="mt-6">
             <Logo size="big" />
           </div>
+          <p className="mt-2 text-label text-primary-strong">{BRAND_LINE}</p>
           <div className="mt-7">
             <WelcomeIllustration />
           </div>

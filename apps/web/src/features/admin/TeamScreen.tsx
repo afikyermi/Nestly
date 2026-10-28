@@ -101,7 +101,7 @@ export function TeamScreen() {
   return (
     <div className="flex flex-col gap-8">
       <section aria-labelledby="team-moderators" className="flex flex-col gap-4">
-        <h3 id="team-moderators" className="text-h4">
+        <h3 id="team-moderators" className="text-h3">
           {TEAM_MODERATORS_HEADING}
         </h3>
         {view.team.moderators.length === 0 ? (
@@ -118,7 +118,7 @@ export function TeamScreen() {
       </section>
       <InviteSection onChanged={() => void load()} />
       <section aria-labelledby="team-invitations" className="flex flex-col gap-3">
-        <h3 id="team-invitations" className="text-h4">
+        <h3 id="team-invitations" className="text-h3">
           {TEAM_INVITATIONS_HEADING}
         </h3>
         {view.team.invitations.length === 0 ? (
@@ -268,7 +268,7 @@ function InviteSection({ onChanged }: { onChanged: () => void }) {
 
   return (
     <section aria-labelledby="team-invite" className="flex flex-col gap-3">
-      <h3 id="team-invite" className="text-h4">
+      <h3 id="team-invite" className="text-h3">
         {TEAM_INVITE_HEADING}
       </h3>
       <FormField label={TEAM_INVITE_NOTE} htmlFor="team-invite-note" hint={TEAM_INVITE_NOTE_HINT} {...(problem ? { error: TEAM_INVITE_NOTE_ERROR } : {})}>
@@ -281,7 +281,7 @@ function InviteSection({ onChanged }: { onChanged: () => void }) {
       </div>
       {error === '' ? null : <InlineAlert>{error}</InlineAlert>}
       {link === null ? null : (
-        <div className="flex flex-col gap-2 rounded-lg bg-primary-soft p-4">
+        <div className="flex flex-col gap-2 rounded-lg bg-brand-subtle p-4 shadow-card">
           <p role="status">{TEAM_INVITE_READY}</p>
           <FormField label={TEAM_INVITE_LINK} htmlFor="team-invite-link">
             {(control) => <TextInput {...control} readOnly dir="ltr" value={link} />}

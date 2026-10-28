@@ -46,7 +46,7 @@ async function openDrawer(page: Page): Promise<void> {
 test.describe('AppShell: TopBar', () => {
   for (const vp of [MOBILE, DESKTOP]) {
     for (const route of PROTECTED_ROUTES) {
-      test(`[F1.2 c15][FR-TOP-001][AC-033] ${route.path} @${vp.width}: TopBar has the Hamburger at the inline-start (right) edge, then the Logo, the search, the Chat button and the notifications bell, and no other control`, async ({
+      test(`[F1.2 c15][FR-TOP-001][AC-033] ${route.path} @${vp.width}: TopBar has the Logo at the inline-start (right) edge, then the search, the Chat button, the notifications bell and the Hamburger last, at the inline-end (left) edge (§7.3, redesign 27.10.2026), and no other control`, async ({
         page,
       }) => {
         await page.setViewportSize(vp);
@@ -57,13 +57,14 @@ test.describe('AppShell: TopBar', () => {
         await expect(hamburger).toHaveCount(1);
         const logo = header.getByRole('img', { name: 'Nestly' }).or(header.getByRole('link', { name: 'Nestly' })).first();
         await expect(logo).toBeVisible();
-        expect(await inDomOrder([hamburger, logo]), 'Hamburger precedes the Logo in DOM order').toBe(true);
+        expect(await inDomOrder([logo, hamburger]), 'the Logo precedes the Hamburger in DOM order').toBe(true);
         const h = await hamburger.boundingBox();
         const l = await logo.boundingBox();
         const b = await header.boundingBox();
         if (h === null || l === null || b === null) throw new Error('missing box');
-        expect(h.x + h.width, 'Hamburger at the right (inline-start) edge').toBeGreaterThan(b.x + b.width - 40);
-        expect(l.x, 'Logo is to the left of the Hamburger').toBeLessThan(h.x);
+        expect(l.x + l.width, 'Logo at the right (inline-start) edge').toBeGreaterThan(b.x + b.width - 40);
+        // below 1024 the Hamburger is last; from 1024 only the account's avatar (44) follows it
+        expect(h.x, 'Hamburger at the left (inline-end) edge').toBeLessThan(b.x + (vp.width >= 1024 ? 100 : 40));
         // AC-033: the search (a field from 768 px, an icon link to the results screen below it) and the bell.
         if (vp.width >= 768) await expect(header.getByRole('searchbox', { name: 'חיפוש אנשים ופוסטים' })).toBeVisible();
         else await expect(header.getByRole('link', { name: 'חיפוש', exact: true })).toBeVisible();
@@ -75,7 +76,9 @@ test.describe('AppShell: TopBar', () => {
               .filter((el) => el instanceof HTMLElement && el.offsetParent !== null && !el.classList.contains('sr-only'))
               .map((el) => el.getAttribute('aria-label') ?? (el.textContent ?? '').trim()),
           );
-        const known = (c: string): boolean => c === MENU_BUTTON || c === 'Nestly' || c === 'חיפוש' || c === '' || c.startsWith('התראות') || c.startsWith('הודעות');
+        // From 1024 the account's avatar, named "פרופיל", ends the bar (redesign 27.10.2026, §7.3).
+        const known = (c: string): boolean =>
+          c === MENU_BUTTON || c === 'Nestly' || c === 'חיפוש' || c === '' || c.startsWith('התראות') || c.startsWith('הודעות') || (vp.width >= 1024 && c === 'פרופיל');
         expect(controls.filter((c) => !known(c))).toEqual([]);
         // I8 (FR-CHAT-001): the Chat Center's button, "הודעות" with the unread count when there is one.
         await expect(header.getByRole('button', { name: /^הודעות/ })).toBeVisible();
@@ -131,18 +134,20 @@ test.describe('AppShell: bottom navigation', () => {
     expect(b.width).toBeGreaterThan(b.height);
   });
 
-  test('[F1.2 c16][AC-005] it is a rail at the inline-start (right) edge from 1024: tall, on the right, with the content to its left', async ({
+  test('[F1.2 c16][AC-005] from 1024 the destinations sit in the middle of the top bar (§7.1, redesign 27.10.2026): a row, centred, the content below', async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP);
     await open(page, '/feed', 'signed-in');
     const b = await navOf(page).boundingBox();
     const m = await page.locator('main').boundingBox();
-    if (b === null || m === null) throw new Error('nav or main has no box');
-    expect(b.x + b.width, 'at the right (inline-start) side, within 48px of the edge').toBeGreaterThan(DESKTOP.width - 48);
-    expect(b.height, 'taller than wide').toBeGreaterThan(b.width);
-    expect(b.y + b.height, 'inside the viewport').toBeLessThanOrEqual(DESKTOP.height);
-    expect(m.x + m.width, 'the content sits to the left of the rail').toBeLessThanOrEqual(b.x + 1);
+    const bar = await page.locator('header').first().boundingBox();
+    if (b === null || m === null || bar === null) throw new Error('nav, main or header has no box');
+    expect(b.y, 'at the top').toBeLessThanOrEqual(bar.y + 1);
+    expect(b.y + b.height, 'inside the top bar').toBeLessThanOrEqual(bar.y + bar.height + 1);
+    expect(b.width, 'wider than tall').toBeGreaterThan(b.height);
+    expect(Math.abs(b.x + b.width / 2 - DESKTOP.width / 2), 'centred').toBeLessThanOrEqual(24);
+    expect(m.y, 'the content sits below the bar').toBeGreaterThanOrEqual(bar.y + bar.height - 1);
   });
 
   for (const route of PROTECTED_ROUTES.slice(0, 3)) {

@@ -183,7 +183,7 @@ test.describe('ChoiceCardGroup (30)', () => {
     }
   });
 
-  test('[30] shared-choicecardgroup--selected: one checked card with a mark, 2px primary border, primary-strong text', async ({
+  test('[30] shared-choicecardgroup--selected: one checked card with a mark, 2px primary border, badge-foreground text on brand-subtle (redesign 27.10.2026)', async ({
     page,
   }) => {
     await openStory(page, 'shared-choicecardgroup--selected');
@@ -194,7 +194,7 @@ test.describe('ChoiceCardGroup (30)', () => {
     expect(info?.borderWidth).toBe('2px');
     expect(info?.borderStyle).not.toBe('none');
     expect(info?.borderColor).toBe(rgb(colors.primary));
-    expect(info?.labelColor).toBe(rgb(colors['primary-strong']));
+    expect(info?.labelColor).toBe(rgb(colors['badge-foreground']));
   });
 
   test('[30] shared-choicecardgroup--selected: unselected cards are not primary-bordered and show no mark', async ({

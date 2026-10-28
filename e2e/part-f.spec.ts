@@ -41,7 +41,7 @@ test.describe('TopBar (38)', () => {
   test.use({ viewport: MOBILE });
 
   for (const id of TOPBAR) {
-    test(`[38] ${id}: one header landmark, a Hamburger named "${MENU}", the Logo, and the Hamburger at the right edge (RTL)`, async ({
+    test(`[38] ${id}: one header landmark, a Hamburger named "${MENU}", the Logo at the right edge and the Hamburger at the left edge (RTL; §7.3, redesign 27.10.2026)`, async ({
       page,
     }) => {
       await openStory(page, id);
@@ -51,9 +51,9 @@ test.describe('TopBar (38)', () => {
       await expect(page.getByRole('img', { name: 'Nestly' }).or(page.getByRole('link', { name: 'Nestly' }))).toHaveCount(1);
       const h = await box(hamburger);
       const header = await box(page.locator(`${ROOT} header`));
-      expect(right(h), 'Hamburger sits at the inline-start (right) edge of the bar').toBeGreaterThan(right(header) - 24);
+      expect(h.x, 'Hamburger sits at the inline-end (left) edge of the bar').toBeLessThan(header.x + 24);
       const logo = await box(page.getByRole('img', { name: 'Nestly' }).or(page.getByRole('link', { name: 'Nestly' })));
-      expect(logo.x, 'the Logo is to the left of the Hamburger').toBeLessThan(h.x);
+      expect(right(logo), 'the Logo sits at the inline-start (right) edge').toBeGreaterThan(right(header) - 24);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(MOBILE.width);
     });
 
@@ -78,7 +78,7 @@ test.describe('TopBar (38)', () => {
     await expect(page.getByRole('searchbox')).toHaveCount(0);
   });
 
-  test('[38] the with-actions story shows caller nodes in the header, after the Hamburger and Logo, in the same bar', async ({
+  test('[38] the with-actions story shows caller nodes in the header, between the Logo and the Hamburger, in the same bar (§7.3, redesign 27.10.2026)', async ({
     page,
   }) => {
     const id = TOPBAR.find((s) => s.includes('actions')) ?? '';
@@ -88,8 +88,9 @@ test.describe('TopBar (38)', () => {
     expect(await extra.count()).toBeGreaterThanOrEqual(2);
     const hamburger = await box(page.getByRole('button', { name: MENU }));
     const header = await box(page.locator(`${ROOT} header`));
-    const last = await box(extra.last());
-    expect(last.x, 'actions sit at the inline-end (left) side, away from the Hamburger').toBeLessThan(hamburger.x);
+    // the Hamburger is the last control, at the inline-end (left) edge; the caller's actions come just before it
+    const last = await box(extra.nth((await extra.count()) - 2));
+    expect(last.x, 'actions sit just to the right of the Hamburger').toBeGreaterThan(hamburger.x);
     expect(last.y).toBeGreaterThanOrEqual(header.y - 1);
     expect(bottom(last)).toBeLessThanOrEqual(bottom(header) + 1);
   });
@@ -239,15 +240,16 @@ test.describe('BottomNavigation (39) at 1024 (NFR-USE-001)', () => {
   test.use({ viewport: DESKTOP });
 
   for (const id of BOTTOMNAV) {
-    test(`[39] ${id}: a vertical rail at the inline-start (right) edge, items stacked; the bottom bar is gone`, async ({
+    test(`[39] ${id}: from 1024 a row of icons at the top, centred (redesign 27.10.2026, §7.1); the bottom bar is gone`, async ({
       page,
     }) => {
       await openStory(page, id);
       const nav = page.getByRole('navigation', { name: NAV });
       await expect(nav).toBeVisible();
       const n = await box(nav);
-      expect(right(n), 'rail touches the right (inline-start) edge').toBeGreaterThanOrEqual(DESKTOP.width - 2);
-      expect(n.width, 'a rail, not a bar').toBeLessThan(DESKTOP.width / 3);
+      expect(n.y, 'at the top edge').toBeLessThanOrEqual(1);
+      expect(n.height, 'a top-bar row, not a bottom bar').toBeLessThanOrEqual(64);
+      expect(Math.abs(n.x + n.width / 2 - DESKTOP.width / 2), 'centred').toBeLessThanOrEqual(24);
       const links = page.locator(NAV_LINKS);
       const count = await links.count();
       expect(count).toBeGreaterThanOrEqual(3);
@@ -256,17 +258,14 @@ test.describe('BottomNavigation (39) at 1024 (NFR-USE-001)', () => {
       for (const [i, b] of boxes.entries()) {
         expect(b.width, `item ${i} width`).toBeGreaterThanOrEqual(44);
         expect(b.height, `item ${i} height`).toBeGreaterThanOrEqual(44);
-        expect(b.x, `item ${i} inside the rail`).toBeGreaterThanOrEqual(n.x - 1);
-        expect(right(b), `item ${i} inside the rail`).toBeLessThanOrEqual(right(n) + 1);
+        expect(b.x, `item ${i} inside the row`).toBeGreaterThanOrEqual(n.x - 1);
+        expect(right(b), `item ${i} inside the row`).toBeLessThanOrEqual(right(n) + 1);
         if (i > 0) {
           const prev = boxes[i - 1] ?? b;
-          expect(b.y, `item ${i} is below item ${i - 1}`).toBeGreaterThanOrEqual(bottom(prev) - 1);
+          // right to left: each item starts where the one before it ends
+          expect(right(b), `item ${i} follows item ${i - 1}`).toBeLessThanOrEqual(prev.x + 1);
         }
       }
-      // no item is parked in a bottom bar along the viewport bottom
-      const lowest = Math.max(...boxes.map(bottom));
-      const highest = Math.min(...boxes.map((b) => b.y));
-      expect(lowest - highest, 'the items are stacked over a vertical extent').toBeGreaterThan(count * 44 - 1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(DESKTOP.width);
     });
 
@@ -286,7 +285,7 @@ test.describe('BottomNavigation (39) at 1024 (NFR-USE-001)', () => {
     });
   }
 
-  test('[39] resizing from 375 to 1024 on the same page switches the bar to the rail', async ({ page }) => {
+  test('[39] resizing from 375 to 1024 on the same page switches the bottom bar to the top row', async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await openStory(page, BOTTOMNAV[0] ?? '');
     const bar = await box(page.getByRole('navigation', { name: NAV }));
@@ -532,7 +531,7 @@ test.describe('AppShell (41)', () => {
           }
         });
 
-        test(`[41] ${id}: the Hamburger is the second Tab stop and is at the right edge of the header`, async ({ page }) => {
+        test(`[41] ${id}: the Hamburger is the second Tab stop and is at the left (inline-end) edge of the header (§7.3, redesign 27.10.2026)`, async ({ page }) => {
           await openStory(page, id);
           await page.keyboard.press('Tab');
           await page.keyboard.press('Tab');
@@ -540,7 +539,7 @@ test.describe('AppShell (41)', () => {
           await expect(hamburger).toBeFocused();
           const h = await box(hamburger);
           const header = await box(page.locator('header'));
-          expect(right(h)).toBeGreaterThan(right(header) - 24);
+          expect(h.x).toBeLessThan(header.x + 24);
         });
 
         test(`[41][40] ${id}: Hamburger opens the drawer; Escape, close control and backdrop each close it and return focus to the Hamburger`, async ({
@@ -629,37 +628,39 @@ test.describe('AppShell (41)', () => {
   test.describe('layout at 1024', () => {
     test.use({ viewport: DESKTOP });
     for (const id of SHELL) {
-      test(`[41][39] ${id}: the rail sits at the right edge, the bottom bar is gone, and the content column is centred and does not span the page`, async ({
+      test(`[41][39] ${id}: the destinations sit in the middle of the top bar, the bottom bar is gone, and the content column is centred and does not span the page`, async ({
         page,
       }) => {
         await openStory(page, id);
         const nav = await box(page.getByRole('navigation', { name: NAV }));
-        // the R2 desktop mockup insets the rail by the 24px page padding: at the inline-start (right) side, not flush
-        expect(right(nav), 'rail is at the inline-start (right) side').toBeGreaterThanOrEqual(DESKTOP.width - 40);
-        expect(nav.width).toBeLessThan(DESKTOP.width / 3);
+        // redesign 27.10.2026 (§7.1): a row of icons in the middle of the plum top bar
+        expect(nav.y, 'in the top bar').toBeLessThanOrEqual(1);
+        expect(Math.abs(nav.x + nav.width / 2 - DESKTOP.width / 2), 'centred').toBeLessThanOrEqual(24);
+        expect(nav.width).toBeLessThan(DESKTOP.width / 2);
         const col = await page.locator('main').evaluate((m) => {
           const kids = Array.from(m.querySelectorAll('*')).filter((el) => el.getBoundingClientRect().width > 0);
           const rects = kids.map((el) => el.getBoundingClientRect());
-          return { left: Math.min(...rects.map((r) => r.left)), right: Math.max(...rects.map((r) => r.right)) };
+          return { left: Math.min(...rects.map((r) => r.left)), right: Math.max(...rects.map((r) => r.right)), top: Math.min(...rects.map((r) => r.top)) };
         });
         const width = col.right - col.left;
         expect(width, 'a column, not the whole page').toBeLessThan(DESKTOP.width - 250);
         expect(width).toBeGreaterThan(200);
-        // centred in the area beside the rail, or in the viewport: either reading puts equal space on both sides
+        // centred in the viewport, or beside the shortcuts column at the inline-start (right) side when the shell has one
+        const shortcuts = page.getByRole('navigation', { name: 'קיצורי דרך' });
+        const start = (await shortcuts.count()) > 0 ? (await box(shortcuts)).x : DESKTOP.width;
         const gapsIn = (lo: number, hi: number) => Math.abs(col.left - lo - (hi - col.right));
-        const beside = gapsIn(0, nav.x);
-        const whole = gapsIn(0, DESKTOP.width);
-        expect(Math.min(beside, whole), `left ${col.left}, right ${col.right}, rail starts ${nav.x}`).toBeLessThanOrEqual(12);
-        // the column stays clear of the rail
-        expect(col.right).toBeLessThanOrEqual(nav.x + 1);
+        expect(Math.min(gapsIn(0, start), gapsIn(0, DESKTOP.width)), `left ${col.left}, right ${col.right}`).toBeLessThanOrEqual(12);
+        expect(col.right, 'clear of the shortcuts').toBeLessThanOrEqual(start + 1);
+        // the content starts below the bar the destinations sit in
+        expect(col.top).toBeGreaterThanOrEqual(bottom(nav) - 1);
       });
 
-      test(`[41] ${id}: the header and content are not covered by the rail`, async ({ page }) => {
+      test(`[41] ${id}: the Hamburger is not covered by the destinations`, async ({ page }) => {
         await openStory(page, id);
         const nav = await box(page.getByRole('navigation', { name: NAV }));
         const hamburger = await box(page.getByRole('button', { name: MENU }));
         const overlap = !(right(hamburger) <= nav.x || hamburger.x >= right(nav) || bottom(hamburger) <= nav.y || hamburger.y >= bottom(nav));
-        expect(overlap, 'Hamburger and rail do not overlap').toBe(false);
+        expect(overlap, 'Hamburger and the destinations do not overlap').toBe(false);
       });
     }
   });

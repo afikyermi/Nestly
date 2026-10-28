@@ -11,6 +11,11 @@ export interface TextAreaProps {
   dir?: 'rtl' | 'auto';
   /** Visible lines before the box scrolls; default 6. */
   rows?: number;
+  /**
+   * `box` (default): a tall field. `pill` (redesign 27.10.2026): one line in a rounded field that grows with the text, as the feed's
+   * composer at rest and a comment field.
+   */
+  shape?: 'box' | 'pill';
   /** `error` sets `aria-invalid`; FormField hands its own invalid state over as `aria-invalid`. */
   error?: boolean;
   disabled?: boolean;
@@ -24,15 +29,15 @@ export interface TextAreaProps {
 }
 
 // Its accessible name comes from FormField (`id`) or `aria-label`; it has none of its own.
-export function TextArea({ rows = 6, dir = 'rtl', error, 'aria-invalid': ariaInvalid, ...rest }: TextAreaProps) {
+export function TextArea({ rows = 6, shape = 'box', dir = 'rtl', error, 'aria-invalid': ariaInvalid, ...rest }: TextAreaProps) {
   const invalid = error ?? ariaInvalid;
   return (
     <textarea
       {...rest}
-      rows={rows}
+      rows={shape === 'pill' ? 1 : rows}
       dir={dir}
       aria-invalid={invalid ? true : undefined}
-      className={cn(inputStyles, 'min-h-32 resize-y py-3')}
+      className={cn(inputStyles, shape === 'pill' ? 'max-h-60 min-h-11 resize-none rounded-xl py-2.5 field-sizing-content' : 'min-h-32 resize-y py-3')}
     />
   );
 }

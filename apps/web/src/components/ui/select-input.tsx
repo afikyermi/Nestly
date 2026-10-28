@@ -58,7 +58,7 @@ export function SelectInput({
           </option>
         ))}
       </select>
-      <ChevronDownIcon className="pointer-events-none absolute end-3 top-3 size-6 text-muted-foreground" />
+      <ChevronDownIcon className="pointer-events-none absolute end-3 top-2.5 size-6 text-muted-foreground" />
     </div>
   );
 }

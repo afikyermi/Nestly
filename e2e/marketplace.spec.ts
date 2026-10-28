@@ -108,7 +108,7 @@ test.describe('[I12 §3.2 MARKETPLACE_MODERATE] the staff listings screen', () =
     const net = await setupMarketplace(page, {}, false);
     await signIn(page);
     await page.goto('/admin/marketplace');
-    await expect(main(page).getByRole('heading', { level: 2, name: 'מודעות Marketplace' })).toBeVisible();
+    await expect(main(page).getByRole('heading', { level: 2, name: 'מודעות החנות' })).toBeVisible();
     await main(page).getByRole('button', { name: 'הסתרת המודעה' }).click();
     await expect(main(page).getByText('צריך לכתוב סיבה')).toBeVisible();
     await main(page).getByLabel('סיבה (נרשמת ביומן)').fill('ספאם');

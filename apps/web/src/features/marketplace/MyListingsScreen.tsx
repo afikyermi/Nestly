@@ -52,7 +52,7 @@ export function MyListingsScreen() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Link to={NEW_LISTING_PATH} className="inline-flex min-h-11 items-center self-start rounded-md bg-primary px-4 text-label text-primary-foreground no-underline">
+      <Link to={NEW_LISTING_PATH} className="inline-flex min-h-11 items-center self-start rounded-md bg-primary px-4 text-label font-bold text-primary-foreground no-underline">
         {NEW_LISTING_LABEL}
       </Link>
       {view.kind === 'loading' ? (
@@ -77,7 +77,7 @@ export function MyListingsScreen() {
               <MarketplaceCard
                 variant="listing"
                 title={
-                  <Link to={listingPath(listing.id)} className="text-primary-strong underline-offset-4 hover:underline" dir="auto">
+                  <Link to={listingPath(listing.id)} className="text-foreground no-underline underline-offset-4 hover:underline" dir="auto">
                     {listing.title}
                   </Link>
                 }

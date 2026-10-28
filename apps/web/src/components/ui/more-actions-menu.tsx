@@ -81,7 +81,7 @@ export function MoreActionsMenu({ label, menuLabel, items, defaultOpen = false, 
         }}
         align="end"
         sideOffset={4}
-        className="z-popover min-w-44 rounded-md bg-card p-1 text-body text-card-foreground shadow-card"
+        className="z-popover min-w-44 rounded-lg border border-border bg-card p-1 text-body text-card-foreground shadow-raised"
       >
         <FocusFirstItem />
         <span id={menuNameId} hidden>

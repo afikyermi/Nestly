@@ -29,7 +29,7 @@ const noSpaces = (s: string): string => s.replaceAll(/\s+/g, '');
 describe('token source matches docs/design/tokens.md exactly', () => {
   it('[UI-7] colour: every documented name has the documented value, and the source has no extras', () => {
     const documented = documentedColors();
-    expect(Object.keys(documented)).toHaveLength(27);
+    expect(Object.keys(documented)).toHaveLength(39);
     expect(sorted(colors)).toEqual(sorted(documented));
     for (const [name, value] of Object.entries(documented)) {
       expect(String(rec(colors)[name]).toUpperCase(), name).toBe(value);
@@ -43,6 +43,8 @@ describe('token source matches docs/design/tokens.md exactly', () => {
   it('[UI-7] border is marked decorative and input is the field border', () => {
     expect(colorRoles.border).toBe('decorative');
     expect(colorRoles.input).toBe('field-border');
+    expect(colorRoles.divider).toBe('decorative');
+    expect(colorRoles.egg).toBe('brand-graphic-only');
     expect(Object.keys(colorRoles)).not.toContain('ring');
   });
 
@@ -55,20 +57,20 @@ describe('token source matches docs/design/tokens.md exactly', () => {
     }
   });
 
-  it('[UI-7] no type style is smaller than 13px or heavier than 600', () => {
+  it('[UI-7] no type style is smaller than 13px or heavier than 800', () => {
     for (const s of Object.values(typeStyles)) {
       expect(s.size).toBeGreaterThanOrEqual(13);
-      expect(s.weight).toBeLessThan(700);
+      expect(s.weight).toBeLessThanOrEqual(800);
     }
   });
 
-  it('[UI-7] font stack: Rubik first, ending system-ui, sans-serif', () => {
-    expect(fontFamily.sans).toMatch(/^"?Rubik/);
+  it('[UI-7] font stack: Assistant first, ending system-ui, sans-serif', () => {
+    expect(fontFamily.sans).toMatch(/^"?Assistant/);
     expect(fontFamily.sans).toMatch(/system-ui,\s*sans-serif$/);
   });
 
-  it('[UI-7] font weights: normal 400, medium 500, semibold 600, no extras', () => {
-    expect(fontWeights).toEqual({ normal: 400, medium: 500, semibold: 600 });
+  it('[UI-7] font weights: normal 400, medium 500, semibold 600, bold 700, heavy 800, no extras', () => {
+    expect(fontWeights).toEqual({ normal: 400, medium: 500, semibold: 600, bold: 700, heavy: 800 });
   });
 
   it('[UI-7] spacing: 4px base and the documented rhythm values, no extras', () => {
@@ -77,26 +79,26 @@ describe('token source matches docs/design/tokens.md exactly', () => {
     expect(Object.values(spacingRhythm).sort((a, b) => a - b)).toEqual([...doc.rhythm].sort((a, b) => a - b));
   });
 
-  it('[UI-7] radius: sm 8, md 12, lg 16, xl 24, and full, no extras', () => {
+  it('[UI-7] radius: sm 6, md 10, lg 14, xl 20, and full, no extras', () => {
     const doc = numbersByName('ריווח, פינות וצללים', 'פינות');
-    expect(doc).toEqual({ sm: 8, md: 12, lg: 16, xl: 24 });
+    expect(doc).toEqual({ sm: 6, md: 10, lg: 14, xl: 20 });
     expect(sorted(radius)).toEqual([...sorted(doc), 'full'].sort());
     for (const [k, v] of Object.entries(doc)) expect(rec(radius)[k], k).toBe(v);
     expect(radius.full).toBeGreaterThanOrEqual(999);
   });
 
-  it('[UI-7] three shadows: card, raised, bar, with the documented values', () => {
+  it('[UI-7] four shadows: card, raised, sheet, bar, with the documented values', () => {
     const doc = documentedShadows();
-    expect(sorted(doc)).toEqual(['bar', 'card', 'raised']);
+    expect(sorted(doc)).toEqual(['bar', 'card', 'raised', 'sheet']);
     expect(sorted(shadows)).toEqual(sorted(doc));
     for (const [k, v] of Object.entries(doc)) {
       expect(noSpaces(String(rec(shadows)[k])).toLowerCase(), k).toBe(noSpaces(v).toLowerCase());
     }
   });
 
-  it('[UI-7] motion: fast 150, base 200, slow 300 ms and the documented easing, no extras', () => {
+  it('[UI-7] motion: fast 150, base 200, slow 300, ripple 600 ms and the documented easing, no extras', () => {
     const doc = numbersByName('מצבים, מגע ותנועה', 'תנועה', 'ms');
-    expect(doc).toEqual({ fast: 150, base: 200, slow: 300 });
+    expect(doc).toEqual({ fast: 150, base: 200, slow: 300, ripple: 600 });
     expect(motion.duration).toEqual(doc);
     expect(noSpaces(motion.easing)).toBe(noSpaces(documentedEasing()));
   });

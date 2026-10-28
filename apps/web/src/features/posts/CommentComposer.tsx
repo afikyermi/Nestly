@@ -53,7 +53,7 @@ export function CommentComposer({ mode, state, notice, onChange, onSend, onCance
       {failure !== null ? <InlineAlert>{failure}</InlineAlert> : null}
       <div className="flex flex-col gap-1.5">
         <FormField label={label} htmlFor={`${ids}-text`} {...(notice === null ? {} : { hint: notice })} {...(error === null ? {} : { error: error === 'required' ? COMMENT_REQUIRED_TEXT : error === 'invalid' ? COMMENT_INVALID_TEXT : COMMENT_TOO_LONG_TEXT })}>
-          {(control) => <TextArea {...control} rows={3} value={text} onChange={(event) => onChange(event.target.value)} />}
+          {(control) => <TextArea {...control} shape="pill" value={text} onChange={(event) => onChange(event.target.value)} />}
         </FormField>
         {/* The polite region is always mounted; it speaks only in the limit's last 100 characters. */}
         <p role="status" className="text-small text-muted-foreground empty:sr-only">

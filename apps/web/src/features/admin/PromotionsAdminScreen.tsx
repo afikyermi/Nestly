@@ -80,7 +80,7 @@ export function PromotionsAdminScreen() {
     <div className="flex flex-col gap-6">
       <p>{ADMIN_PROMOTIONS_INTRO}</p>
       <section className="rounded-lg bg-card p-4 shadow-card">
-        <h3 className="text-label">{ADMIN_TOTALS}</h3>
+        <h3 className="text-h3">{ADMIN_TOTALS}</h3>
         <p className="mt-1">{totalsText(data.totals)}</p>
         {data.totals.impressions !== null && data.totals.clicks !== null ? (
           <p className="mt-1 text-small text-muted-foreground">{countsText(data.totals.impressions, data.totals.clicks)}</p>
@@ -163,7 +163,8 @@ function StaffPromotionCard({ item, onStopped }: { item: AdminPromotionItem; onS
           <FormField label={ADMIN_STOP_REASON} htmlFor={`${id}-reason`} {...(problem === '' ? {} : { error: problem })}>
             {(control) => <TextArea {...control} rows={2} dir="auto" value={reason} onChange={(event) => setReason(event.target.value)} />}
           </FormField>
-          <Button variant="primary" className="self-start" pending={busy} disabled={busy} onClick={() => void stop()}>
+          {/* Afik 28.10.2026: stopping is hard to undo, so it is the neutral button, never the plum primary */}
+          <Button variant="soft" className="self-start" pending={busy} disabled={busy} onClick={() => void stop()}>
             {ADMIN_STOP}
           </Button>
         </div>

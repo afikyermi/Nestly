@@ -43,6 +43,8 @@ export interface FeedFlow {
   loadMore: () => void;
   /** Send the failed request again: the first page, or the same cursor. */
   retry: () => void;
+  /** A new snapshot from the first page ("N פוסטים חדשים", AC-207): the list is replaced, Back's memory is forgotten. */
+  refresh: () => void;
   /** Toggle the viewer's like on a unit: the count moves at once, one request at a time per unit, reverted when it fails. */
   toggleLike: (unitId: string) => void;
   /** Hide a unit for the viewer (one PUT; F3.9 c9), or undo that hide (one DELETE). One request at a time per unit. */
@@ -174,6 +176,11 @@ export function useFeed(onRestart: () => void): FeedFlow {
     else if (state.phase === 'more-error' && state.nextCursor !== null) void run(state.nextCursor, true);
   }, [run, state.phase, state.nextCursor]);
 
+  const refresh = useCallback(() => {
+    if (groupId === null) forgetFeed();
+    void run(null, false);
+  }, [run, groupId]);
+
   const toggleLike = useCallback(
     async (unitId: string) => {
       if (flying.current.has(unitId)) return;
@@ -270,6 +277,7 @@ export function useFeed(onRestart: () => void): FeedFlow {
     editClosed,
     loadMore,
     retry,
+    refresh,
     toggleLike: (unitId) => void toggleLike(unitId),
     hide: (unitId) => void changeHidden(unitId, true),
     undoHide: (unitId) => void changeHidden(unitId, false),

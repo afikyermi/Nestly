@@ -23,13 +23,13 @@ export const TAB_LABELS = {
   users: 'משתמשים',
   audit: 'יומן פעולות',
   media: 'תמונות לבדיקה',
-  support: 'פניות Support',
+  support: 'פניות תמיכה',
   guides: 'מדריכים',
   team: 'צוות',
   community: 'הגדרות קהילה',
   announcements: 'הודעות מערכת',
   analytics: 'נתונים',
-  marketplace: 'מודעות Marketplace',
+  marketplace: 'מודעות החנות',
   sponsored: 'מוצרים ממומנים',
   promotions: 'קידומים',
   childData: 'נתוני ילדים',
@@ -60,20 +60,22 @@ export const TAB_KEYS: Record<AdminTab, PermissionKey | 'ADMIN' | 'STAFF'> = {
 };
 
 // ---- the Support inbox (FR-ADMIN-002)
-export const SUPPORT_TITLE = 'פניות Support';
+export const SUPPORT_TITLE = 'פניות תמיכה';
 export const SUPPORT_FILTER_LABEL = 'סטטוס';
 export const SUPPORT_ALL_LABEL = 'הכל';
 export const SUPPORT_EMPTY_TEXT = 'אין פניות בסטטוס הזה';
-export const SUPPORT_LIST_LABEL = 'פניות Support';
+export const SUPPORT_LIST_LABEL = 'פניות תמיכה';
 export const SUPPORT_BACK_LABEL = 'חזרה לפניות';
 export const SUPPORT_OPEN_LABEL = 'פתיחת הפנייה';
 export const SUPPORT_USER_LABEL = 'מאת';
+/** A reply sent as Support, in the staff's thread view (Afik 28.10.2026: the admin screens are in Hebrew). */
+export const SUPPORT_AUTHOR_NAME = 'צוות התמיכה';
 export const SUPPORT_THREAD_LABEL = 'ההודעות בפנייה';
 export const SUPPORT_INTERNAL_NOTE = 'הערה פנימית';
-export const SUPPORT_REPLY_LABEL = 'תגובה בשם Support';
+export const SUPPORT_REPLY_LABEL = 'תגובה בשם צוות התמיכה';
 export const SUPPORT_INTERNAL_LABEL = 'הערה פנימית (רק הצוות רואה)';
 export const SUPPORT_SEND_LABEL = 'שמירה';
-export const SUPPORT_REPLY_SENT_TEXT = 'התגובה נשלחה בשם Support';
+export const SUPPORT_REPLY_SENT_TEXT = 'התגובה נשלחה בשם צוות התמיכה';
 export const SUPPORT_NOTE_SAVED_TEXT = 'ההערה הפנימית נשמרה';
 export const SUPPORT_STATUS_LABEL = 'שינוי סטטוס';
 export const SUPPORT_STATUS_SAVED_TEXT = 'הסטטוס עודכן';
@@ -104,7 +106,7 @@ export const ACTION_LABELS: Record<string, string> = {
   report_handled: 'סגירת דיווח',
   report_reason_changed: 'שינוי סיבת דיווח',
   reported_message_viewed: 'פתיחת הודעה שדווחה',
-  support_replied: 'תגובה בשם Support',
+  support_replied: 'תגובה בשם צוות התמיכה',
   support_note_added: 'הערה פנימית בפנייה',
   support_status_changed: 'שינוי סטטוס פנייה',
   media_approved: 'אישור תמונה',
@@ -129,7 +131,7 @@ export const TARGET_LABELS: Record<string, string> = {
   comment: 'תגובה',
   report: 'דיווח',
   report_reason: 'סיבת דיווח',
-  support_request: 'פניית Support',
+  support_request: 'פניית תמיכה',
   media: 'תמונה',
   moderator_invitation: 'הזמנת מודרטור',
   announcement: 'הודעת מערכת',
@@ -150,7 +152,7 @@ export const MESSAGE_HEADING = 'ההודעה שדווחה';
 export const MESSAGE_PRIVATE_NOTE = 'השיחה פרטית. אפשר לפתוח רק את ההודעה שדווחה, והפתיחה נרשמת ביומן הפעולות';
 export const OPEN_MESSAGE_LABEL = 'הצגת ההודעה';
 export const senderText = (name: string | null): string => (name === null ? 'השולח: חשבון ללא שם' : `השולח: ${name}`);
-export const KIND_LABELS: Record<ReportTargetKind, string> = { post: 'פוסט', comment: 'תגובה', user: 'פרופיל', message: 'הודעה בצ׳אט', listing: 'מודעה ב-Marketplace', review: 'ביקורת על בעל מקצוע', article: 'מאמר של בעל מקצוע' };
+export const KIND_LABELS: Record<ReportTargetKind, string> = { post: 'פוסט', comment: 'תגובה', user: 'פרופיל', message: 'הודעה בצ׳אט', listing: 'מודעה בחנות', review: 'ביקורת על בעל מקצוע', article: 'מאמר של בעל מקצוע' };
 export const PRIORITY_LABELS: Record<number, string> = { 1: 'עדיפות עליונה', 2: 'עדיפות גבוהה', 3: 'עדיפות בינונית', 4: 'עדיפות רגילה' };
 export const RISING_TEXT = 'עלה בתור (3 דיווחים או יותר)';
 export const reportCountText = (n: number): string => (n === 1 ? 'דיווח אחד' : `${n.toLocaleString('en-US')} דיווחים`);

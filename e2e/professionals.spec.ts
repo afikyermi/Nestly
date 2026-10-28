@@ -252,6 +252,7 @@ test.describe('[I11 follow-ups FR-MOD-001 FR-SERV-011 FR-PRO-003] reporting a re
 
 test.describe('[I11-C AC-148 AC-171 FR-SERV-005] a Professional\'s navigation and help requests', () => {
   test('the bottom navigation is בית · פיד · שיחות · פרופיל with the unread badge; the menu leads to the help requests and has no Friends', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
     const net = await setupProfessionals(page, { kind: 'professional', unread: 3 });
     await signIn(page);
     const nav = page.getByRole('navigation', { name: 'ניווט ראשי' });

@@ -190,6 +190,8 @@ test.describe('ux-polish-b c6 [NFR-USAB-004] the side menu', () => {
     test(`[ub c6] ${label}: Back, Esc and an outside press each close it with no request; the screen and URL stay; focus on "${MENU_BUTTON}"; the next Back leaves the screen; axe 0 while open`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await atFeedAfterHome(page);
+      // The feed's own reads end first (its journey row asks the home after the profile answer, AC-209): only what a close would send counts.
+      await page.waitForLoadState('networkidle');
       const requests = recordRequests(page);
       for (const how of ['Back', 'Esc', 'outside'] as const) {
         const before = requests.length;

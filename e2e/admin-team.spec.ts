@@ -301,7 +301,7 @@ test.describe('[I14] the Moderators team', () => {
     await expect(page.getByRole('img', { name: 'פוסטים ליום' })).toBeVisible();
     await expect(page.getByText('זמן טיפול חציוני (שעות)')).toBeVisible();
     // SRS audit 21.10: Groups, Professionals and Marketplace are measured, not "not yet measured"
-    for (const name of ['קבוצות', 'בעלי מקצוע', 'Marketplace']) await expect(page.getByRole('heading', { level: 3, name, exact: true })).toBeVisible();
+    for (const name of ['קבוצות', 'בעלי מקצוע', 'חנות']) await expect(page.getByRole('heading', { level: 3, name, exact: true })).toBeVisible();
     await expect(page.getByText('חשבונות מקצועיים פעילים', { exact: true })).toBeVisible();
     await expect(page.getByText('מודעות מוצגות עכשיו', { exact: true })).toBeVisible();
     // I12-B (Afik §10.6, AC-206): the Admin's graph of the listings marked sold/given, by day

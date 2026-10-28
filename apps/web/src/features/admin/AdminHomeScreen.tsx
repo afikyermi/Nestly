@@ -10,12 +10,12 @@ import { fetchAdminOverview } from '@/services/api/staff-work';
 import { formatAdminTime } from './admin-format';
 import { FORBIDDEN_TEXT, LOAD_FAILED_TEXT, LOADING_TEXT, RETRY_LABEL } from './admin-texts';
 import { ChildTrendsBuilder } from './ChildTrendsBuilder';
+import { DeltaChip, KpiCard } from './KpiCard';
 import {
   ATTENTION_LABELS,
   ATTENTION_TITLE,
   CHILD_SAFETY_BAR,
   CHILD_SAFETY_BAR_LINK,
-  METRIC_CHANGE,
   METRIC_LABELS,
   METRIC_PREVIOUS,
   METRICS_TITLE,
@@ -35,6 +35,15 @@ import {
 
 type View = { kind: 'loading' } | { kind: 'failed'; message: string } | { kind: 'loaded'; overview: AdminOverview };
 type AttentionKey = keyof typeof ATTENTION_LABELS;
+/** Whether a rise is good news; a rise in reports, enforcement or Support asks for a look (the chip's colour only). */
+const UP_IS_GOOD: Record<AdminOverview['metrics'][number]['key'], boolean> = {
+  registrations: true,
+  posts: true,
+  comments: true,
+  reports: false,
+  enforcements: false,
+  support: false,
+};
 const ATTENTION_KEYS: readonly AttentionKey[] = ['openReports', 'pastTargetReports', 'escalatedReports', 'queuedImages', 'openSupport', 'openInvitations', 'draftGuides'];
 
 /** Where each "needs attention" line leads. */
@@ -53,6 +62,8 @@ const ATTENTION_PATHS: Record<AttentionKey, string> = {
 // before; the team's snapshot; the children's trends builder (CHILD_DATA_VIEW, the Admin always); a link to the Audit Log's sensitive events.
 // I9 (§16.4): the account deletions waiting for their date, and a red bar while one is past it. Numbers only: the server reads them through
 // the Admin's policies.
+// A dashboard (Afik 28.10.2026): the week's numbers first, as cards with a change chip; what needs attention and the team side by side
+// from lg; the trends builder in its card. The focus order is unchanged (the attention links, the trends' controls, the Audit Log link).
 export function AdminHomeScreen() {
   const call = useAdminCall();
   const [view, setView] = useState<View>({ kind: 'loading' });
@@ -101,76 +112,86 @@ export function AdminHomeScreen() {
           <strong>{OVERDUE_DELETIONS_BAR(overview.accountDeletions.overdue)}</strong>
         </div>
       ) : null}
-      <section aria-labelledby="attention-title" className="flex flex-col gap-2">
-        <h3 id="attention-title" className="text-h3">
-          {ATTENTION_TITLE}
-        </h3>
-        {attention.length === 0 && !spike.isSpike && overview.accountDeletions.pending === 0 ? <p>{NOTHING_NEEDS_ATTENTION}</p> : null}
-        <ul className="flex flex-col gap-2">
-          {spike.isSpike ? (
-            <li className="rounded-md bg-muted p-3">
-              <Link to={PATHS.adminReports}>{REPORT_SPIKE_TEXT(spike.lastDay, spike.dailyAverage)}</Link>
-            </li>
-          ) : null}
-          {overview.accountDeletions.pending > 0 ? (
-            <li className="flex items-center justify-between gap-3 rounded-md bg-muted p-3">
-              <span>
-                {PENDING_DELETIONS_LABEL}: <strong>{overview.accountDeletions.pending}</strong>
-              </span>
-            </li>
-          ) : null}
-          {attention.map((key) => (
-            <li key={key} className="flex items-center justify-between gap-3 rounded-md bg-muted p-3">
-              <span>
-                {ATTENTION_LABELS[key]}: <strong>{overview.attention[key]}</strong>
-              </span>
-              <Link to={ATTENTION_PATHS[key]} className="text-label">
-                {OPEN_LABEL}
-                <span className="sr-only"> {ATTENTION_LABELS[key]}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
-      <section aria-labelledby="metrics-title" className="flex flex-col gap-2">
+      <section aria-labelledby="metrics-title" className="flex flex-col gap-3">
         <h3 id="metrics-title" className="text-h3">
           {METRICS_TITLE}
         </h3>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
           {overview.metrics.map((metric) => (
-            <div key={metric.key} className="rounded-lg bg-muted p-3">
-              <dt className="text-small text-muted-foreground">{METRIC_LABELS[metric.key]}</dt>
-              <dd className="text-h3">{metric.current}</dd>
-              <dd className="text-small">
-                {METRIC_CHANGE(metric.current, metric.previous)} · {METRIC_PREVIOUS(metric.previous)}
-              </dd>
-            </div>
+            <KpiCard
+              key={metric.key}
+              size="lg"
+              label={METRIC_LABELS[metric.key]}
+              value={String(metric.current)}
+              footer={
+                <>
+                  <DeltaChip current={metric.current} previous={metric.previous} upIsGood={UP_IS_GOOD[metric.key]} />
+                  <span className="text-caption text-muted-foreground tabular-nums">{METRIC_PREVIOUS(metric.previous)}</span>
+                </>
+              }
+            />
           ))}
         </dl>
       </section>
-      <section aria-labelledby="team-title" className="flex flex-col gap-2">
-        <h3 id="team-title" className="text-h3">
-          {TEAM_SNAPSHOT_TITLE}
-        </h3>
-        {overview.team.length === 0 ? (
-          <p>{TEAM_SNAPSHOT_EMPTY}</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {overview.team.map((member) => (
-              <li key={member.userId} className="rounded-md border border-border p-3 text-small">
-                <p className="text-label">{member.label ?? TEAM_SNAPSHOT_UNNAMED}</p>
-                <p>
-                  {TEAM_KEYS_COUNT(member.keyCount)} · {TEAM_LAST_ACTION(member.lastActionAt === null ? null : formatAdminTime(member.lastActionAt))} ·{' '}
-                  {TEAM_WEEK_ACTIONS(member.actionsThisWeek)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <section aria-labelledby="attention-title" className="flex flex-col gap-2">
+          <h3 id="attention-title" className="text-h3">
+            {ATTENTION_TITLE}
+          </h3>
+          {attention.length === 0 && !spike.isSpike && overview.accountDeletions.pending === 0 ? (
+            <p className="rounded-lg p-4 text-muted-foreground shadow-card">{NOTHING_NEEDS_ATTENTION}</p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-divider rounded-lg bg-card shadow-card">
+              {spike.isSpike ? (
+                <li className="px-4 py-3">
+                  <Link to={PATHS.adminReports} className="text-primary-strong underline underline-offset-4">{REPORT_SPIKE_TEXT(spike.lastDay, spike.dailyAverage)}</Link>
+                </li>
+              ) : null}
+              {overview.accountDeletions.pending > 0 ? (
+                <li className="flex items-center justify-between gap-3 px-4 py-3">
+                  <span>
+                    {PENDING_DELETIONS_LABEL}: <strong className="tabular-nums">{overview.accountDeletions.pending}</strong>
+                  </span>
+                </li>
+              ) : null}
+              {attention.map((key) => (
+                <li key={key} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <span>
+                    {ATTENTION_LABELS[key]}: <strong className="tabular-nums">{overview.attention[key]}</strong>
+                  </span>
+                  <Link to={ATTENTION_PATHS[key]} className="text-label text-primary-strong underline underline-offset-4">
+                    {OPEN_LABEL}
+                    <span className="sr-only"> {ATTENTION_LABELS[key]}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <section aria-labelledby="team-title" className="flex flex-col gap-2">
+          <h3 id="team-title" className="text-h3">
+            {TEAM_SNAPSHOT_TITLE}
+          </h3>
+          {overview.team.length === 0 ? (
+            <p className="rounded-lg p-4 text-muted-foreground shadow-card">{TEAM_SNAPSHOT_EMPTY}</p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-divider rounded-lg bg-card shadow-card">
+              {overview.team.map((member) => (
+                <li key={member.userId} className="flex flex-col gap-0.5 px-4 py-3 text-small">
+                  <p className="text-label">{member.label ?? TEAM_SNAPSHOT_UNNAMED}</p>
+                  <p className="text-muted-foreground tabular-nums">
+                    {TEAM_KEYS_COUNT(member.keyCount)} · {TEAM_LAST_ACTION(member.lastActionAt === null ? null : formatAdminTime(member.lastActionAt))} ·{' '}
+                    {TEAM_WEEK_ACTIONS(member.actionsThisWeek)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
       <ChildTrendsBuilder />
       <div>
-        <Link to={`${PATHS.adminAudit}?sensitive=true`}>{SENSITIVE_LINK}</Link>
+        <Link to={`${PATHS.adminAudit}?sensitive=true`} className="text-primary-strong underline underline-offset-4">{SENSITIVE_LINK}</Link>
       </div>
     </div>
   );

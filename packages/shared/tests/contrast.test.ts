@@ -37,9 +37,9 @@ const problems = (palette: Readonly<Record<string, string>>): string[] =>
   });
 
 describe('contrast, read from docs/design/tokens.md', () => {
-  it('[UI-3] tokens.md lists 27 asserted pairs and one informational row', () => {
-    expect(asserted).toHaveLength(27);
-    expect(pairs).toHaveLength(28);
+  it('[UI-3] tokens.md lists 40 asserted pairs and one informational row', () => {
+    expect(asserted).toHaveLength(40);
+    expect(pairs).toHaveLength(41);
   });
 
   describe.each(asserted.map((p) => [name(p), p] as const))('[UI-3] %s', (_n, p) => {
@@ -72,7 +72,7 @@ describe('contrast, read from docs/design/tokens.md', () => {
   });
 
   it('[UI-4] the negative copy does not change the real tokens', () => {
-    expect(colors.primary).toBe('#B5502C');
+    expect(colors.primary).toBe('#805B75');
   });
 
   it('[UI-5] the informational row primary-soft / card (1.20) exists and is not asserted against a threshold', () => {

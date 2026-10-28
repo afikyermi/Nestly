@@ -202,7 +202,7 @@ function ProductForm({
   return (
     <section aria-labelledby={heading === undefined ? undefined : `${id}-h`} className="flex flex-col gap-3">
       {heading === undefined ? null : (
-        <h3 id={`${id}-h`} className="text-h4">
+        <h3 id={`${id}-h`} className="text-h3">
           {heading}
         </h3>
       )}

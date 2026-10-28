@@ -1,5 +1,6 @@
 import type { ChangeEvent, ReactNode } from 'react';
 import { cn } from '@/lib/cn';
+import { CheckIcon } from './icons';
 
 // Exactly the props of the spec's API section: no className.
 export interface CheckboxProps {
@@ -20,23 +21,28 @@ export interface CheckboxProps {
 }
 
 // A native checkbox, so Space toggles it and the platform announces it. The whole label row is
-// the touch target (at least 44 high); the box itself stays 24. An error is a thicker
-// destructive outline on the box, and the caller's message text carries it for everyone.
+// the touch target (at least 44 high); the box itself is 20, with the `input` border (3:1), and checked it is a primary fill with a white
+// tick (the native control drawn with appearance-none and a background image). An error is a destructive outline on the box, and the
+// caller's message text carries it for everyone.
 export function Checkbox({ error, 'aria-invalid': ariaInvalid, children, onCheckedChange, ...rest }: CheckboxProps) {
   return (
     <label className="flex min-h-11 items-start gap-3 text-small text-foreground">
-      <input
-        {...rest}
-        type="checkbox"
-        aria-invalid={error || ariaInvalid ? true : undefined}
-        onChange={(event: ChangeEvent<HTMLInputElement>) => onCheckedChange?.(event.target.checked)}
-        className={cn(
-          'mt-0.5 size-6 shrink-0 accent-primary',
-          'disabled:cursor-not-allowed',
-          'aria-invalid:outline-2 aria-invalid:outline-offset-2 aria-invalid:outline-destructive',
-        )}
-      />
-      <span className="pt-0.5">{children}</span>
+      <span className="relative grid size-6 shrink-0 place-items-center">
+        <input
+          {...rest}
+          type="checkbox"
+          aria-invalid={error || ariaInvalid ? true : undefined}
+          onChange={(event: ChangeEvent<HTMLInputElement>) => onCheckedChange?.(event.target.checked)}
+          className={cn(
+            'peer size-6 cursor-pointer appearance-none rounded-sm border border-input bg-card',
+            'transition-colors duration-fast ease-standard checked:border-primary checked:bg-primary',
+            'disabled:cursor-not-allowed disabled:bg-muted disabled:checked:bg-muted-foreground',
+            'aria-invalid:outline-2 aria-invalid:outline-offset-2 aria-invalid:outline-destructive',
+          )}
+        />
+        <CheckIcon className="pointer-events-none absolute inset-0 m-auto hidden size-4 stroke-3 text-primary-foreground peer-checked:block" />
+      </span>
+      <span>{children}</span>
     </label>
   );
 }

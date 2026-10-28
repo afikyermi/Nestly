@@ -79,9 +79,9 @@ function hideFocusElement(list: HTMLElement | null, focus: HideFocus): HTMLEleme
 
 function SkeletonCards() {
   return (
-    <div data-testid="feed-loading" className="flex flex-col gap-4">
+    <div data-testid="feed-loading" className="flex flex-col divide-y divide-divider lg:gap-4 lg:divide-y-0">
       {[0, 1, 2].map((key) => (
-        <div key={key} className="flex flex-col gap-3 rounded-lg bg-card p-4 shadow-card md:p-5">
+        <div key={key} className="flex flex-col gap-3 bg-card p-4 lg:rounded-lg lg:p-5 lg:shadow-card">
           <Skeleton className="w-1/3" />
           <Skeleton className="w-3/4" />
           <Skeleton className="w-1/2" />
@@ -159,7 +159,7 @@ export function FeedContent(props: FeedContentProps) {
       <div
         {...(items.length > 0 ? { role: 'feed', 'aria-label': FEED_LIST_LABEL } : {})}
         aria-busy={loading || phase === 'initial' ? true : undefined}
-        className="flex flex-col gap-4"
+        className="-mx-4 flex flex-col divide-y divide-divider border-y border-divider lg:mx-0 lg:gap-4 lg:divide-y-0 lg:border-y-0"
       >
         {phase === 'initial' ? <SkeletonCards /> : null}
         {items.map((unit, index) =>

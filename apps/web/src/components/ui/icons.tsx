@@ -2,8 +2,10 @@ import {
   ArrowLeft,
   Bell,
   Search,
+  Send,
   Settings,
   ArrowUp,
+  ArrowDown,
   Check,
   ChevronDown,
   ChevronRight,
@@ -13,6 +15,7 @@ import {
   Ellipsis,
   Eye,
   EyeOff,
+  HandHeart,
   Heart,
   House,
   LoaderCircle,
@@ -25,10 +28,22 @@ import {
   ShoppingBag,
   Sparkles,
   User,
+  UserCheck,
+  Users,
+  Lock,
+  Bath,
+  Droplet,
+  Milk,
+  Moon,
+  Pill,
+  Ruler,
+  Syringe,
+  Image as ImageLucide,
   X,
   type LucideIcon,
   type LucideProps,
 } from 'lucide-react';
+import { useId } from 'react';
 import { cn } from '@/lib/cn';
 
 // The icon module (design-system skill: Lucide, stroke 1.75, sized by the spacing scale).
@@ -50,12 +65,23 @@ function icon(Source: LucideIcon, directional = false) {
   };
 }
 
-// The nest mark, from the R2 mockup (i-nest). The final logo is OP-022.
+// The nest mark (OP-022, closed 27.10.2026): a bowl of waves holding an egg. It is the feed tab and the like.
 const Nest = createLucideIcon('nest', [
-  ['path', { d: 'M3 12.5c0 4.4 4 7.5 9 7.5s9-3.1 9-7.5' }],
-  ['path', { d: 'M2.5 12.5h19' }],
-  ['ellipse', { cx: '9.5', cy: '8.6', rx: '2.3', ry: '3' }],
-  ['ellipse', { cx: '14.6', cy: '9.2', rx: '2.1', ry: '2.6' }],
+  ['ellipse', { cx: '12', cy: '7.6', rx: '3.4', ry: '4.3', transform: 'rotate(-12 12 7.6)' }],
+  ['path', { d: 'M2.8 12.2c0 5.2 4.1 9.2 9.2 9.2s9.2-4 9.2-9.2z' }],
+  ['path', { d: 'M6.2 15.6c1.9-1.1 3.9-1.1 5.8 0s3.9 1.1 5.8 0' }],
+]);
+
+// A diaper (no Lucide equivalent).
+const Diaper = createLucideIcon('diaper', [
+  ['path', { d: 'M3.5 7h17v2.5c0 5-3.8 9-8.5 9s-8.5-4-8.5-9z' }],
+  ['path', { d: 'M8 17.2l1.2-4.2M16 17.2l-1.2-4.2' }],
+]);
+
+// An anonymous writer: a dashed person (no Lucide equivalent).
+const Anon = createLucideIcon('anon', [
+  ['circle', { cx: '12', cy: '8.5', r: '3.8', strokeDasharray: '2.6 2.4' }],
+  ['path', { d: 'M4.5 20a7.5 7.5 0 0 1 15 0', strokeDasharray: '2.6 2.4' }],
 ]);
 
 export const MenuIcon = icon(Menu);
@@ -71,9 +97,27 @@ export const ChevronDownIcon = icon(ChevronDown);
 export const PlusIcon = icon(Plus);
 export const MinusIcon = icon(CircleMinus);
 export const UserIcon = icon(User);
+// The desktop shortcuts column (redesign 27.10.2026): groups, the Professionals followed.
+export const UsersIcon = icon(Users);
+export const UserCheckIcon = icon(UserCheck);
+// "רק אתם רואים" (the journey row) and the composer's photo hint.
+export const LockIcon = icon(Lock);
+export const ImageIcon = icon(ImageLucide);
+// The home's tracker tiles (redesign 27.10.2026): one icon per tracker.
+export const BreastfeedingIcon = icon(Droplet);
+export const BottleIcon = icon(Milk);
+export const SleepIcon = icon(Moon);
+export const MedicineIcon = icon(Pill);
+export const GrowthIcon = icon(Ruler);
+export const VaccineIcon = icon(Syringe);
+export const BathIcon = icon(Bath);
+export const DiaperIcon = icon(Diaper);
 export const CloseIcon = icon(X);
 export const LoaderIcon = icon(LoaderCircle);
 export const NestIcon = icon(Nest);
+export const AnonIcon = icon(Anon);
+// Offer Help (FR-SERV-005): a hand holding a heart, distinct from the like on purpose.
+export const HelpIcon = icon(HandHeart);
 export const BagIcon = icon(ShoppingBag);
 export const SparkIcon = icon(Sparkles);
 export const HeartIcon = icon(Heart);
@@ -81,12 +125,36 @@ export const MoreIcon = icon(Ellipsis);
 export const PhoneIcon = icon(Phone);
 // I8: the Chat Center in the Top Bar (FR-CHAT-001).
 export const MessageIcon = icon(MessageCircle);
+// A post's "תגובות" action (the same speech bubble as the Chat Center).
+export const CommentIcon = icon(MessageCircle);
 // F3.5, F3.6: share into one's feed (a repost), and send a link out of the app.
 export const ShareInFeedIcon = icon(Repeat2);
 export const ShareLinkIcon = icon(Share2);
 // F3.2b c20: "חזרה למעלה" where only its icon fits (1024-1279 px, beside the column).
 export const ArrowUpIcon = icon(ArrowUp);
+// The Admin dashboards (Afik 28.10.2026): a number up or down against the week before, always with its sign.
+export const ArrowDownIcon = icon(ArrowDown);
 // Directional icons point the reading direction's way: mirrored under rtl.
 // Back points to the end side (right in Hebrew), forward to the start side (left).
 export const ArrowBackIcon = icon(ArrowLeft, true);
 export const ChevronForwardIcon = icon(ChevronRight, true);
+// The paper plane points forward (to the end edge), so it mirrors in RTL.
+export const SendIcon = icon(Send, true);
+
+// The filled nest: "selected" in the bottom navigation and "liked" on the like. The waves are cut out of the bowl, so they show
+// whatever surface is behind it. The mask id is per instance.
+export function NestFilledIcon({ className }: { className?: string }) {
+  const mask = useId();
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" strokeWidth={1.75} aria-hidden="true" focusable="false" className={cn('size-6 shrink-0', className)}>
+      <defs>
+        <mask id={mask}>
+          <rect width="24" height="24" fill="white" />
+          <path d="M5.6 15.7c2.1-1.2 4.3-1.2 6.4 0s4.3 1.2 6.4 0" fill="none" stroke="black" strokeWidth={1.7} strokeLinecap="round" />
+        </mask>
+      </defs>
+      <ellipse cx="12" cy="7.2" rx="3.5" ry="4.4" transform="rotate(-12 12 7.2)" />
+      <path mask={`url(#${mask})`} d="M2 11.8h20c0 5.7-4.5 10-10 10S2 17.5 2 11.8z" />
+    </svg>
+  );
+}

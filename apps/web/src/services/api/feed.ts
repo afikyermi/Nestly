@@ -1,4 +1,5 @@
 import { feedPageResponse, type FeedPageResponse } from '@nestly/shared';
+import { userIdOfAccessToken } from '@/lib/access-token';
 
 // GET /api/feed?cursor= (F3.2b; FR-FEED-001). The cursor is opaque: it is passed back exactly as the server gave it, in the query
 // only, and never stored, logged or shown. Only the status, the one `error` code and a body that passes the shared response schema
@@ -37,5 +38,22 @@ export async function fetchFeedPage(accessToken: string, cursor: string | null):
   }
   if (response.status !== 200) return FAILED;
   const parsed = feedPageResponse.safeParse(body);
-  return parsed.success ? { kind: 'page', page: parsed.data } : FAILED;
+  if (!parsed.success) return FAILED;
+  if (cursor === null) lastFirstPage = { at: Date.now(), owner: userIdOfAccessToken(accessToken), page: parsed.data };
+  return { kind: 'page', page: parsed.data };
+}
+
+// The last first page this tab received, kept in memory only (never stored), for the user it was asked for.
+let lastFirstPage: { at: number; owner: string | null; page: FeedPageResponse } | null = null;
+
+/**
+ * The feed's first page for a reader that can use a recent one (Home's "מהקהילה, בשלבים שלכם", AC-208): the one this tab received in the last
+ * `maxAgeMs` for the same user, else a new request. Server load (Afik 28.10.2026): a visit to the feed and then Home asks once.
+ */
+export async function recentFeedFirstPage(accessToken: string, maxAgeMs: number): Promise<FeedOutcome> {
+  const owner = userIdOfAccessToken(accessToken);
+  if (lastFirstPage !== null && owner !== null && lastFirstPage.owner === owner && Date.now() - lastFirstPage.at < maxAgeMs) {
+    return { kind: 'page', page: lastFirstPage.page };
+  }
+  return fetchFeedPage(accessToken, null);
 }

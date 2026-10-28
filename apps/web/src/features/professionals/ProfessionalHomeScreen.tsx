@@ -117,7 +117,7 @@ export function ProfessionalHomeScreen() {
           <ul aria-label={WAITING_HEADING} className="mt-3 flex flex-col gap-2">
             {waiting.map((item) => (
               <li key={item.key}>
-                <Link to={item.href} className="flex min-h-11 items-center rounded-lg bg-primary-soft px-4 text-label text-primary-strong no-underline">
+                <Link to={item.href} className="flex min-h-11 items-center rounded-md bg-secondary px-4 text-label font-bold text-secondary-foreground no-underline hover:bg-muted">
                   {item.text}
                 </Link>
               </li>

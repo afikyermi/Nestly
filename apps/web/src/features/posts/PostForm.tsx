@@ -115,7 +115,7 @@ export function PostForm(props: PostFormProps) {
       ) : null}
       <div className="flex flex-col gap-1.5">
         <FormField label={BODY_LABEL} htmlFor={`${ids}-body`} {...(errors.body !== undefined ? { error: errors.body } : {})}>
-          {(control) => <TextArea {...control} value={values.body} onChange={(event) => onChange({ ...values, body: event.target.value })} />}
+          {(control) => <TextArea {...control} shape={compact ? 'pill' : 'box'} value={values.body} onChange={(event) => onChange({ ...values, body: event.target.value })} />}
         </FormField>
         {/* The polite region is always mounted; it speaks only in the limit's last 100 characters (c16). */}
         <p role="status" data-testid="post-counter" className="text-small text-muted-foreground empty:sr-only">

@@ -63,7 +63,7 @@ export function PasswordInput({
           aria-pressed={visible}
           disabled={rest.disabled}
           onClick={() => setVisible((v) => !v)}
-          className="absolute end-0.5 top-0.5"
+          className="absolute end-0 top-0"
         >
           {visible ? <EyeOffIcon /> : <EyeIcon />}
         </Button>

@@ -1,0 +1,28 @@
+/* Photo stand-ins for user images (story thumbnails). Soft, photographic light — not illustrations. */
+.pf{position:relative;overflow:hidden;background:#d9c7ae}
+.pf-window{background:
+  radial-gradient(60% 45% at 70% 22%,rgba(255,248,230,.95),rgba(255,240,215,0) 70%),
+  linear-gradient(90deg,rgba(255,255,255,0) 46%,rgba(120,90,60,.22) 47% 49%,rgba(255,255,255,0) 50%),
+  linear-gradient(180deg,#E9D9C1 0%,#C9A983 62%,#8C6A4C 100%)}
+.pf-park{background:
+  radial-gradient(70% 40% at 30% 10%,rgba(255,252,236,.9),rgba(255,252,236,0) 70%),
+  radial-gradient(50% 35% at 75% 55%,rgba(92,128,74,.85),rgba(92,128,74,0) 70%),
+  radial-gradient(60% 40% at 20% 70%,rgba(70,104,60,.9),rgba(70,104,60,0) 70%),
+  linear-gradient(180deg,#CFE0E6 0%,#A8C08F 45%,#6D8C55 100%)}
+.pf-sea{background:
+  radial-gradient(40% 25% at 65% 38%,rgba(255,246,222,.95),rgba(255,246,222,0) 70%),
+  linear-gradient(180deg,#F2D7B7 0%,#E8C3A0 35%,#7FA6B8 52%,#4E7E95 75%,#E3CFAE 88%,#D7BE97 100%)}
+.pf-wood{background:
+  radial-gradient(50% 40% at 35% 30%,rgba(255,236,206,.8),rgba(255,236,206,0) 70%),
+  repeating-linear-gradient(8deg,rgba(90,60,35,.12) 0 3px,rgba(255,255,255,0) 3px 11px),
+  linear-gradient(160deg,#C79A6B 0%,#9C6D45 60%,#6E4A2D 100%)}
+.pf-night{background:
+  radial-gradient(30% 22% at 62% 34%,rgba(255,206,130,.95),rgba(255,190,110,0) 70%),
+  radial-gradient(70% 50% at 50% 100%,rgba(70,50,35,.8),rgba(0,0,0,0) 70%),
+  linear-gradient(180deg,#2B2430 0%,#3B2D2A 55%,#5A4130 100%)}
+.pf-bath{background:
+  radial-gradient(45% 30% at 30% 25%,rgba(255,255,255,.9),rgba(255,255,255,0) 70%),
+  radial-gradient(14% 10% at 70% 60%,rgba(255,255,255,.8),rgba(255,255,255,0) 70%),
+  radial-gradient(10% 8% at 55% 75%,rgba(255,255,255,.7),rgba(255,255,255,0) 70%),
+  linear-gradient(180deg,#DDEBEE 0%,#A9CBD3 60%,#7FAFBB 100%)}
+.pf-photo svg{display:block;width:100%;height:100%}

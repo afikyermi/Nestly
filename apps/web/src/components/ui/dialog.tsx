@@ -25,7 +25,7 @@ export function DrawerPanel({ open, onOpenChange, children, finalFocus, classNam
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-drawer bg-foreground/40" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-drawer bg-foreground/45" />
         <DialogPrimitive.Content
           ref={panel}
           aria-describedby={undefined}
@@ -78,7 +78,7 @@ export function AlertPanel({ open, onOpenChange, children, described, finalFocus
   return (
     <AlertDialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialogPrimitive.Portal>
-        <AlertDialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/40" onClick={() => onOpenChange(false)} />
+        <AlertDialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/45" onClick={() => onOpenChange(false)} />
         <AlertDialogPrimitive.Content
           aria-modal="true"
           {...(described ? {} : { 'aria-describedby': undefined })}
@@ -91,7 +91,7 @@ export function AlertPanel({ open, onOpenChange, children, described, finalFocus
             (finalFocus?.() ?? opener.current)?.focus();
           }}
           className={cn(
-            'fixed inset-x-4 top-1/2 z-dialog mx-auto flex max-w-sm -translate-y-1/2 flex-col gap-4 rounded-lg bg-card p-card-padding',
+            'fixed inset-x-4 top-1/2 z-dialog mx-auto flex max-w-sm -translate-y-1/2 flex-col gap-4 rounded-xl bg-card p-card-padding',
             'text-card-foreground shadow-raised',
             className,
           )}
@@ -130,8 +130,8 @@ interface SheetPanelProps {
 }
 
 // The sheet of an action done in place (direction.md "דפוסי אינטראקציה": share and report; F3.7 c10, F3.5/F3.6 reuse it): below 1024 px a
-// bottom sheet, from 1024 px a small window in the middle. role="dialog", aria-modal, portaled over a backdrop that blurs the page by 4 px; a
-// focus trap, the page scroll locked and the rest of the page inert (Radix Dialog). Escape and a press outside close it (onOpenChange(false));
+// bottom sheet (top corners 20 and a grab handle), from 1024 px a small window in the middle. role="dialog", aria-modal, portaled over a 45%
+// dark backdrop that blurs the page by 4 px; a focus trap, the page scroll locked and the rest of the page inert (Radix Dialog). Escape and a press outside close it (onOpenChange(false));
 // Back is the screen's (useBackCloses), since only the screen owns the history. Controlled: the element focused when it opened is remembered
 // and given focus back when it closes, unless `finalFocus` names another.
 export function SheetPanel({ open, onOpenChange, children, described = true, onOpened, finalFocus }: SheetPanelProps) {
@@ -140,7 +140,7 @@ export function SheetPanel({ open, onOpenChange, children, described = true, onO
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/40 backdrop-blur-xs" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/45 backdrop-blur-xs" />
         <DialogPrimitive.Content
           ref={panel}
           aria-modal="true"
@@ -157,11 +157,13 @@ export function SheetPanel({ open, onOpenChange, children, described = true, onO
             (finalFocus?.() ?? opener.current)?.focus();
           }}
           className={cn(
-            'fixed inset-x-0 bottom-0 z-dialog flex max-h-dvh flex-col gap-4 overflow-y-auto rounded-t-lg bg-card p-card-padding',
-            'text-card-foreground shadow-raised',
-            'lg:inset-0 lg:m-auto lg:h-fit lg:w-full lg:max-w-md lg:rounded-lg',
+            'fixed inset-x-0 bottom-0 z-dialog flex max-h-dvh flex-col gap-4 overflow-y-auto rounded-t-xl bg-card px-4 pt-2 pb-6',
+            'text-card-foreground shadow-sheet',
+            'lg:inset-0 lg:m-auto lg:h-fit lg:w-full lg:max-w-md lg:rounded-xl lg:p-card-padding',
           )}
         >
+          {/* The grab handle: a phone-sheet mark only, not a control (Escape, a press outside or the sheet's own cancel close it). */}
+          <div aria-hidden="true" className="mx-auto -mb-1 h-1.5 w-10 shrink-0 rounded-full bg-divider lg:hidden" />
           {children}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
@@ -170,7 +172,7 @@ export function SheetPanel({ open, onOpenChange, children, described = true, onO
 }
 
 export function SheetTitle({ children }: { children: ReactNode }) {
-  return <DialogPrimitive.Title className="text-h3">{children}</DialogPrimitive.Title>;
+  return <DialogPrimitive.Title className="text-center text-h3 lg:text-start">{children}</DialogPrimitive.Title>;
 }
 
 export function SheetDescription({ children }: { children: ReactNode }) {

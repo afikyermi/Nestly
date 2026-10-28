@@ -1,9 +1,11 @@
 import { useId, type MouseEvent, type ReactNode } from 'react';
+import { cn } from '@/lib/cn';
 import { Link } from 'react-router';
 import { ANONYMOUS_AUTHOR_LABEL, type FeedUnit } from '@nestly/shared';
 import { LikeButton } from '@/components/shared/like-button';
-import { Button } from '@/components/ui/button';
-import { ShareInFeedIcon, ShareLinkIcon } from '@/components/ui/icons';
+import { Avatar } from '@/components/ui/avatar';
+import { CommentIcon, NestFilledIcon, ShareInFeedIcon, ShareLinkIcon } from '@/components/ui/icons';
+import { Tooltip } from '@/components/ui/tooltip';
 import { SHARE_LINK_LABEL } from '@/lib/share-link-texts';
 import { MoreActionsMenu, type MoreActionsItem } from '@/components/ui/more-actions-menu';
 import { AUDIENCE_LABELS, fromGroup } from './posts-texts';
@@ -25,12 +27,20 @@ import { useProCall } from '@/hooks/use-pro-call';
 import { reportPromotionClick } from '@/services/api/promotions';
 import { promotionOf } from './promoted-feed';
 
-const AUDIENCE_CLASS = 'text-small text-muted-foreground';
+const AUDIENCE_CLASS = 'text-caption text-muted-foreground';
+
+// A short post (about 120 characters, no line break) is set larger, in `lead` (redesign 27.10.2026).
+const SHORT_POST = 120;
+
+// An action of the row: the icon alone below 1024 (its name is the label, also its tooltip), the icon and the word from 1024, equal widths.
+const ACTION_CLASS =
+  'inline-flex size-11 items-center justify-center gap-2 rounded-full text-label text-foreground transition-colors duration-fast ease-standard hover:bg-muted lg:w-auto lg:flex-1 lg:rounded-md';
 
 /** The text of a post, as the person wrote it: plain text, line breaks kept, its own direction. */
 function Text({ children }: { children: string }) {
+  const short = children.length <= SHORT_POST && !children.includes('\n');
   return (
-    <p dir="auto" className="order-3 w-full whitespace-pre-wrap wrap-anywhere">
+    <p dir="auto" className={cn('order-3 w-full whitespace-pre-wrap wrap-anywhere', short && 'text-lead')}>
       {children}
     </p>
   );
@@ -94,27 +104,33 @@ export function FeedCard(props: FeedCardProps) {
       aria-setsize={-1}
       data-unit-id={unit.id}
       tabIndex={0}
-      className="flex flex-wrap items-start gap-x-3 gap-y-3 rounded-lg bg-card p-4 text-body text-card-foreground shadow-card md:p-5"
+      className="flex flex-wrap items-start gap-x-3 gap-y-2 bg-card px-4 pt-3 pb-1 text-body text-card-foreground lg:rounded-lg lg:p-5 lg:pb-2 lg:shadow-card"
     >
-      <header className="order-1 flex min-w-0 flex-1 flex-col gap-1">
-        <span id={authorId} className="text-label">
-          {author}
-          {/* I11: a Professional author's "יועץ · תחום" tag (decisions-in-force §4) */}
-          {!unit.isAnonymous && unit.author.tag !== undefined ? <span className="text-small font-normal text-primary-strong"> · {unit.author.tag}</span> : null}
+      <Avatar decorative size="md" className="order-1" {...(unit.isAnonymous ? { anonymous: true } : { name: author })} />
+      <header className="order-1 flex min-w-0 flex-1 flex-col">
+        <span id={authorId} className="flex flex-wrap items-center gap-x-2 text-h3">
+          <bdi>{author}</bdi>
+          {/* I11: a Professional author's "יועץ · תחום" tag (decisions-in-force §4): grey, the words in plum (redesign 27.10.2026) */}
+          {!unit.isAnonymous && unit.author.tag !== undefined ? (
+            <span className="rounded-sm bg-muted px-1.5 text-caption font-bold text-primary-strong">
+              <span className="sr-only"> · </span>
+              {unit.author.tag}
+            </span>
+          ) : null}
         </span>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div className="flex flex-wrap items-center gap-x-2">
           {/* I13 (BR-005, VAL-012, §11.5): a promoted post is always marked "ממומן" */}
-          {unit.source === 'promoted' ? <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{SPONSORED_LABEL}</span> : null}
+          {unit.source === 'promoted' ? <span className="rounded-sm bg-foreground px-1.5 text-caption font-bold text-background">{SPONSORED_LABEL}</span> : null}
           {/* I10-C (§11.13): a Group's Highlight says where it is from instead of its audience (the Group decides who reads it) */}
           {unit.kind === 'post' && unit.group !== undefined ? (
-            <Link to={groupPath(unit.group.id)} className="text-small font-semibold text-primary-strong underline underline-offset-4">
+            <Link to={groupPath(unit.group.id)} className="text-caption font-bold text-primary-strong underline underline-offset-4">
               {fromGroup(unit.group.name)}
             </Link>
           ) : (
             <span className={AUDIENCE_CLASS}>{AUDIENCE_LABELS[unit.audience]}</span>
           )}
           {unit.stageTag !== null ? (
-            <span className="rounded-full bg-badge px-2.5 text-small text-badge-foreground">{STAGE_LABELS[unit.stageTag]}</span>
+            <span className="text-caption font-bold text-primary-strong">{STAGE_LABELS[unit.stageTag]}</span>
           ) : null}
         </div>
       </header>
@@ -148,11 +164,31 @@ export function FeedCard(props: FeedCardProps) {
               {MUTED_IN_GROUP_TEXT}
             </p>
           ) : null}
+          {onToggleLike === undefined || (unit.likeCount === 0 && unit.commentCount === 0) ? null : (
+            // The counts (redesign 27.10.2026): the nest bubble and the likes at the start, "N תגובות" at the end. Their numbers are in the
+            // actions' names too, so a screen reader skips this line.
+            <div aria-hidden="true" className="order-3 flex w-full items-center gap-1.5 text-caption text-muted-foreground tabular-nums">
+              {unit.likeCount > 0 ? (
+                <>
+                  <span className="grid size-5 place-items-center rounded-full bg-primary text-primary-foreground">
+                    <NestFilledIcon className="size-3.5" />
+                  </span>
+                  {unit.likeCount.toLocaleString('en-US')}
+                </>
+              ) : null}
+              {unit.commentCount > 0 ? (
+                <span className="ms-auto">
+                  {unit.commentCount.toLocaleString('en-US')} {COMMENTS_TITLE}
+                </span>
+              ) : null}
+            </div>
+          )}
           {onToggleLike === undefined ? null : (
-            <div className="order-3 w-full flex flex-wrap items-center gap-x-2">
-              <LikeButton label={LIKE_LABEL} count={unit.likeCount} liked={unit.likedByMe} onToggle={onToggleLike} />
+            <div className="order-3 -mx-1 flex w-full items-center gap-1 lg:mx-0 lg:border-t lg:border-divider lg:pt-1">
+              <LikeButton variant="action" label={LIKE_LABEL} count={unit.likeCount} liked={unit.likedByMe} onToggle={onToggleLike} />
               {/* ux-polish-a c9: a button (no navigation): focus goes to this card's comment field; without one (an anonymous card before
                   its read, a failed read, a post gone), to what the comment area shows instead. */}
+              <Tooltip label={unit.commentCount > 0 ? `${COMMENTS_TITLE}, ${unit.commentCount.toLocaleString('en-US')}` : COMMENTS_TITLE}>
               <button
                 type="button"
                 data-comments-button=""
@@ -165,27 +201,41 @@ export function FeedCard(props: FeedCardProps) {
                     area?.querySelector<HTMLElement>('[data-comment-id]');
                   target?.focus();
                 }}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md px-2 text-label text-muted-foreground transition-colors duration-fast ease-standard hover:bg-muted"
+                className={ACTION_CLASS}
               >
-                {COMMENTS_TITLE}
-                {unit.commentCount > 0 ? ` ${unit.commentCount.toLocaleString('en-US')}` : null}
+                <CommentIcon />
+                <span aria-hidden="true" className="hidden lg:inline">
+                  {COMMENTS_TITLE}
+                </span>
               </button>
-              {offerHelp === undefined ? null : <OfferHelpControl {...offerHelp} />}
+              </Tooltip>
               {onShareInFeed === undefined ? null : (
-                <Button iconOnly label={SHARE_IN_FEED_LABEL} data-share-feed onClick={onShareInFeed}>
-                  <ShareInFeedIcon className="size-5" />
-                </Button>
+                <Tooltip label={SHARE_IN_FEED_LABEL}>
+                  <button type="button" aria-label={SHARE_IN_FEED_LABEL} data-share-feed="" onClick={onShareInFeed} className={ACTION_CLASS}>
+                    <ShareInFeedIcon />
+                    <span aria-hidden="true" className="hidden lg:inline">
+                      {SHARE_IN_FEED_LABEL}
+                    </span>
+                  </button>
+                </Tooltip>
               )}
               {onShareLink === undefined ? null : (
-                <Button iconOnly label={SHARE_LINK_LABEL} data-share-link onClick={onShareLink}>
-                  <ShareLinkIcon className="size-5" />
-                </Button>
+                <Tooltip label={SHARE_LINK_LABEL}>
+                  <button type="button" aria-label={SHARE_LINK_LABEL} data-share-link="" onClick={onShareLink} className={ACTION_CLASS}>
+                    <ShareLinkIcon />
+                    <span aria-hidden="true" className="hidden lg:inline">
+                      {SHARE_LINK_LABEL}
+                    </span>
+                  </button>
+                </Tooltip>
               )}
+              {/* FR-SERV-005: the Professional's offer is the last action, at the row's far end */}
+              {offerHelp === undefined ? null : <OfferHelpControl {...offerHelp} />}
             </div>
           )}
           <Link
             to={postPath(unit.id)}
-            className="order-2 inline-flex min-h-11 min-w-11 items-center rounded-sm text-small text-muted-foreground underline underline-offset-4"
+            className="order-2 inline-flex min-h-11 min-w-11 items-center justify-end rounded-sm text-caption text-muted-foreground no-underline hover:underline"
           >
             <PublishedTime iso={unit.createdAt} />
           </Link>
