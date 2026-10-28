@@ -5,7 +5,9 @@
 --
 --   tests.fx_te_count() / fx_ce_count()   rows of tracker_events / cycle_entries, unfiltered
 --   tests.fx_sg_count(status)             rows of status_guides with that status (all when null), unfiltered
---   tests.fx_sg_id(stage_kind, from)      the id of the guide of that kind starting at that range (null for planning)
+--   tests.fx_sg_id(stage_kind, from)      the id of the SEED guide of that kind starting at that range (null for planning): one of
+--                                         the nine drafts of 20261020100000, the oldest rows (one statement, one created_at);
+--                                         guides a later migration added are never returned
 --   tests.fx_sg_exec(sql)                 one UPDATE of nestly.status_guides as the owner role (publish, hide):
 --                                         'OK:<rows>' or 'ERR:<sqlstate>'
 -- =====================================================================================================================
@@ -37,7 +39,8 @@ as $$ select count(*) from nestly.status_guides g where p_status is null or g.st
 
 create or replace function tests.fx_sg_id(p_kind text, p_from int default null) returns uuid
 language sql stable security definer set search_path = ''
-as $$ select g.id from nestly.status_guides g where g.stage_kind = p_kind and g.range_from is not distinct from p_from::smallint $$;
+as $$ select g.id from nestly.status_guides g where g.stage_kind = p_kind and g.range_from is not distinct from p_from::smallint
+        and g.created_at = (select min(s.created_at) from nestly.status_guides s) $$;
 
 create or replace function tests.fx_sg_exec(p_sql text) returns text
 language plpgsql security definer set search_path = ''

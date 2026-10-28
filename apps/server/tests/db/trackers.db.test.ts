@@ -218,7 +218,10 @@ describe('[F6.0-a c10 FR-HOME-001 FR-HOME-004 AC-006 AC-069 AC-095] GET /api/hom
     const app = await start();
     const a = await bearerFor(ACCOUNT_A);
     const before = jsonOf((await call(app, 'GET', '/api/home', a)).body);
-    expect(before.guides).toEqual([]);
+    // Guides a migration published may already show; the seed drafts used below never do while they are drafts.
+    const beforeTitles: unknown[] = (Array.isArray(before.guides) ? before.guides : []).map((g: unknown) => prop(g, 'title'));
+    expect(beforeTitles).not.toContain('השליש הראשון: מה כדאי לדעת');
+    expect(beforeTitles).not.toContain('גיל הגן: שינה, משחק ומסכים');
     const contexts: unknown[] = Array.isArray(before.contexts) ? before.contexts : [];
     expect(contexts.map((c) => prop(c, 'kind'))).toEqual(['pregnancy', 'parenting', 'parenting']);
     expect(contexts[0]).toMatchObject({ week: 3, trimester: 1 });
@@ -231,7 +234,9 @@ describe('[F6.0-a c10 FR-HOME-001 FR-HOME-004 AC-006 AC-069 AC-095] GET /api/hom
     const after = jsonOf((await call(app, 'GET', '/api/home', a)).body);
     const guides: unknown[] = Array.isArray(after.guides) ? after.guides : [];
     const titles = guides.map((g) => prop(g, 'title'));
-    expect(titles).toEqual(['השליש הראשון: מה כדאי לדעת', 'גיל הגן: שינה, משחק ומסכים']);
+    expect(titles.filter((t) => !beforeTitles.includes(t))).toEqual(['השליש הראשון: מה כדאי לדעת', 'גיל הגן: שינה, משחק ומסכים']);
+    expect(titles).toEqual(expect.arrayContaining(beforeTitles));
+    expect(titles).toHaveLength(beforeTitles.length + 2);
     // B (planning only, a child of 16 months or so) gets no guide that is not for B's stage.
     const b = jsonOf((await call(app, 'GET', '/api/home', await bearerFor(ACCOUNT_B))).body);
     expect(JSON.stringify(b.guides)).not.toContain('השליש הראשון');

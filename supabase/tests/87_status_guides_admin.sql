@@ -28,11 +28,15 @@ select tests.fx_sf_grant(pg_temp.id('m3'), array['SUPPORT_VIEW', 'SUPPORT_HANDLE
 select is(tests.fx_sg_count('draft'), 9::bigint, '[F6.1-a c1] nine seed drafts exist');
 
 -- ---- who reads drafts -----------------------------------------------------------------------------------------------------------
-select is(pg_temp.n('d', 'nestly.status_guides'), '9', '[F6.1-a c2 FR-ADMIN-012] the Admin reads every guide, drafts included');
-select is(pg_temp.n('a', 'nestly.status_guides'), '0', '[F6.1-a c2 AC-095] a user reads no draft');
-select is(pg_temp.n('p', 'nestly.status_guides'), '0', '[F6.1-a c2 AC-095] a Professional reads no draft');
-select is(pg_temp.n('m0', 'nestly.status_guides'), '0', '[F6.1-a c2 §3.2] a Moderator with no key reads no draft');
-select is(pg_temp.n('m3', 'nestly.status_guides'), '0', '[F6.1-a c2 §3.2] a Moderator with all fourteen keys reads no draft');
+-- Guides Afik approved are published by their own migration: counts are relative to the rows at the start of the file (zz_sg).
+create temp table zz_sg as select tests.fx_sg_count() as total, tests.fx_sg_count('published') as pub;
+select is(pg_temp.n('d', 'nestly.status_guides'), (select total::text from zz_sg), '[F6.1-a c2 FR-ADMIN-012] the Admin reads every guide, drafts included');
+select is(pg_temp.n('d', $$nestly.status_guides where status = 'draft'$$), '9', '[F6.1-a c2 FR-ADMIN-012] the nine drafts among them');
+select is(pg_temp.n('a', $$nestly.status_guides where status <> 'published'$$), '0', '[F6.1-a c2 AC-095] a user reads no draft');
+select is(pg_temp.n('a', 'nestly.status_guides'), (select pub::text from zz_sg), '[F6.1-a c2 AC-095] a user reads the published guides only');
+select is(pg_temp.n('p', $$nestly.status_guides where status <> 'published'$$), '0', '[F6.1-a c2 AC-095] a Professional reads no draft');
+select is(pg_temp.n('m0', $$nestly.status_guides where status <> 'published'$$), '0', '[F6.1-a c2 §3.2] a Moderator with no key reads no draft');
+select is(pg_temp.n('m3', $$nestly.status_guides where status <> 'published'$$), '0', '[F6.1-a c2 §3.2] a Moderator with all fourteen keys reads no draft');
 
 -- ---- who writes -----------------------------------------------------------------------------------------------------------------
 select is(pg_temp.dml('d', $$ insert into nestly.status_guides (stage_kind, title, body, source) values ('planning', 'מדריך חדש', 'גוף המדריך', 'משרד הבריאות') $$), 'OK:1',
@@ -60,17 +64,19 @@ select is(pg_temp.dml('d', $$ update nestly.status_guides set status = 'publishe
   '[F6.1-a c5 BR-070 FR-ADMIN-012] the Admin publishes with no source check date (Afik 21.10.2026; migration 20261023700000)');
 select is(pg_temp.dml('d', $$ update nestly.status_guides set status = 'published', source_checked_on = date '2026-10-21' where title = 'מדריך ערוך' $$), 'OK:1',
   '[F6.1-a c5 BR-070] an edit of the published guide adds a source check date');
-select is(pg_temp.n('d', $$nestly.status_guides where status = 'published' and published_at is not null$$), '1', '[F6.1-a c5] the database stamped the publication time');
-select is(pg_temp.n('a', 'nestly.status_guides'), '1', '[F6.1-a c5 AC-095] a user now reads that one guide');
-select is(pg_temp.n('m3', 'nestly.status_guides'), '1', '[F6.1-a c5 AC-095] and so does a Moderator, as a user (published only)');
+select is(pg_temp.n('d', $$nestly.status_guides where title = 'מדריך ערוך' and status = 'published' and published_at is not null$$), '1', '[F6.1-a c5] the database stamped the publication time');
+select is(pg_temp.n('a', $$nestly.status_guides where title = 'מדריך ערוך'$$), '1', '[F6.1-a c5 AC-095] a user now reads that guide');
+select is(pg_temp.n('a', 'nestly.status_guides'), (select (pub + 1)::text from zz_sg), '[F6.1-a c5 AC-095] one more than before');
+select is(pg_temp.n('m3', $$nestly.status_guides where title = 'מדריך ערוך'$$), '1', '[F6.1-a c5 AC-095] and so does a Moderator, as a user (published only)');
 select is(pg_temp.dml('m3', $$ update nestly.status_guides set status = 'hidden' where status = 'published' $$), 'OK:0',
   '[F6.1-a c5 §3.2] a Moderator with all keys cannot hide a published guide (0 rows)');
 select is(pg_temp.dml('a', $$ update nestly.status_guides set status = 'hidden' where status = 'published' $$), 'OK:0',
   '[F6.1-a c5 AC-095] a user cannot hide a published guide (0 rows)');
 select is(pg_temp.dml('p', $$ update nestly.status_guides set status = 'hidden' where status = 'published' $$), 'OK:0',
   '[F6.1-a c5 AC-095] a Professional cannot hide a published guide (0 rows)');
-select is(pg_temp.dml('d', $$ update nestly.status_guides set status = 'hidden' where status = 'published' $$), 'OK:1', '[F6.1-a c5] the Admin hides it');
-select is(pg_temp.n('a', 'nestly.status_guides'), '0', '[F6.1-a c5 AC-095] no user reads a hidden guide');
+select is(pg_temp.dml('d', $$ update nestly.status_guides set status = 'hidden' where title = 'מדריך ערוך' $$), 'OK:1', '[F6.1-a c5] the Admin hides it');
+select is(pg_temp.n('a', $$nestly.status_guides where title = 'מדריך ערוך'$$), '0', '[F6.1-a c5 AC-095] no user reads a hidden guide');
+select is(pg_temp.n('a', 'nestly.status_guides'), (select pub::text from zz_sg), '[F6.1-a c5 AC-095] the other published guides stay');
 select is(pg_temp.n('d', $$nestly.status_guides where status = 'hidden'$$), '1', '[F6.1-a c5] the Admin still reads it');
 select is(pg_temp.dml('d', $$ update nestly.status_guides set status = 'draft' where status = 'hidden' $$), 'OK:1', '[F6.1-a c5] and puts it back to a draft');
 select is(pg_temp.n('d', $$nestly.status_guides where status = 'draft' and published_at is null$$), '10', '[F6.1-a c5] a draft has no publication time');
@@ -102,9 +108,9 @@ select tests.fx_link_put(pg_temp.id('d'), 'affected', '22222222-2222-4222-8222-2
 select is(pg_temp.dml('d', $$ insert into nestly.status_guides (stage_kind, title, body, source) values ('planning', 'x', 'y', 'z') $$, false), 'ERR:42501',
   '[F6.1-a c8 BR-026] an Admin whose session is stale cannot create a guide (42501)');
 select is(pg_temp.dml('d', $$ update nestly.status_guides set title = 'x' $$, false), 'OK:0', '[F6.1-a c8 BR-026] nor edit one (0 rows)');
-select is(pg_temp.n('d', 'nestly.status_guides'), '0', '[F6.1-a c8] nor read the drafts');
+select is(pg_temp.n('d', $$nestly.status_guides where status <> 'published'$$), '0', '[F6.1-a c8] nor read the drafts');
 select tests.fx_link_put(pg_temp.id('d'), 'unaffected', '22222222-2222-4222-8222-222222222222'::uuid);
-select is(pg_temp.n('d', 'nestly.status_guides'), '10', '[F6.1-a c8] a fresh session reads them again');
+select is(pg_temp.n('d', 'nestly.status_guides'), (select (total + 1)::text from zz_sg), '[F6.1-a c8] a fresh session reads them again');
 
 select * from finish();
 rollback;
