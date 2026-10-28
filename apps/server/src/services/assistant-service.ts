@@ -7,6 +7,7 @@ import type { AssistantTurn } from '@nestly/shared';
 import type { Database } from '../db/client.js';
 import { inIdentityTransaction } from '../db/identity-transaction.js';
 import { readDatabaseFault } from '../lib/pg-error.js';
+import { markOutsideCall } from '../lib/server-timing.js';
 import type { Identity } from '../lib/token-verifier.js';
 import { decideLimit, type AssistantLimits } from '../assistant/assistant-limits.js';
 import type { AssistantFailure, AssistantModel } from '../assistant/assistant-model.js';
@@ -46,7 +47,10 @@ export async function askAssistant(
   const counted = await countAssistantMessage(database, identity, limits);
   if (counted === 'not_allowed') return { kind: 'not_allowed' };
   if (counted === 'limited') return { kind: 'rate_limited' };
+  const started = performance.now();
   const reply = await model.answer(history, text);
+  // Preview and Production only (Server-Timing): the model's own time and outcome, e.g. "ok" or "error-404"; never content.
+  markOutsideCall('assistant', reply.kind === 'ok' ? 'ok' : `${reply.failure}${reply.status === undefined ? '' : `-${reply.status}`}`, performance.now() - started);
   if (reply.kind === 'ok') return { kind: 'ok', answer: reply.answer };
   return { kind: 'unavailable', failure: reply.failure, ...(reply.status === undefined ? {} : { status: reply.status }) };
 }
