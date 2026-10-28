@@ -156,7 +156,7 @@ export type Comment = Post['comments'][number];
 export type Listing = Content['listings'][number];
 export type TrackerEvent = Content['trackers'][number]['events'][number];
 
-const FILES = ['personas', 'social', 'posts-feed', 'posts-groups', 'posts-more', 'professional', 'market', 'activity'] as const;
+const FILES = ['personas', 'social', 'posts-feed', 'posts-groups', 'posts-more', 'professional', 'market', 'activity', 'guest'] as const;
 
 function readJson(name: string): unknown {
   return JSON.parse(readFileSync(new URL(`./content/${name}.json`, import.meta.url), 'utf8'));
