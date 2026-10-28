@@ -40,6 +40,12 @@ test.describe('[F14.2-b] the staff homes', () => {
     // I14 completion B (AC-157, OP-057, Afik 21.10.2026 §11.8): no "expiring invitations" card
     await expect(page.getByText(/הזמנות שפגות בקרוב/)).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'השבוע לעומת השבוע הקודם' })).toBeVisible();
+    // AC-216: the community's last 30 days as daily charts, each with its numbers as a table, and a link to all the data
+    await expect(page.getByRole('heading', { name: 'הקהילה ב-30 הימים האחרונים' })).toBeVisible();
+    for (const name of ['הרשמות ליום', 'חשבונות שנכנסו', 'פוסטים ליום', 'דיווחים ליום']) await expect(page.getByRole('img', { name, exact: true })).toBeVisible();
+    await expect(page.getByText('150 בתקופה · 5 ביום בממוצע')).toBeVisible();
+    await expect(page.getByRole('table', { name: 'הרשמות ליום · הנתונים בטבלה' }).getByRole('row')).toHaveCount(31);
+    await expect(page.getByRole('link', { name: 'לכל הנתונים' })).toHaveAttribute('href', '/admin/analytics');
     await expect(page.getByText('נועה לוי')).toBeVisible();
     // the children's trends: closed lists, cells only, a small cell hidden with no number
     await page.getByRole('combobox', { name: 'מעקב' }).selectOption('bottle');
@@ -51,7 +57,7 @@ test.describe('[F14.2-b] the staff homes', () => {
     const asked = page.waitForRequest((request) => request.url().includes('/api/admin/child-trends'));
     await page.getByRole('button', { name: 'הצגה', exact: true }).click();
     expect(new URL((await asked).url()).searchParams.get('period')).toBe('this_week');
-    const table = page.getByRole('table', { name: 'הנתונים בטבלה' });
+    const table = page.getByRole('table', { name: 'הנתונים בטבלה', exact: true });
     await expect(table.getByRole('row', { name: /בנות/ })).toContainText('125');
     await expect(table.getByRole('row', { name: /בנים/ })).toContainText('מוסתר');
     expect(net.sent.some((s) => s.path.includes('child-trends'))).toBe(false); // a GET, not recorded as a write
