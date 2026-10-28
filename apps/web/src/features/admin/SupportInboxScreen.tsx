@@ -9,7 +9,7 @@ import { SelectInput } from '@/components/ui/select-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TextArea } from '@/components/ui/text-area';
 import { useChatCall } from '@/hooks/use-chat-call';
-import { EMPTY_TEXT, NO_NAME, STATUS_LABELS, SUPPORT_NAME, TOO_LONG_TEXT, TOPIC_LABELS } from '@/lib/chat-texts';
+import { EMPTY_TEXT, NO_NAME, STATUS_LABELS, TOO_LONG_TEXT, TOPIC_LABELS } from '@/lib/chat-texts';
 import { fetchSupportDetail, fetchSupportInbox, sendSupportStaffMessage, setSupportStatus, type ChatResult } from '@/services/api/chat';
 import { formatAdminTime } from './admin-format';
 import {
@@ -21,6 +21,7 @@ import {
   NOT_FOUND_TEXT,
   RETRY_LABEL,
   SUPPORT_ALL_LABEL,
+  SUPPORT_AUTHOR_NAME,
   SUPPORT_BACK_LABEL,
   SUPPORT_CANCEL_LABEL,
   SUPPORT_CLOSE_DESCRIPTION,
@@ -228,7 +229,7 @@ function SupportRequestPanel({ requestId, canHandle, onBack }: { requestId: stri
             {view.detail.messages.map((message) => (
               <li key={message.id} className={`rounded-md border p-3 text-small ${message.internal ? 'border-dashed border-border bg-muted' : 'border-border'}`}>
                 <p className="text-label">
-                  {message.internal ? SUPPORT_INTERNAL_NOTE : message.author === 'support' ? SUPPORT_NAME : (view.detail.userName ?? NO_NAME)} ·{' '}
+                  {message.internal ? SUPPORT_INTERNAL_NOTE : message.author === 'support' ? SUPPORT_AUTHOR_NAME : (view.detail.userName ?? NO_NAME)} ·{' '}
                   {formatAdminTime(message.at)}
                 </p>
                 <p dir="auto" className="whitespace-pre-wrap">

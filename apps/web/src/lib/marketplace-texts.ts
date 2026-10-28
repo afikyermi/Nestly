@@ -120,7 +120,7 @@ export const FORM_ERRORS: Record<string, string> = {
 };
 
 // ---- staff: listings (MARKETPLACE_MODERATE) and Sponsored Products (FR-ADMIN-009, Admin only)
-export const ADMIN_LISTINGS_TITLE = 'מודעות Marketplace';
+export const ADMIN_LISTINGS_TITLE = 'מודעות החנות';
 export const ADMIN_LISTINGS_SEARCH = 'חיפוש לפי כותרת';
 export const ADMIN_LISTINGS_EMPTY = 'אין מודעות.';
 export const ADMIN_REASON_LABEL = 'סיבה (נרשמת ביומן)';
@@ -131,7 +131,7 @@ export const ADMIN_HIDDEN_DONE = 'המודעה הוסתרה.';
 export const ADMIN_RESTORED_DONE = 'המודעה הוחזרה.';
 export const ADMIN_SEARCH_BUTTON = 'חיפוש';
 export const SPONSORED_TITLE = 'מוצרים ממומנים';
-export const SPONSORED_INTRO = 'מוצר ממומן מוצג ב-Marketplace תמיד עם הסימון "ממומן", בנפרד ממודעות המשתמשים. קופון להדגמה הוא מוצר ממומן רגיל, ונמחק לפני ההשקה.';
+export const SPONSORED_INTRO = 'מוצר ממומן מוצג בחנות תמיד עם הסימון "ממומן", בנפרד ממודעות המשתמשים. קופון להדגמה הוא מוצר ממומן רגיל, ונמחק לפני ההשקה.';
 export const SPONSORED_NEW_HEADING = 'מוצר ממומן חדש';
 export const SPONSORED_SPONSOR_LABEL = 'שם המפרסם';
 export const SPONSORED_TITLE_LABEL = 'כותרת';

@@ -47,6 +47,7 @@ const bucketLabel = (bucket: string): string => CHILD_TREND_BUCKET_LABELS[bucket
 // a split and a period from closed lists; the server answers cells only, and a cell of fewer than 10 children or 10 families comes back hidden,
 // with no number; a shown number of children is rounded to the nearest 10 and the period is a calendar week or month (completion B, OP-056).
 // Each query is recorded in the Audit Log by the database. A bar per cell, and the same numbers as a table.
+// The dashboard look (Afik 28.10.2026): the controls and the result in one outlined card; a plum bar on a muted track, numbers in tabular figures.
 export function ChildTrendsBuilder({ headingLevel = 3 }: { headingLevel?: 2 | 3 }) {
   const call = useAdminCall();
   const [metric, setMetric] = useState<ChildTrendMetric>('bottle');
@@ -71,107 +72,111 @@ export function ChildTrendsBuilder({ headingLevel = 3 }: { headingLevel?: 2 | 3 
         {CHILD_TRENDS_TITLE}
       </Heading>
       <p className="text-small text-muted-foreground">{CHILD_TRENDS_LEAD}</p>
-      <div className="flex flex-wrap items-end gap-3">
-        <FormField label={CHILD_TRENDS_METRIC} htmlFor="trend-metric" className="min-w-36">
-          {(control) => (
-            <SelectInput
-              {...control}
-              options={CHILD_TREND_METRICS.map((value) => ({ value, label: CHILD_TREND_METRIC_LABELS[value] }))}
-              value={metric}
-              placeholder="—"
-              onChange={(value) => {
-                if (!isMetric(value)) return;
-                setMetric(value);
-                if (!CHILD_TREND_FIELDS_BY_METRIC[value].includes(field)) setField('events_per_day');
-              }}
-            />
-          )}
-        </FormField>
-        <FormField label={CHILD_TRENDS_FIELD} htmlFor="trend-field" className="min-w-44">
-          {(control) => (
-            <SelectInput
-              {...control}
-              options={fields.map((value) => ({ value, label: CHILD_TREND_FIELD_LABELS[value] }))}
-              value={field}
-              placeholder="—"
-              onChange={(value) => {
-                const next = fields.find((candidate) => candidate === value);
-                if (next !== undefined) setField(next);
-              }}
-            />
-          )}
-        </FormField>
-        <FormField label={CHILD_TRENDS_DIMENSION} htmlFor="trend-dimension" className="min-w-36">
-          {(control) => (
-            <SelectInput
-              {...control}
-              options={CHILD_TREND_DIMENSIONS.map((value) => ({ value, label: CHILD_TREND_DIMENSION_LABELS[value] }))}
-              value={dimension}
-              placeholder="—"
-              onChange={(value) => {
-                if (isDimension(value)) setDimension(value);
-              }}
-            />
-          )}
-        </FormField>
-        <FormField label={CHILD_TRENDS_PERIOD} htmlFor="trend-period" className="min-w-32">
-          {(control) => (
-            <SelectInput
-              {...control}
-              options={CHILD_TREND_PERIODS.map((value) => ({ value, label: CHILD_TREND_PERIOD_LABELS[value] }))}
-              value={period}
-              placeholder="—"
-              onChange={(value) => {
-                const next = CHILD_TREND_PERIODS.find((candidate) => candidate === value);
-                if (next !== undefined) setPeriod(next);
-              }}
-            />
-          )}
-        </FormField>
-        <Button pending={view.kind === 'loading'} onClick={() => void show()}>
-          {CHILD_TRENDS_SHOW}
-        </Button>
-      </div>
-      {view.kind === 'loading' ? <p role="status">{LOADING_TEXT}</p> : null}
-      {view.kind === 'failed' ? <InlineAlert>{view.message}</InlineAlert> : null}
-      {view.kind === 'loaded' ? (
-        <>
-          <ul aria-hidden="true" className="flex flex-col gap-1">
-            {view.trends.cells.map((cell) => (
-              <li key={cell.bucket} className="grid grid-cols-3 items-center gap-2 text-small">
-                <span>{bucketLabel(cell.bucket)}</span>
-                {cell.suppressed || cell.value === null ? (
-                  <span className="text-muted-foreground">{CHILD_TRENDS_SUPPRESSED}</span>
-                ) : (
-                  <span className="h-3 rounded-sm bg-primary" style={{ width: `${Math.max(4, (cell.value / max) * 100)}%` }} />
-                )}
-                <span dir="ltr" className="text-end">
-                  {cell.value === null ? '' : cell.value}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <table className="w-full border-collapse text-small">
-            <caption className="text-start text-label">{CHILD_TRENDS_TABLE}</caption>
-            <thead>
-              <tr className="border-b border-border">
-                <th scope="col" className="px-2 py-1 text-start">{CHILD_TRENDS_BUCKET}</th>
-                <th scope="col" className="px-2 py-1 text-start">{CHILD_TRENDS_VALUE}</th>
-                <th scope="col" className="px-2 py-1 text-start">{CHILD_TRENDS_COUNT}</th>
-              </tr>
-            </thead>
-            <tbody>
+      <div className="flex flex-col gap-4 rounded-lg bg-card p-4 shadow-card">
+        <div className="flex flex-wrap items-end gap-3">
+          <FormField label={CHILD_TRENDS_METRIC} htmlFor="trend-metric" className="min-w-36">
+            {(control) => (
+              <SelectInput
+                {...control}
+                options={CHILD_TREND_METRICS.map((value) => ({ value, label: CHILD_TREND_METRIC_LABELS[value] }))}
+                value={metric}
+                placeholder="—"
+                onChange={(value) => {
+                  if (!isMetric(value)) return;
+                  setMetric(value);
+                  if (!CHILD_TREND_FIELDS_BY_METRIC[value].includes(field)) setField('events_per_day');
+                }}
+              />
+            )}
+          </FormField>
+          <FormField label={CHILD_TRENDS_FIELD} htmlFor="trend-field" className="min-w-44">
+            {(control) => (
+              <SelectInput
+                {...control}
+                options={fields.map((value) => ({ value, label: CHILD_TREND_FIELD_LABELS[value] }))}
+                value={field}
+                placeholder="—"
+                onChange={(value) => {
+                  const next = fields.find((candidate) => candidate === value);
+                  if (next !== undefined) setField(next);
+                }}
+              />
+            )}
+          </FormField>
+          <FormField label={CHILD_TRENDS_DIMENSION} htmlFor="trend-dimension" className="min-w-36">
+            {(control) => (
+              <SelectInput
+                {...control}
+                options={CHILD_TREND_DIMENSIONS.map((value) => ({ value, label: CHILD_TREND_DIMENSION_LABELS[value] }))}
+                value={dimension}
+                placeholder="—"
+                onChange={(value) => {
+                  if (isDimension(value)) setDimension(value);
+                }}
+              />
+            )}
+          </FormField>
+          <FormField label={CHILD_TRENDS_PERIOD} htmlFor="trend-period" className="min-w-32">
+            {(control) => (
+              <SelectInput
+                {...control}
+                options={CHILD_TREND_PERIODS.map((value) => ({ value, label: CHILD_TREND_PERIOD_LABELS[value] }))}
+                value={period}
+                placeholder="—"
+                onChange={(value) => {
+                  const next = CHILD_TREND_PERIODS.find((candidate) => candidate === value);
+                  if (next !== undefined) setPeriod(next);
+                }}
+              />
+            )}
+          </FormField>
+          <Button pending={view.kind === 'loading'} onClick={() => void show()}>
+            {CHILD_TRENDS_SHOW}
+          </Button>
+        </div>
+        {view.kind === 'loading' ? <p role="status">{LOADING_TEXT}</p> : null}
+        {view.kind === 'failed' ? <InlineAlert>{view.message}</InlineAlert> : null}
+        {view.kind === 'loaded' ? (
+          <>
+            <ul aria-hidden="true" className="flex flex-col gap-2 border-t border-divider pt-4">
               {view.trends.cells.map((cell) => (
-                <tr key={cell.bucket} className="border-b border-border">
-                  <th scope="row" className="px-2 py-1 text-start font-normal">{bucketLabel(cell.bucket)}</th>
-                  <td className="px-2 py-1">{cell.suppressed ? CHILD_TRENDS_SUPPRESSED : (cell.value ?? '')}</td>
-                  <td className="px-2 py-1">{cell.children ?? ''}</td>
-                </tr>
+                <li key={cell.bucket} className="flex items-center gap-3 text-small">
+                  <span className="w-24 shrink-0">{bucketLabel(cell.bucket)}</span>
+                  {cell.suppressed || cell.value === null ? (
+                    <span className="flex-1 text-muted-foreground">{CHILD_TRENDS_SUPPRESSED}</span>
+                  ) : (
+                    <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
+                      <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.max(4, (cell.value / max) * 100)}%` }} />
+                    </span>
+                  )}
+                  <span dir="ltr" className="w-14 shrink-0 text-end text-label tabular-nums">
+                    {cell.value === null ? '' : cell.value}
+                  </span>
+                </li>
               ))}
-            </tbody>
-          </table>
-        </>
-      ) : null}
+            </ul>
+            <table className="w-full border-collapse text-small tabular-nums">
+              <caption className="text-start text-label">{CHILD_TRENDS_TABLE}</caption>
+              <thead>
+                <tr className="border-b border-border">
+                  <th scope="col" className="px-2 py-1 text-start">{CHILD_TRENDS_BUCKET}</th>
+                  <th scope="col" className="px-2 py-1 text-start">{CHILD_TRENDS_VALUE}</th>
+                  <th scope="col" className="px-2 py-1 text-start">{CHILD_TRENDS_COUNT}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {view.trends.cells.map((cell) => (
+                  <tr key={cell.bucket} className="border-b border-border">
+                    <th scope="row" className="px-2 py-1 text-start font-normal">{bucketLabel(cell.bucket)}</th>
+                    <td className="px-2 py-1">{cell.suppressed ? CHILD_TRENDS_SUPPRESSED : (cell.value ?? '')}</td>
+                    <td className="px-2 py-1">{cell.children ?? ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ) : null}
+      </div>
     </section>
   );
 }
