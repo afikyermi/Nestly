@@ -234,6 +234,9 @@ create function pg_temp.sg_where_id(p_kind text, p_from int default null) return
 $f$;
 select is(tests.fx_sg_count('draft'), 9::bigint, '[I6 BR-070] the nine seed guide texts are drafts awaiting approval');
 select is(tests.fx_sg_count('hidden'), 0::bigint, '[I6 BR-070] every other guide is a published (approved) one');
+select ok((select pub from zz_sg) >= 14, '[BR-070 FR-HOME-004] the 14 guides Afik approved on 28.10.2026 are published (migration 20261028200000)');
+select is(tests.n_as(pg_temp.id('a'), $$nestly.status_guides where source_checked_on is null or published_at is null$$), '0',
+  '[BR-070 FR-ADMIN-012] each published guide carries its source check date and its publication time');
 select is(tests.n_as(pg_temp.id('a'), $$nestly.status_guides where status <> 'published'$$), '0', '[I6 AC-095] a user reads no draft');
 select is(tests.n_as(pg_temp.id('p'), $$nestly.status_guides where status <> 'published'$$), '0', '[I6 AC-095] a Professional reads no draft');
 select is(tests.n_as(pg_temp.id('a'), 'nestly.status_guides'), (select pub::text from zz_sg), '[I6 AC-095] a user reads exactly the published guides');

@@ -148,7 +148,8 @@ select lives_ok($q$ select tests.fx_pv_delete_child(tests.fx_pv_id('pv_b'), 1),
 -- c9 — no other path: every table and view in nestly, read directly as V, returns none of B's rows
 -- =====================================================================================================================
 -- One DO block as V scans every relation for B's id, names, dates; a hit raises 'hits: <relation>=<n> ...'. A relation V may
--- not read at all counts as none. Run as B the same scan must find B's rows: the scan can fail.
+-- not read at all counts as none. Run as B the same scan must find B's rows: the scan can fail. status_guides is skipped: system
+-- content with no user column, whose published Hebrew text contains the substring נועה ("תנועה", 20261028200000).
 create function pg_temp.scan(p_set_guc boolean) returns text language sql as $f$
   select format($d$
     do $x$
@@ -156,7 +157,7 @@ create function pg_temp.scan(p_set_guc boolean) returns text language sql as $f$
     begin
       if %L then perform pg_catalog.set_config('nestly.profile_view_target', %L, true); end if;
       for r in select c.relname from pg_catalog.pg_class c join pg_catalog.pg_namespace s on s.oid = c.relnamespace
-                where s.nspname = 'nestly' and c.relkind in ('r', 'p', 'v', 'm', 'f') loop
+                where s.nspname = 'nestly' and c.relkind in ('r', 'p', 'v', 'm', 'f') and c.relname <> 'status_guides' loop
         begin
           execute pg_catalog.format('select count(*) from nestly.%%I t where pg_catalog.to_jsonb(t)::text ~ %%L', r.relname, %L) into n;
         exception when insufficient_privilege then n := 0;
