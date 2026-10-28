@@ -46,8 +46,8 @@ const ask = async (userId: string, message: string) => {
     payload: JSON.stringify({ text: message, history: [] }),
   });
   const body: unknown = JSON.parse(res.body);
-  // A 5xx carries the server's own log line (a fixed line and the SQLSTATE, never a text) into the failure message.
-  if (res.statusCode >= 500) return { status: res.statusCode, body, log: log.lines().filter((line) => line.includes('assistant')).join('') };
+  // An unexpected 500 carries the server's own log line (a fixed line and the SQLSTATE, never a text) into the failure message.
+  if (res.statusCode === 500) return { status: res.statusCode, body, log: log.lines().filter((line) => line.includes('assistant')).join('') };
   return { status: res.statusCode, body };
 };
 
