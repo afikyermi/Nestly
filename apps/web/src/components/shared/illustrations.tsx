@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 
-// Abstract, in-house illustrations in the palette: a nest, leaves, soft shapes. No baby, no
-// pregnancy, no family (direction.md, images). Decorative, so always aria-hidden. Every colour
-// is a token class (fill-*, stroke-*), never a hex.
+// The six illustrations of the redesign (27.10.2026, docs/design/handoff-2026-10-27/illustrations): ripple circles, one shape in sand and
+// one ink line. No faces, no babies, no belly (direction.md, images). Only for empty states, errors and onboarding. Decorative, so always
+// aria-hidden. Every colour is a token class (fill-*, stroke-*), never a hex.
 interface IllustrationProps {
   /** Placement only (margin, alignment, max width). */
   className?: string | undefined;
@@ -11,12 +11,13 @@ interface IllustrationProps {
   'aria-label'?: never;
 }
 
-function Svg({ width, height, className, children }: IllustrationProps & { width: number; height: number; children: ReactNode }) {
+/** All six share one 168×120 drawing area; `width` is the drawn width in px (the height follows). */
+function Svg({ width, className, children }: IllustrationProps & { width: number; children: ReactNode }) {
   return (
     <svg
       width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
+      height={Math.round((width * 120) / 168)}
+      viewBox="0 0 168 120"
       aria-hidden="true"
       focusable="false"
       className={cn('h-auto max-w-full', className)}
@@ -26,64 +27,101 @@ function Svg({ width, height, className, children }: IllustrationProps & { width
   );
 }
 
-// The nest of the welcome illustration.
-function Nest() {
+// The ripples every illustration stands on: a pale plum disc and two thin rings.
+function Ripples() {
   return (
     <>
-      <path d="M46 100h128" className="stroke-primary-strong" strokeWidth={3} strokeLinecap="round" fill="none" />
-      <path
-        d="M48 100c0 26 28 42 62 42s62-16 62-42"
-        className="fill-primary-soft stroke-primary-strong"
-        strokeWidth={3}
-        strokeLinejoin="round"
-      />
-      <path
-        d="M62 114c16 6 30 8 48 8s34-3 48-9M70 128c12 4 26 6 40 6s28-2 40-7"
-        className="stroke-primary opacity-55"
-        strokeWidth={2}
-        strokeLinecap="round"
-        fill="none"
-      />
+      <circle cx="84" cy="70" r="56" className="fill-brand-subtle" />
+      <circle cx="84" cy="70" r="42" strokeWidth={1.5} fill="none" className="stroke-primary opacity-25" />
+      <circle cx="84" cy="70" r="28" strokeWidth={1.5} fill="none" className="stroke-primary opacity-25" />
     </>
   );
 }
 
+// Welcome and onboarding: the nest of waves holding its egg.
 export function WelcomeIllustration({ className }: IllustrationProps) {
   return (
-    <Svg width={220} height={170} className={className}>
-      <circle cx={110} cy={88} r={78} className="fill-accent-soft" />
-      <path d="M40 60c18-22 44-30 66-26" className="stroke-primary opacity-35" strokeWidth={2} strokeLinecap="round" fill="none" />
-      <path d="M172 52c-10-10-24-14-38-12" className="stroke-primary opacity-35" strokeWidth={2} strokeLinecap="round" fill="none" />
-      <ellipse cx={96} cy={86} rx={17} ry={22} className="fill-card stroke-primary-strong" strokeWidth={2.5} />
-      <ellipse cx={126} cy={90} rx={15} ry={19} className="fill-primary-soft stroke-primary-strong" strokeWidth={2.5} />
-      <Nest />
-      <path d="M170 128c10-6 16-16 16-26M178 112c6 2 10 0 12-4" className="stroke-success" strokeWidth={2.5} strokeLinecap="round" fill="none" />
+    <Svg width={220} className={className}>
+      <Ripples />
+      <ellipse cx="84" cy="48" rx="14" ry="18" transform="rotate(-12 84 48)" className="fill-egg" />
+      <path d="M50 62h68c0 19-15.2 33-34 33S50 81 50 62z" className="fill-primary" />
+      <path d="M61 74c7.6-4.5 15.2-4.5 23 0s15.4 4.5 23 0" strokeWidth={3} strokeLinecap="round" fill="none" className="stroke-card" />
     </Svg>
   );
 }
 
+// The registration steps: the same nest, smaller.
 export function RegistrationIllustration({ className }: IllustrationProps) {
   return (
-    <Svg width={120} height={84} className={className}>
-      <circle cx={60} cy={44} r={38} className="fill-accent-soft" />
-      <path d="M24 50h72" className="stroke-primary-strong" strokeWidth={2.5} strokeLinecap="round" fill="none" />
-      <path d="M26 50c0 14 15 22 34 22s34-8 34-22" className="fill-primary-soft stroke-primary-strong" strokeWidth={2.5} />
-      <path
-        d="M60 22c-4-6-14-5-14 3 0 6 8 11 14 15 6-4 14-9 14-15 0-8-10-9-14-3Z"
-        className="fill-primary opacity-85"
-      />
+    <Svg width={120} className={className}>
+      <Ripples />
+      <ellipse cx="84" cy="48" rx="14" ry="18" transform="rotate(-12 84 48)" className="fill-egg" />
+      <path d="M50 62h68c0 19-15.2 33-34 33S50 81 50 62z" className="fill-primary" />
+      <path d="M61 74c7.6-4.5 15.2-4.5 23 0s15.4 4.5 23 0" strokeWidth={3} strokeLinecap="round" fill="none" className="stroke-card" />
     </Svg>
   );
 }
 
-// The empty feed: a small, quiet nest with two leaves. Nothing figurative.
+// An empty feed: the nest with a few sand strokes above it.
 export function EmptyFeedIllustration({ className }: IllustrationProps) {
   return (
-    <Svg width={96} height={72} className={className}>
-      <circle cx={48} cy={38} r={32} className="fill-accent-soft" />
-      <path d="M22 42h52" className="stroke-primary-strong" strokeWidth={2.5} strokeLinecap="round" fill="none" />
-      <path d="M24 42c0 12 11 18 24 18s24-6 24-18" className="fill-primary-soft stroke-primary-strong" strokeWidth={2.5} />
-      <path d="M62 30c6-2 10-8 10-14M66 22c4 0 6-1 8-4" className="stroke-success" strokeWidth={2.5} strokeLinecap="round" fill="none" />
+    <Svg width={120} className={className}>
+      <Ripples />
+      <path d="M52 68h64c0 18-14.3 31-32 31S52 86 52 68z" className="fill-primary" />
+      <path d="M62 79c7-4 14-4 22 0s15 4 22 0" strokeWidth={3} strokeLinecap="round" fill="none" className="stroke-card" />
+      <path d="M96 38l4-8M104 46l8-3M88 34l0-9" strokeWidth={3} strokeLinecap="round" fill="none" className="stroke-egg" />
+    </Svg>
+  );
+}
+
+// No search results: a magnifier over a wave.
+export function NoResultsIllustration({ className }: IllustrationProps) {
+  return (
+    <Svg width={120} className={className}>
+      <Ripples />
+      <path d="M34 92c10-6 20-6 30 0s20 6 30 0 20-6 30 0" strokeWidth={3} strokeLinecap="round" fill="none" className="stroke-primary opacity-40" />
+      <circle cx="80" cy="58" r="20" strokeWidth={3} className="fill-card stroke-foreground" />
+      <path d="M95 73l14 14" strokeWidth={4} strokeLinecap="round" fill="none" className="stroke-foreground" />
+      <circle cx="74" cy="53" r="5" className="fill-egg" />
+    </Svg>
+  );
+}
+
+// A screen that failed to load: two broken waves and a sand circle.
+export function ErrorIllustration({ className }: IllustrationProps) {
+  return (
+    <Svg width={120} className={className}>
+      <Ripples />
+      <path d="M30 80c9-6 18-6 27 0s18 6 22 3" strokeWidth={3.5} strokeLinecap="round" fill="none" className="stroke-primary" />
+      <path d="M92 77c4-3 11-3 18 1s14 5 23 0" strokeWidth={3.5} strokeLinecap="round" fill="none" className="stroke-primary" />
+      <path d="M84 50v14M84 72v.5" strokeWidth={4} strokeLinecap="round" fill="none" className="stroke-foreground" />
+      <circle cx="84" cy="62" r="22" strokeWidth={3} fill="none" className="stroke-egg" />
+    </Svg>
+  );
+}
+
+// No conversations yet: two bubbles.
+export function NoChatsIllustration({ className }: IllustrationProps) {
+  return (
+    <Svg width={120} className={className}>
+      <Ripples />
+      <rect x="44" y="40" width="58" height="38" rx="14" className="fill-primary" />
+      <path d="M58 78l-6 10 14-10z" className="fill-primary" />
+      <rect x="72" y="58" width="56" height="34" rx="14" strokeWidth={2.5} className="fill-card stroke-foreground" />
+      <circle cx="90" cy="75" r="3" className="fill-foreground" />
+      <circle cx="100" cy="75" r="3" className="fill-foreground" />
+      <circle cx="110" cy="75" r="3" className="fill-foreground" />
+    </Svg>
+  );
+}
+
+// No reviews yet: a star with a sand centre.
+export function NoReviewsIllustration({ className }: IllustrationProps) {
+  return (
+    <Svg width={120} className={className}>
+      <Ripples />
+      <path d="M84 40l9 18 20 3-14.5 14 3.4 20L84 85.5 66.1 95l3.4-20L55 61l20-3z" strokeWidth={2.5} strokeLinejoin="round" className="fill-card stroke-foreground" />
+      <circle cx="84" cy="68" r="6" className="fill-egg" />
     </Svg>
   );
 }

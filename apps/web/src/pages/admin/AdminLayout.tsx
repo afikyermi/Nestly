@@ -93,20 +93,22 @@ export function AdminLayout() {
     <>
       <title>{documentTitle(ADMIN_TITLE)}</title>
       <h1 className="text-h2">{ADMIN_TITLE}</h1>
-      <nav aria-label={ADMIN_NAV_LABEL} className="mt-4">
-        <ul className="flex flex-wrap gap-2">
+      {/* One row of tabs that scrolls sideways when it does not fit (redesign 27.10.2026): quiet text, the open one marked by a plum underline
+          and a heavier label, never a plum fill. */}
+      <nav aria-label={ADMIN_NAV_LABEL} className="-mx-4 mt-4 overflow-x-auto border-b border-divider px-4 lg:mx-0 lg:px-0">
+        <ul className="m-0 flex w-max list-none gap-1 p-0">
           {tabs.map(({ tab, path }) => (
             <li key={tab}>
               <NavLink
                 to={path}
                 end={path === PATHS.admin}
                 className={({ isActive }) =>
-                  `inline-flex min-h-11 items-center rounded-md px-4 text-label no-underline ${isActive ? 'bg-primary text-primary-foreground' : 'bg-primary-soft text-primary-strong'}`
+                  `-mb-px inline-flex min-h-11 items-center border-b-2 px-3 text-label whitespace-nowrap no-underline transition-colors duration-fast ease-standard ${isActive ? 'border-primary font-bold text-primary-strong' : 'border-transparent text-muted-foreground hover:text-foreground'}`
                 }
               >
                 {tab === 'home' ? (access.role === 'admin' ? ADMIN_HOME_TITLE : MY_WORK_TITLE) : TAB_LABELS[tab]}
                 {waiting(tab, inbox) > 0 ? (
-                  <span className="ms-2 rounded-full bg-card px-2 text-caption text-foreground">{INBOX_BADGE(waiting(tab, inbox))}</span>
+                  <span className="ms-2 rounded-full bg-badge px-2 text-caption font-bold text-badge-foreground tabular-nums">{INBOX_BADGE(waiting(tab, inbox))}</span>
                 ) : null}
               </NavLink>
             </li>

@@ -15,8 +15,8 @@
 | שכבה | יחידה לוגית | אחריות |
 |---|---|---|
 | Shared Layout Component | מעטפת האפליקציה | מעטפת משותפת לאחר התחברות: Top Bar, Bottom Navigation עבור סוגי המשתמשים הרלוונטיים ואזור תוכן. Admin/Moderator משתמשים במעטפת ניהול ללא השתתפות חברתית. |
-| Shared UI Component | סרגל עליון (Top Bar) | סרגל עליון גלובלי ורב-שימושי. מקבל מבחוץ Role/Permissions, counters ופעולות. Regular/Professional: Hamburger, Global Search, Chat, Notifications. Admin/Moderator: Hamburger ניהולי + Notifications; אין Social Chat/Global Search צרכני. |
-| Shared UI Component | ניווט תחתון (Bottom Navigation) | ניווט תחתון קבוע בין היעדים המרכזיים; אינו מכיל את לוגיקת היעדים עצמם. |
+| Shared UI Component | סרגל עליון (Top Bar) | סרגל עליון גלובלי ורב-שימושי. מקבל מבחוץ Role/Permissions, counters ופעולות. Regular/Professional: לוגו, Global Search, Chat, Notifications ו-Hamburger, ומ-1024px גם יעדי הניווט (§7.3). Admin/Moderator: Hamburger ניהולי + Notifications; אין Social Chat/Global Search צרכני. |
+| Shared UI Component | ניווט תחתון (Bottom Navigation) | ניווט תחתון קבוע בין היעדים המרכזיים, מתחת ל-1024px (מ-1024px היעדים בסרגל העליון); אינו מכיל את לוגיקת היעדים עצמם. |
 | Shared UI Component | כפתור | כפתור כללי ורב-שימושי. מקבל טקסט/אייקון/מצב/variant ואירוע פעולה מבחוץ. |
 | Shared UI Component | שדה טקסט | שדה טקסט כללי. כללי ולידציה עסקיים מוגדרים בטופס/Feature המשתמש בו. |
 | Shared UI Component | שדה סיסמה | שדה סיסמה רב-שימושי; כללי הסיסמה נמסרים מה-flow הרלוונטי. |
@@ -130,7 +130,7 @@
 | Shared UI Component | שדה טופס | עוטף שדה קלט: תווית מעל השדה, רמז, סימון "(לא חובה)" והודעת שגיאה מקושרת לשדה. הוולידציה עצמה נקבעת ב-Feature. |
 | Shared UI Component | תיבת סימון | תיבת סימון עם תווית, שיכולה להכיל קישורים (למשל אישור תנאי השימוש). |
 | Shared UI Component | הודעה בתוך המסך | הודעת מצב בתוך המסך, למשל שגיאת התחברות. הטקסט מגיע מבחוץ, מקטלוג השגיאות (§10). |
-| Shared UI Component | לוגו | סימן המותג (wordmark זמני, OP-022), כקישור או כתמונה, בשני גדלים. מוחלף במקום אחד כשתיקבע הזהות הסופית. |
+| Shared UI Component | לוגו | סימן המותג — קן עשוי גלים עם ביצה — ו-"nestly" באותיות קטנות (OP-022 נסגר), כקישור או כתמונה, בשני גדלים. |
 | Feature / Container | שיתוף פוסט | מנהל שיתוף בפיד ושיתוף קישור (FR-FEED-006/007): בדיקה שמותר לשתף (BR-064), שמירת הפניה למקור (BR-065), מצב "לא זמין" ויצירת קישור בלי תוכן בתצוגה המקדימה (BR-067). |
 | Feature / Container | גישה לבטא | מנהל את רשימת המוזמנים לבטא הסגורה ואת מצב הבטא, ובודק בהרשמה שהאימייל מוזמן (FR-ADMIN-011). |
 | Page | מסך מוזמני הבטא (PG-045) | מסך Admin לניהול רשימת המוזמנים ומצב הבטא. |

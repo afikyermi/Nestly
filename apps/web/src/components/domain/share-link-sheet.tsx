@@ -5,6 +5,7 @@ import { InlineAlert } from '@/components/shared/inline-alert';
 import { MenuItem } from '@/components/shared/menu-item';
 import { Button } from '@/components/ui/button';
 import { SheetPanel, SheetTitle } from '@/components/ui/dialog';
+import { CheckIcon } from '@/components/ui/icons';
 import { TextInput } from '@/components/ui/text-input';
 import {
   COPY_FAILED_TEXT,
@@ -37,6 +38,9 @@ export interface ShareLinkSheetProps {
   /** Where focus goes when it closes; unset or null: back to the element that opened it. */
   finalFocus?: (() => HTMLElement | null) | undefined;
 }
+
+// "הקישור הועתק" as a toast: dark, white text, a tick, corners 14, in the middle of the sheet.
+const TOAST = 'inline-flex items-center gap-2.5 self-center rounded-lg bg-foreground px-4 py-3 text-label text-background shadow-raised';
 
 // The share-link window (F3.6 c4, c5, c11, c12; FR-FEED-007) on the shared sheet: WhatsApp and email as links that open the person's own
 // app, "העתקת קישור", and "אפשרויות נוספות" where the device has its own sheet; the link carries the post id only (BR-067). Display only:
@@ -86,8 +90,15 @@ export function ShareLinkSheet(props: ShareLinkSheetProps) {
         ) : null}
       </ul>
       {/* One polite region, present from the first render, so "הקישור הועתק" is said. */}
-      <p role="status" className={copy === 'copied' ? 'text-body text-muted-foreground' : 'sr-only'}>
-        {copy === 'copied' ? LINK_COPIED_STATUS : ''}
+      <p role="status" className={copy === 'copied' ? TOAST : 'sr-only'}>
+        {copy === 'copied' ? (
+          <>
+            <CheckIcon className="size-5" />
+            {LINK_COPIED_STATUS}
+          </>
+        ) : (
+          ''
+        )}
       </p>
       {copy === 'shown' ? (
         <div ref={fieldRef} className="flex flex-col gap-3">

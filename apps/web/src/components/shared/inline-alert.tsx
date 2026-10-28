@@ -7,16 +7,16 @@ export interface InlineAlertProps {
   children: ReactNode;
 }
 
-// A form-level message (the login error, ERR-001). The icon and the text carry the meaning,
+// A form-level message (the login error, ERR-001): a full-width strip. The icon and the text carry the meaning,
 // the soft red background only supports them, so it is never colour alone.
 export function InlineAlert({ variant = 'error', children }: InlineAlertProps) {
   return (
     <div
       role="alert"
       data-variant={variant}
-      className="flex items-start gap-2.5 rounded-md bg-destructive-soft px-3.5 py-3 text-body text-destructive"
+      className="flex w-full items-start gap-2.5 rounded-md bg-destructive-soft px-4 py-3 text-body text-destructive"
     >
-      <AlertIcon className="mt-0.5 size-6 shrink-0" />
+      <AlertIcon className="mt-0.5 size-5 shrink-0" />
       <span>{children}</span>
     </div>
   );

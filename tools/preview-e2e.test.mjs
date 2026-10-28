@@ -50,12 +50,12 @@ test('[E c1] only the deployment job can write: contents write and deployments r
   assert.deepEqual([job.needs].flat(), ['deployment']);
 });
 
-test('[E c1] the deployment job checks out the default branch; the e2e job checks out the commit it found, without credentials', () => {
+test('[E c1] the deployment job checks out the default branch; the e2e job checks out the commit it found (main, for a branch walked before its merge), without credentials', () => {
   const co = dsteps.find((s) => /actions\/checkout/.test(String(s.uses)));
   assert.equal(co.with.ref, '${{ github.event.repository.default_branch }}');
   assert.equal(String(co.with['fetch-depth']), '0');
   const eco = steps.find((s) => /actions\/checkout/.test(String(s.uses)));
-  assert.match(eco.with.ref, /^\$\{\{\s*needs\.deployment\.outputs\.sha\s*\}\}$/);
+  assert.match(eco.with.ref, /^\$\{\{\s*inputs\.branch && github\.event\.repository\.default_branch \|\| needs\.deployment\.outputs\.sha\s*\}\}$/);
   assert.equal(String(eco.with['persist-credentials']), 'false');
 });
 
@@ -69,11 +69,11 @@ test('[E c1] the deployment job runs no repository code and holds no secret: git
   assert.match(runOf(holders[0]), /gh api/);
 });
 
-test('[E c1] ready/nightly is never force-pushed: exactly one plain push of the commit to refs/heads/ready/nightly', () => {
+test('[E c1] ready/nightly (and ready/preview-check) is never force-pushed: exactly one plain push of the commit to one of the two', () => {
   const runs = allSteps.map((st) => codeOf(runOf(st))).join('\n');
   const pushes = runs.split('\n').filter((l) => /\bgit\s+push\b/.test(l));
   assert.equal(pushes.length, 1, pushes.join('\n'));
-  assert.match(pushes[0], /git push origin "\$\{sha\}:refs\/heads\/ready\/nightly"/);
+  assert.match(pushes[0], /git push origin "\$\{sha\}:refs\/heads\/\$\{target\}"/);
   assert.doesNotMatch(runs, /--force|--force-with-lease|--mirror|--delete|\bpush\b[^\n]*\s-f\b|\bpush\b[^\n]*\s\+|update-ref|branch -D/);
 });
 

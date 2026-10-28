@@ -31,3 +31,4 @@ export * from './groups.js';
 export * from './marketplace.js';
 export * from './staff-work.js';
 export * from './account-deletion.js';
+export * from './assistant.js';

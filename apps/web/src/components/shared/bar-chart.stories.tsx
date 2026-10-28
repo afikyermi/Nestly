@@ -34,3 +34,6 @@ export const Empty: Story = { args: { points: week.map((p) => ({ ...p, value: 0 
 export const ManyDays: Story = {
   args: { points: Array.from({ length: 60 }, (_, i) => ({ label: `${(i % 28) + 1}.${i < 28 ? 9 : 10}`, value: (i * 37) % 90 })) },
 };
+// The Admin's data screens (Afik 28.10.2026): a value axis with a faint grid, rounded bar tops, the title left to the card.
+export const Dashboard: Story = { args: { variant: 'dashboard', points: Array.from({ length: 30 }, (_, i) => ({ label: `${(i % 28) + 1}.10`, value: (i * 37) % 90 })) } };
+export const DashboardEmpty: Story = { args: { variant: 'dashboard', points: week.map((p) => ({ ...p, value: 0 })) } };

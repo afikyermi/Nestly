@@ -25,6 +25,7 @@ import { shareFeedSheetValues, useShareInFeed } from './use-share-in-feed';
 import { CONFIRM_DELETE_LABEL, DELETE_FAILED_TEXT, DELETED_STATUS, LOAD_FAILED_TEXT, SAVE_FAILED_TEXT, UPDATED_STATUS } from './posts-texts';
 import { EDIT_ITEM_LABEL } from './hide-texts';
 import { useOfferHelp } from '@/hooks/use-offer-help';
+import { Toast } from '@/components/domain/toast';
 
 type Loaded = Extract<PostScreenView, { kind: 'loaded' }>;
 
@@ -260,6 +261,7 @@ export function PostScreen({ postId }: { postId: string }) {
   const target = loaded === null || loaded.edit !== null || reviewing ? null : shareTargetOf(loaded.post);
   const link = loaded === null || loaded.edit !== null ? null : postLinkOf(shareLink.origin, loaded.post);
   return (
+    <>
     <PostContent
       view={view}
       focus={focus}
@@ -303,10 +305,12 @@ export function PostScreen({ postId }: { postId: string }) {
           ? undefined
           : (() => {
               const { post } = loaded;
-              return { sent: post.offerHelp === 'sent' || offer.isSent(post.id), onOffer: () => offer.start(post.id, post.isAnonymous) };
+              return { sent: post.offerHelp === 'sent' || offer.isSent(post.id), onOffer: () => offer.start(post.id, post.isAnonymous, post.body ?? undefined) };
             })()
       }
       offerSheet={offer.draft === null ? null : { ...offer.draft, onTextChange: offer.change, onSend: offer.send, onCancel: offer.cancel }}
     />
+    <Toast text={offer.toast} />
+    </>
   );
 }

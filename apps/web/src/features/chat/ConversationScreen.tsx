@@ -2,14 +2,13 @@ import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 
 import { Link } from 'react-router';
 import { chatTextProblem, type ConversationThread } from '@nestly/shared';
 import { PATHS } from '@/app/paths';
+import { MessageComposer } from '@/components/domain/message-composer';
 import { ReportSheet } from '@/components/domain/report-sheet';
-import { FormField } from '@/components/shared/form-field';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { MoreActionsMenu } from '@/components/ui/more-actions-menu';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TextArea } from '@/components/ui/text-area';
 import { useChatCall } from '@/hooks/use-chat-call';
 import { reportSheetProps, useReport } from '@/hooks/use-report';
 import { formatPostTime } from '@/lib/format-post-time';
@@ -174,10 +173,10 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
       <p role="status" className={status === '' ? 'sr-only' : 'text-small text-muted-foreground'}>
         {status}
       </p>
-      <ol aria-label={THREAD_LABEL} className="flex flex-col gap-2 rounded-lg bg-card p-3 shadow-card">
+      <ol aria-label={THREAD_LABEL} className="flex flex-col gap-2 py-2">
         {thread.messages.map((message) => (
           <li key={message.id} className={`flex items-start gap-1 ${message.mine ? 'justify-start' : 'justify-end'}`}>
-            <div className={`max-w-sm rounded-lg px-3 py-2 ${message.mine ? 'bg-primary-soft text-primary-strong' : 'bg-muted text-foreground'}`}>
+            <div className={`max-w-sm rounded-xl px-3.5 py-2 text-foreground ${message.mine ? 'rounded-es-sm bg-primary-soft' : 'rounded-ee-sm border border-border bg-card'}`}>
               <span className="sr-only">{messageFrom(message.mine, name)}: </span>
               <p dir="auto" className="whitespace-pre-wrap wrap-anywhere">
                 {message.text}
@@ -200,19 +199,17 @@ export function ConversationScreen({ conversationId }: { conversationId: string 
       </ol>
       {failure === null ? null : <InlineAlert>{failure}</InlineAlert>}
       {thread.canSend ? (
-        <form onSubmit={(event) => void send(event)} className="flex flex-col gap-2" aria-labelledby={headingId}>
-          <FormField label={MESSAGE_LABEL} {...(problem === null ? {} : { error: problem })}>
-            {(control) => <TextArea {...control} rows={3} dir="auto" value={text} onChange={(event) => setText(event.target.value)} />}
-          </FormField>
-          <div>
-            <Button type="submit" pending={sending}>
-              {SEND_LABEL}
-            </Button>
-            <span role="status" className="sr-only">
-              {sending ? SENDING_TEXT : ''}
-            </span>
-          </div>
-        </form>
+        <MessageComposer
+          label={MESSAGE_LABEL}
+          sendLabel={SEND_LABEL}
+          text={text}
+          onTextChange={setText}
+          problem={problem}
+          sending={sending}
+          sendingText={SENDING_TEXT}
+          labelledBy={headingId}
+          onSubmit={(event) => void send(event)}
+        />
       ) : (
         <p data-testid="chat-cannot-send" className="rounded-md bg-muted p-3 text-label">
           {CANNOT_SEND_TEXT}

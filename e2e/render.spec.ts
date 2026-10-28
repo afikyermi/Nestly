@@ -1,33 +1,33 @@
-// UI wave 1 part b: criterion 15 (RTL, Hebrew, Rubik, 375 default viewport).
+// UI wave 1 part b: criterion 15 (RTL, Hebrew, Assistant, 375 default viewport).
 import { expect, test } from '@playwright/test';
 import { MOBILE, openStory, storyIds } from './helpers';
 
 test.use({ viewport: MOBILE });
 
 for (const id of storyIds()) {
-  test(`[15] ${id}: renders with dir="rtl", lang="he" and Rubik`, async ({ page }) => {
+  test(`[15] ${id}: renders with dir="rtl", lang="he" and Assistant`, async ({ page }) => {
     await openStory(page, id);
     const info = await page.evaluate(async () => {
       const html = document.documentElement;
       const root = document.querySelector('#storybook-root');
       const family = (root ? getComputedStyle(root).fontFamily : '').split(',')[0]?.trim().replace(/["']/g, '') ?? '';
       await document.fonts.load(`16px "${family}"`, 'שלום');
-      const rubikLoaded = Array.from(document.fonts).some((f) => /Rubik/.test(f.family) && f.status === 'loaded');
+      const fontLoaded = Array.from(document.fonts).some((f) => /Assistant/.test(f.family) && f.status === 'loaded');
       return {
         dir: html.getAttribute('dir'),
         lang: html.getAttribute('lang'),
         computedDirection: root ? getComputedStyle(root).direction : null,
         fontFamily: root ? getComputedStyle(root).fontFamily : '',
-        rubikLoaded,
-        rubikChecked: document.fonts.check(`16px "${family}"`, 'שלום'),
+        fontLoaded,
+        fontChecked: document.fonts.check(`16px "${family}"`, 'שלום'),
       };
     });
     expect(info.dir).toBe('rtl');
     expect(info.lang).toBe('he');
     expect(info.computedDirection).toBe('rtl');
-    expect(info.fontFamily).toMatch(/Rubik/);
-    expect(info.rubikLoaded).toBe(true);
-    expect(info.rubikChecked).toBe(true);
+    expect(info.fontFamily).toMatch(/Assistant/);
+    expect(info.fontLoaded).toBe(true);
+    expect(info.fontChecked).toBe(true);
   });
 }
 

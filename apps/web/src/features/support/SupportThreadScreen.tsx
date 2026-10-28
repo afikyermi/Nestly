@@ -2,11 +2,10 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router';
 import { chatTextProblem, type SupportThread } from '@nestly/shared';
 import { PATHS } from '@/app/paths';
-import { FormField } from '@/components/shared/form-field';
+import { MessageComposer } from '@/components/domain/message-composer';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TextArea } from '@/components/ui/text-area';
 import { useChatCall } from '@/hooks/use-chat-call';
 import { formatPostTime } from '@/lib/format-post-time';
 import { fetchSupportThread, replySupport } from '@/services/api/chat';
@@ -131,16 +130,15 @@ export function SupportThreadScreen({ requestId }: { requestId: string }) {
       {thread.status === 'closed' ? (
         <p className="rounded-md bg-muted p-3 text-label">{SUPPORT_CLOSED_TEXT}</p>
       ) : (
-        <form onSubmit={(event) => void send(event)} className="flex flex-col gap-2">
-          <FormField label={REPLY_LABEL} {...(problem === null ? {} : { error: problem })}>
-            {(control) => <TextArea {...control} rows={3} dir="auto" value={text} onChange={(event) => setText(event.target.value)} />}
-          </FormField>
-          <div>
-            <Button type="submit" pending={sending}>
-              {SEND_LABEL}
-            </Button>
-          </div>
-        </form>
+        <MessageComposer
+          label={REPLY_LABEL}
+          sendLabel={SEND_LABEL}
+          text={text}
+          onTextChange={setText}
+          problem={problem}
+          sending={sending}
+          onSubmit={(event) => void send(event)}
+        />
       )}
     </div>
   );

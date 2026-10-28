@@ -46,14 +46,14 @@ export function NotificationBell() {
           type="button"
           aria-label={unreadBellLabel(unread)}
           data-notification-bell=""
-          className="relative inline-flex size-11 items-center justify-center rounded-md text-foreground hover:bg-muted"
+          className="relative inline-flex size-11 items-center justify-center rounded-full text-primary-foreground hover:bg-primary-strong"
         >
           <BellIcon />
           {unread > 0 ? (
             <span
               aria-hidden="true"
               data-unread-count=""
-              className="absolute end-1 top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-semibold text-primary-foreground"
+              className="absolute end-0.5 top-0.5 inline-flex min-w-5 items-center justify-center rounded-full bg-card px-1 text-caption font-bold text-badge-foreground tabular-nums"
             >
               {unread > 99 ? "99+" : unread}
             </span>

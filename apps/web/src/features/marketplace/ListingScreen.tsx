@@ -167,7 +167,7 @@ export function ListingScreen({ listingId }: { listingId: string }) {
           {badges.length === 0 ? null : (
             <p className="mb-1 flex flex-wrap gap-1">
               {badges.map((badge) => (
-                <span key={badge} className="rounded-full bg-muted px-2 text-caption">
+                <span key={badge} className="inline-flex h-5.5 items-center rounded-sm border border-border bg-card px-2 text-caption font-bold">
                   {badge}
                 </span>
               ))}

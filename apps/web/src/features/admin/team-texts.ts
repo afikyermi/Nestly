@@ -37,11 +37,11 @@ export const TEAM_REVOKED = 'ההזמנה בוטלה';
 
 /** The Permission Keys' names (SRS §3.1). */
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
-  SUPPORT_VIEW: 'צפייה בפניות Support',
-  SUPPORT_HANDLE: 'טיפול בפניות Support',
+  SUPPORT_VIEW: 'צפייה בפניות תמיכה',
+  SUPPORT_HANDLE: 'טיפול בפניות תמיכה',
   REPORTS_VIEW: 'צפייה בדיווחים',
   CONTENT_MODERATE: 'טיפול בתוכן קהילתי ובתמונות',
-  MARKETPLACE_MODERATE: 'טיפול במודעות Marketplace',
+  MARKETPLACE_MODERATE: 'טיפול במודעות החנות',
   USER_VIEW: 'צפייה במשתמשים',
   USER_WARN: 'אזהרת משתמש',
   USER_SUSPEND: 'השעיית משתמש',
@@ -151,7 +151,7 @@ export const ANALYTICS_PROS_FOLLOWS = 'מעקבים חדשים בתקופה';
 export const ANALYTICS_PROS_CHATS = 'שיחות שנפתחו בתקופה';
 export const ANALYTICS_PROS_REVIEWS = 'ביקורות חדשות בתקופה';
 export const ANALYTICS_PROS_BY_FIELD = 'חשבונות מקצועיים פעילים לפי תחום';
-export const ANALYTICS_MARKET = 'Marketplace';
+export const ANALYTICS_MARKET = 'חנות';
 export const ANALYTICS_MARKET_ACTIVE = 'מודעות מוצגות עכשיו';
 export const ANALYTICS_MARKET_CREATED = 'מודעות חדשות בתקופה';
 export const ANALYTICS_MARKET_SOLD = 'מודעות שסומנו כנמכרו בתקופה';
@@ -179,6 +179,21 @@ export const ANALYTICS_TABLE = 'הנתונים בטבלה';
 export const ANALYTICS_DAY = 'יום';
 export const ANALYTICS_COUNT = 'מספר';
 export const ANALYTICS_NONE = '—';
+// The dashboard's frame (Afik 28.10.2026): the summary row first, then the sections in three groups, each chart in a card with its total.
+export const ANALYTICS_SUMMARY = 'תמונת מצב';
+export const ANALYTICS_SUMMARY_ITEMS = {
+  active: 'חשבונות פעילים',
+  registrations: 'הרשמות בתקופה',
+  posts: 'פוסטים בתקופה',
+  comments: 'תגובות בתקופה',
+  reports: 'דיווחים בתקופה',
+  support: 'פניות תמיכה בתקופה',
+} as const;
+export const ANALYTICS_OF_ACCOUNTS = (total: string) => `מתוך ${total} חשבונות`;
+export const ANALYTICS_WEEK_HINT = 'בשבוע האחרון, לעומת השבוע שלפניו';
+export const ANALYTICS_GROUP_LABELS = { community: 'קהילה ותוכן', safety: 'בטיחות ותמיכה', business: 'בעלי מקצוע וחנות' } as const;
+export const ANALYTICS_BY_TYPE = 'חשבונות לפי סוג';
+export const ANALYTICS_CHART_TOTAL = (total: string, average: string) => `${total} בתקופה · ${average} ביום בממוצע`;
 
 // ---- the staff inbox (AC-044)
 export const INBOX_BADGE = (count: number) => `${count} ממתינים`;

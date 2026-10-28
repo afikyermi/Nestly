@@ -25,7 +25,7 @@ export function DrawerPanel({ open, onOpenChange, children, finalFocus, classNam
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-drawer bg-foreground/40" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-drawer bg-foreground/45" />
         <DialogPrimitive.Content
           ref={panel}
           aria-describedby={undefined}
@@ -78,7 +78,7 @@ export function AlertPanel({ open, onOpenChange, children, described, finalFocus
   return (
     <AlertDialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialogPrimitive.Portal>
-        <AlertDialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/40" onClick={() => onOpenChange(false)} />
+        <AlertDialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/45" onClick={() => onOpenChange(false)} />
         <AlertDialogPrimitive.Content
           aria-modal="true"
           {...(described ? {} : { 'aria-describedby': undefined })}
@@ -91,7 +91,7 @@ export function AlertPanel({ open, onOpenChange, children, described, finalFocus
             (finalFocus?.() ?? opener.current)?.focus();
           }}
           className={cn(
-            'fixed inset-x-4 top-1/2 z-dialog mx-auto flex max-w-sm -translate-y-1/2 flex-col gap-4 rounded-lg bg-card p-card-padding',
+            'fixed inset-x-4 top-1/2 z-dialog mx-auto flex max-w-sm -translate-y-1/2 flex-col gap-4 rounded-xl bg-card p-card-padding',
             'text-card-foreground shadow-raised',
             className,
           )}
@@ -130,36 +130,92 @@ interface SheetPanelProps {
 }
 
 // The sheet of an action done in place (direction.md "דפוסי אינטראקציה": share and report; F3.7 c10, F3.5/F3.6 reuse it): below 1024 px a
-// bottom sheet, from 1024 px a small window in the middle. role="dialog", aria-modal, portaled over a backdrop that blurs the page by 4 px; a
-// focus trap, the page scroll locked and the rest of the page inert (Radix Dialog). Escape and a press outside close it (onOpenChange(false));
+// bottom sheet (top corners 20 and a grab handle), from 1024 px a small window in the middle. role="dialog", aria-modal, portaled over a 45%
+// dark backdrop that blurs the page by 4 px; a focus trap, the page scroll locked and the rest of the page inert (Radix Dialog). Escape and a press outside close it (onOpenChange(false));
 // Back is the screen's (useBackCloses), since only the screen owns the history. Controlled: the element focused when it opened is remembered
 // and given focus back when it closes, unless `finalFocus` names another.
-export function SheetPanel({ open, onOpenChange, children, described = true, onOpened, finalFocus }: SheetPanelProps) {
+/**
+ * The focus of a controlled panel: as it opens, the element focused before is remembered and `onOpened` (when given) moves focus in instead of
+ * Radix's first focusable; as it closes, focus goes to `finalFocus` or back to that element. Shared by SheetPanel and ChatWindowPanel.
+ */
+function usePanelFocus(onOpened: ((panel: HTMLElement) => void) | undefined, finalFocus: (() => HTMLElement | null) | undefined) {
   const opener = useRef<HTMLElement | null>(null);
   const panel = useRef<HTMLDivElement>(null);
+  return {
+    ref: panel,
+    onOpenAutoFocus: (event: Event) => {
+      // Runs before Radix moves focus in, so the active element is still the opener.
+      opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      if (onOpened === undefined || panel.current === null) return;
+      event.preventDefault();
+      onOpened(panel.current);
+    },
+    onCloseAutoFocus: (event: Event) => {
+      event.preventDefault();
+      (finalFocus?.() ?? opener.current)?.focus();
+    },
+  };
+}
+
+export function SheetPanel({ open, onOpenChange, children, described = true, onOpened, finalFocus }: SheetPanelProps) {
+  const focus = usePanelFocus(onOpened, finalFocus);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/40 backdrop-blur-xs" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/45 backdrop-blur-xs" />
         <DialogPrimitive.Content
-          ref={panel}
+          {...focus}
           aria-modal="true"
           {...(described ? {} : { 'aria-describedby': undefined })}
-          onOpenAutoFocus={(event) => {
-            // Runs before Radix moves focus in, so the active element is still the opener.
-            opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-            if (onOpened === undefined || panel.current === null) return;
-            event.preventDefault();
-            onOpened(panel.current);
-          }}
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            (finalFocus?.() ?? opener.current)?.focus();
-          }}
           className={cn(
-            'fixed inset-x-0 bottom-0 z-dialog flex max-h-dvh flex-col gap-4 overflow-y-auto rounded-t-lg bg-card p-card-padding',
-            'text-card-foreground shadow-raised',
-            'lg:inset-0 lg:m-auto lg:h-fit lg:w-full lg:max-w-md lg:rounded-lg',
+            'fixed inset-x-0 bottom-0 z-dialog flex max-h-dvh flex-col gap-4 overflow-y-auto rounded-t-xl bg-card px-4 pt-2 pb-6',
+            'text-card-foreground shadow-sheet',
+            'lg:inset-0 lg:m-auto lg:h-fit lg:w-full lg:max-w-md lg:rounded-xl lg:p-card-padding',
+          )}
+        >
+          {/* The grab handle: a phone-sheet mark only, not a control (Escape, a press outside or the sheet's own cancel close it). */}
+          <div aria-hidden="true" className="mx-auto -mb-1 h-1.5 w-10 shrink-0 rounded-full bg-divider lg:hidden" />
+          {children}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+
+export function SheetTitle({ children }: { children: ReactNode }) {
+  return <DialogPrimitive.Title className="text-center text-h3 lg:text-start">{children}</DialogPrimitive.Title>;
+}
+
+export function SheetDescription({ children }: { children: ReactNode }) {
+  return <DialogPrimitive.Description className="text-body text-muted-foreground">{children}</DialogPrimitive.Description>;
+}
+
+interface ChatWindowPanelProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** The window body: a ChatWindowTitle (the dialog's name) and a ChatWindowDescription. */
+  children: ReactNode;
+  /** Called as the window opens, with the window: the caller moves focus in. */
+  onOpened?: ((panel: HTMLElement) => void) | undefined;
+  /** Where focus goes when the window closes. Unset, or returning null: the element focused when it opened. */
+  finalFocus?: (() => HTMLElement | null) | undefined;
+}
+
+// A conversation window over the screen (the Nestly assistant, Afik 28.10.2026): below 1024 px it fills the screen; from 1024 px a window of
+// 24rem at the bottom inline-start corner (bottom right in Hebrew), over a light backdrop, so the page stays in view. role="dialog", aria-modal,
+// a focus trap, Escape and a press outside close it (Radix Dialog); Back is the caller's (useBackCloses). Controlled, like SheetPanel.
+export function ChatWindowPanel({ open, onOpenChange, children, onOpened, finalFocus }: ChatWindowPanelProps) {
+  const focus = usePanelFocus(onOpened, finalFocus);
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/45 lg:bg-foreground/15" />
+        <DialogPrimitive.Content
+          {...focus}
+          aria-modal="true"
+          className={cn(
+            'fixed inset-0 z-dialog flex h-dvh flex-col bg-card text-card-foreground',
+            'lg:inset-auto lg:start-6 lg:top-24 lg:bottom-6 lg:mt-auto lg:h-auto lg:max-h-160 lg:w-96 lg:rounded-xl lg:border lg:border-border lg:shadow-sheet',
           )}
         >
           {children}
@@ -169,10 +225,10 @@ export function SheetPanel({ open, onOpenChange, children, described = true, onO
   );
 }
 
-export function SheetTitle({ children }: { children: ReactNode }) {
-  return <DialogPrimitive.Title className="text-h3">{children}</DialogPrimitive.Title>;
+export function ChatWindowTitle({ children, className }: { children: ReactNode; className?: string }) {
+  return <DialogPrimitive.Title className={cn('text-h3', className)}>{children}</DialogPrimitive.Title>;
 }
 
-export function SheetDescription({ children }: { children: ReactNode }) {
-  return <DialogPrimitive.Description className="text-body text-muted-foreground">{children}</DialogPrimitive.Description>;
+export function ChatWindowDescription({ children, className }: { children: ReactNode; className?: string }) {
+  return <DialogPrimitive.Description className={cn('text-small text-muted-foreground', className)}>{children}</DialogPrimitive.Description>;
 }

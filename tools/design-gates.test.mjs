@@ -161,8 +161,8 @@ describe("UI-wave-1 criterion 8 (L): the generated CSS", () => {
     throw new Error("unterminated @theme block");
   };
 
-  it("[UI-8] contains --color-primary: #B5502C inside @theme", () => {
-    assert.match(themeBlock(), /--color-primary:\s*#B5502C\s*;/i);
+  it("[UI-8] contains --color-primary: #805B75 inside @theme", () => {
+    assert.match(themeBlock(), /--color-primary:\s*#805B75\s*;/i);
   });
   it("[UI-8] has no .dark block and no dark: variant", () => {
     assert.doesNotMatch(css, /\.dark\b/);

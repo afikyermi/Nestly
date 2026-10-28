@@ -6,7 +6,10 @@
 # Not on every push to main: each run may cost a Vercel deployment.
 #
 # How the Preview is found: main deploys as Production, and Vercel builds a Preview only for ready/** branches
-# (vercel.json). Job `deployment` commits main's tree as a new child of ready/nightly and of main, and pushes it (a plain push with the default
+# (vercel.json). By hand, input `branch` (Afik, 28.10.2026) walks a branch's Preview BEFORE it is merged: the branch's tree goes on
+# ready/preview-check the same way main's goes on ready/nightly, and the flows, the install and every step that holds a secret still
+# run main's code (the e2e job checks out main, not the branch); only the deployed app under test is the branch's. Nightly runs and
+# a dispatch without `branch` are unchanged. Job `deployment` commits main's tree as a new child of ready/nightly and of main, and pushes it (a plain push with the default
 # GITHUB_TOKEN, never forced; a rejected push fails the run): Vercel builds no Preview of main's own commit, already Production. If ready/nightly already holds main's tree, nothing is
 # pushed and that commit's existing Preview deployment is used. It then polls the deployments API for a deployment of
 # that commit with environment Preview, created by vercel[bot], whose latest status is success, for up to 15 minutes.
@@ -43,6 +46,10 @@ on:
         default: both
         type: choice
         options: [both, desktop-1280, mobile-375]
+      branch:
+        description: 'A branch to walk before it is merged (its Preview, tested by main''s flows); empty = main'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -71,10 +78,25 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: true
-      - name: Put main's tree on ready/nightly as a new commit
+      - name: Put main's tree on ready/nightly (or a branch's on ready/preview-check) as a new commit
         id: candidate
+        env:
+          BRANCH: ${{ inputs.branch }}
         run: |
           set -euo pipefail
+          target="ready/nightly"
+          if [ -n "${BRANCH:-}" ]; then
+            # A branch to walk before its merge: a plain name, never main itself or a ready/ branch (those are Vercel's).
+            case "${BRANCH}" in
+              *[!A-Za-z0-9._/-]*|/*|*/|*..*|-*|main|ready/*) echo "::error::not a branch name this workflow walks"; exit 1 ;;
+            esac
+            if ! git fetch --no-tags origin "refs/heads/${BRANCH}"; then
+              echo "::error::no such branch on origin"
+              exit 1
+            fi
+            git checkout -q --detach FETCH_HEAD
+            target="ready/preview-check"
+          fi
           main_sha="$(git rev-parse HEAD)"
           # `case` tests the whole value (grep would test line by line).
           case "${main_sha}" in
@@ -85,15 +107,15 @@ jobs:
             exit 1
           fi
           tree="$(git rev-parse "${main_sha}^{tree}")"
-          current="$(git ls-remote origin refs/heads/ready/nightly | cut -f1)"
+          current="$(git ls-remote origin "refs/heads/${target}" | cut -f1)"
           parents=()
           if [ -n "${current}" ]; then
-            git fetch --no-tags origin refs/heads/ready/nightly
+            git fetch --no-tags origin "refs/heads/${target}"
             # A nightly commit of main's current tree already exists: its Preview deployment is used. Not when the branch
             # is at main's own commit: Vercel deployed that commit as Production and builds no Preview of it (21.10.2026).
             if [ "${current}" != "${main_sha}" ] && [ "$(git rev-parse "${current}^{tree}")" = "${tree}" ]; then
               echo "sha=${current}" >> "${GITHUB_OUTPUT}"
-              echo "ready/nightly (${current}) already holds main's tree: nothing pushed, that commit's Preview deployment is used"
+              echo "${target} (${current}) already holds the tree: nothing pushed, that commit's Preview deployment is used"
               exit 0
             fi
             parents+=(-p "${current}")
@@ -102,14 +124,14 @@ jobs:
           # A new commit with main's exact tree, child of the branch's tip (so the push is a fast-forward) and of main.
           # Vercel builds a Preview only of a commit it has not deployed; main's own commit is already Production.
           sha="$(git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-            commit-tree "${tree}" "${parents[@]}" -m "nightly: main at ${main_sha}")"
+            commit-tree "${tree}" "${parents[@]}" -m "${target#ready/}: ${BRANCH:-main} at ${main_sha}")"
           echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
           # A plain push: GitHub refuses it unless it is a fast-forward (or creates the branch). Never forced.
-          if ! git push origin "${sha}:refs/heads/ready/nightly"; then
-            echo "::error::the push to ready/nightly was rejected (a branch rule). It is never force-pushed: delete the branch by hand, then run this workflow again."
+          if ! git push origin "${sha}:refs/heads/${target}"; then
+            echo "::error::the push to ${target} was rejected (a branch rule). It is never force-pushed: delete the branch by hand, then run this workflow again."
             exit 1
           fi
-          echo "ready/nightly now points at ${sha} (main's tree at ${main_sha})"
+          echo "${target} now points at ${sha} (the tree of ${BRANCH:-main} at ${main_sha})"
       - name: Wait for the Preview deployment of that commit
         id: wait
         timeout-minutes: 17
@@ -170,9 +192,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 26
     steps:
+      # The tree that was deployed, or, for a branch walked before its merge, main: the flows and everything that runs here are then
+      # main's, never the branch's code (the same trust as a nightly run; only the app under test differs).
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ needs.deployment.outputs.sha }}
+          ref: ${{ inputs.branch && github.event.repository.default_branch || needs.deployment.outputs.sha }}
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:

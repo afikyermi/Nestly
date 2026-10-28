@@ -6,7 +6,7 @@ import { Tooltip } from './tooltip';
 
 const buttonStyles = cva(
   [
-    'inline-flex min-h-11 min-w-11 items-center justify-center gap-2 text-label no-underline',
+    'inline-flex min-h-11 min-w-11 items-center justify-center gap-2 text-label font-bold no-underline',
     'transition-colors duration-fast ease-standard',
     'aria-disabled:cursor-not-allowed aria-disabled:opacity-50 disabled:cursor-not-allowed disabled:opacity-50',
   ],
@@ -14,17 +14,18 @@ const buttonStyles = cva(
     variants: {
       variant: {
         primary: 'rounded-md bg-primary px-5 text-primary-foreground hover:bg-primary-strong',
-        soft: 'rounded-md bg-primary-soft px-5 text-primary-strong',
+        // Secondary is neutral (plum marks the primary action only): a light grey with dark text.
+        soft: 'rounded-md bg-secondary px-5 text-secondary-foreground hover:bg-accent',
         text: 'rounded-sm px-1 py-2.5 text-primary-strong underline underline-offset-4',
       },
       size: {
         default: '',
-        lg: 'min-h-13 rounded-lg text-body font-semibold',
+        lg: 'min-h-13 rounded-lg text-body font-bold',
       },
       block: { true: 'w-full', false: '' },
       iconOnly: {
         // A quiet icon button: the surface appears on hover only (tokens.md, hover).
-        true: 'size-11 rounded-md bg-transparent p-0 text-foreground no-underline hover:bg-muted',
+        true: 'size-11 rounded-full bg-transparent p-0 text-foreground no-underline hover:bg-muted',
         false: '',
       },
     },

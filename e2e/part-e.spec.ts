@@ -40,8 +40,10 @@ test.describe('Logo (34)', () => {
       await expect(page.locator(`${ROOT} a`)).toHaveCount(0);
       await page.keyboard.press('Tab');
       expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+      // The word is drawn as outlined paths (OP-022, 27.10.2026): it is read once, as the image's name, and is not text a second time.
+      await expect(page.getByRole('img', { name: 'Nestly' })).toHaveCount(1);
       const text = await page.locator(ROOT).innerText();
-      expect(text.split('Nestly').length - 1).toBe(1);
+      expect(text.split('Nestly').length - 1).toBe(0);
     });
   }
 

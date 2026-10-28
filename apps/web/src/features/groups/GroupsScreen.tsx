@@ -164,8 +164,8 @@ export function GroupsScreen() {
       aria-selected={scope === value}
       className={
         scope === value
-          ? 'min-h-11 rounded-full bg-primary-soft px-4 text-label font-semibold text-primary-strong'
-          : 'min-h-11 rounded-full px-4 text-label text-muted-foreground hover:bg-muted'
+          ? 'min-h-11 rounded-full border border-primary bg-brand-subtle px-4 text-label font-bold text-badge-foreground ring-1 ring-primary ring-inset'
+          : 'min-h-11 rounded-full border border-input bg-card px-4 text-label text-foreground hover:bg-muted'
       }
       onClick={() => setScope(value)}
     >

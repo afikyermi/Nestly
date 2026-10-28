@@ -27,16 +27,16 @@ describe("UI-wave-1 criterion 10 (L): built CSS fonts", () => {
   it("[UI-10] has @font-face for exactly two subsets: hebrew and latin", () => {
     assert.equal(fontFaces.length, 2, `got ${fontFaces.length}`);
     const joined = fontFaces.join("\n");
-    assert.match(joined, /rubik-hebrew-/i);
-    assert.match(joined, /rubik-latin-/i);
+    assert.match(joined, /assistant-hebrew-/i);
+    assert.match(joined, /assistant-latin-/i);
     for (const other of ["latin-ext", "cyrillic", "arabic", "math", "symbols"]) {
-      assert.doesNotMatch(joined, new RegExp(`rubik-${other}`, "i"), `unexpected subset ${other}`);
+      assert.doesNotMatch(joined, new RegExp(`assistant-${other}`, "i"), `unexpected subset ${other}`);
     }
   });
-  it("[UI-10] both faces are Rubik with the weight axis 300 to 900", () => {
+  it("[UI-10] both faces are Assistant with the weight axis 200 to 800", () => {
     for (const face of fontFaces) {
-      assert.match(face, /font-family:\s*["']?Rubik/i);
-      assert.match(face, /font-weight:\s*300\s+900/);
+      assert.match(face, /font-family:\s*["']?Assistant/i);
+      assert.match(face, /font-weight:\s*200\s+800/);
     }
   });
   it("[UI-10] the font-family stack ends system-ui, sans-serif", () => {

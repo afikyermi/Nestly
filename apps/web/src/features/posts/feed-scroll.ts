@@ -3,6 +3,8 @@ import { rememberScroll, type FeedScroll } from './feed-memory';
 
 /** How far the reader has scrolled before "חזרה למעלה" appears (c20: a long scroll). */
 const LONG_SCROLL_PX = 1500;
+/** How far the reader has scrolled before the feed counts as away from its top ("N פוסטים חדשים", AC-207). */
+const AWAY_PX = 600;
 
 /** The element that scrolls: below 1024 the shell's `main`, from 1024 the page itself. */
 function scroller(root: HTMLElement | null): HTMLElement | null {
@@ -17,6 +19,8 @@ function position(root: HTMLElement | null): FeedScroll {
 export interface FeedScrollControl {
   /** True after a long scroll. */
   far: boolean;
+  /** True once the reader is away from the top of the feed. */
+  away: boolean;
   /** Put the scroll back at the top. */
   toTop: () => void;
 }
@@ -25,6 +29,7 @@ export interface FeedScrollControl {
 // position back. The shell's own reset to the top runs after a screen mounts, so the restore waits for the next frame and for `settled` (the posting-right check adds "כתיבת פוסט" above the list).
 export function useFeedScroll(rootRef: RefObject<HTMLElement | null>, restoreTo: FeedScroll | null, settled: boolean): FeedScrollControl {
   const [far, setFar] = useState(false);
+  const [away, setAway] = useState(false);
   const restoring = useRef(false);
 
   // ux-polish-a c10: Back that closes an overlay (a menu, a confirmation, a window) stays at the same scroll. Left to the browser, it would
@@ -46,6 +51,7 @@ export function useFeedScroll(rootRef: RefObject<HTMLElement | null>, restoreTo:
       const at = position(root);
       rememberScroll(at);
       setFar(Math.max(at.main, at.page) > LONG_SCROLL_PX);
+      setAway(Math.max(at.main, at.page) > AWAY_PX);
     };
     const container = scroller(root);
     (container ?? window).addEventListener('scroll', update, { passive: true });
@@ -75,5 +81,5 @@ export function useFeedScroll(rootRef: RefObject<HTMLElement | null>, restoreTo:
     window.scrollTo(0, 0);
   }, [rootRef]);
 
-  return { far, toTop };
+  return { far, away, toTop };
 }

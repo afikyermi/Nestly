@@ -90,12 +90,12 @@ type Results = { kind: 'loading' } | { kind: 'failed' } | { kind: 'loaded'; card
 function Card({ card, badge, onOpen, promotionId }: { card: ProfessionalCard; badge?: string; onOpen?: () => void; promotionId?: string }) {
   return (
     <>
-      {badge === undefined ? null : <p className="mb-1 inline-flex rounded-sm bg-muted px-2 text-label">{badge}</p>}
-      <Link to={professionalPagePath(card.id) + (promotionId === undefined ? '' : `?promotion=${encodeURIComponent(promotionId)}`)} onClick={onOpen} className="block text-h3 text-primary-strong underline-offset-4 hover:underline">
+      {badge === undefined ? null : <p className="mb-1 inline-flex h-5.5 items-center rounded-sm bg-foreground px-2 text-caption font-bold text-background">{badge}</p>}
+      <Link to={professionalPagePath(card.id) + (promotionId === undefined ? '' : `?promotion=${encodeURIComponent(promotionId)}`)} onClick={onOpen} className="block text-h3 text-foreground no-underline underline-offset-4 hover:underline">
         {card.fullName}
       </Link>
       {card.businessName === null ? null : <p className="text-small text-muted-foreground">{card.businessName}</p>}
-      <p className="mt-1 text-label">{fieldText(card.field, card.fieldOther)}</p>
+      <p className="mt-1 inline-flex h-5.5 items-center rounded-sm bg-muted px-2 text-caption font-bold text-primary-strong">{fieldText(card.field, card.fieldOther)}</p>
       <p className="mt-1 text-small text-muted-foreground">
         {[yearsText(card.yearsExperience), areaText(card.area), priceText(card.priceFrom)].filter((part) => part !== null).join(' · ')}
       </p>
@@ -140,7 +140,7 @@ export function DirectoryScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      <form aria-label={FILTERS_LABEL} onSubmit={apply} className="grid grid-cols-1 gap-4 rounded-lg bg-card p-4 shadow-card sm:grid-cols-2">
+      <form aria-label={FILTERS_LABEL} onSubmit={apply} className="grid grid-cols-1 gap-4 border-b border-divider pb-5 sm:grid-cols-2">
         <FormField label={FIELD_LABEL}>
           {(control) => <SelectInput {...control} options={FIELD_OPTIONS} placeholder={ANY_FIELD} value={filters.field} onChange={set('field')} />}
         </FormField>
@@ -180,9 +180,9 @@ export function DirectoryScreen() {
           <h2 id={promotedId} className="text-h3">
             {PROMOTED_PROFESSIONALS_HEADING}
           </h2>
-          <ul aria-label={PROMOTED_PROFESSIONALS_HEADING} className="mt-3 flex flex-col gap-3">
+          <ul aria-label={PROMOTED_PROFESSIONALS_HEADING} className="mt-1 flex flex-col">
             {results.promoted.map(({ promotionId, card }) => (
-              <li key={promotionId} className="rounded-lg bg-card p-4 shadow-card">
+              <li key={promotionId} className="border-b border-divider py-4">
                 <Card card={card} promotionId={promotionId} badge={SPONSORED_LABEL} onOpen={() => void call((token) => reportPromotionClick(token, promotionId))} />
               </li>
             ))}
@@ -204,9 +204,9 @@ export function DirectoryScreen() {
         ) : null}
         {results.kind === 'loaded' && results.cards.length === 0 ? <p className="mt-2 text-muted-foreground">{NO_RESULTS}</p> : null}
         {results.kind === 'loaded' && results.cards.length > 0 ? (
-          <ul aria-label={RESULTS_LABEL} className="mt-3 flex flex-col gap-3">
+          <ul aria-label={RESULTS_LABEL} className="mt-1 flex flex-col">
             {results.cards.map((card) => (
-              <li key={card.id} className="rounded-lg bg-card p-4 shadow-card">
+              <li key={card.id} className="border-b border-divider py-4">
                 <Card card={card} />
               </li>
             ))}

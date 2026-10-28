@@ -114,7 +114,7 @@ function Composer({ owner, memory, focusText, everyoneOnly, onPublished }: Compo
 
   return (
     <div
-      className="rounded-lg bg-card p-4 shadow-card md:p-5"
+      className="-mx-4 border-b border-divider bg-card px-4 pb-4 lg:mx-0 lg:rounded-lg lg:border-b-0 lg:p-5 lg:shadow-card"
       ref={box}
       onFocus={(event) => {
         // Pressing "פרסום" on an idle, blank form must not open the options above it before the click lands (F3.1 c14).
@@ -188,7 +188,7 @@ export function FeedComposer({ right, own, focusText, onPublished }: FeedCompose
   if ((right !== 'allowed' && right !== 'everyone-only') || own.kind === 'loading') return null;
   if (source.kind === 'group' && !source.canPost) return null;
   return (
-    <div className="mt-4 w-full max-w-md">
+    <div className="mt-3 w-full">
       <Composer
         key={round}
         owner={owner}

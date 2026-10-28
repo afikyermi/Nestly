@@ -99,7 +99,7 @@ test.describe('titles and focus', () => {
 
   test('[F1.2 c24][NFR-A11Y-001] the title follows in-app navigation', async ({ page }) => {
     await open(page, '/home', 'signed-in');
-    await navOf(page).getByRole('link', { name: 'פרופיל', exact: true }).click();
+    await page.getByRole('link', { name: 'פרופיל', exact: true }).click();
     await expect(page).toHaveTitle('פרופיל · Nestly');
     await navOf(page).getByRole('link', { name: 'פיד', exact: true }).click();
     await expect(page).toHaveTitle('הפיד · Nestly');
