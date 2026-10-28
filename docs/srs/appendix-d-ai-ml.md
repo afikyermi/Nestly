@@ -2,11 +2,11 @@
 
 # נספח D — הצעות המשך ותחומים פתוחים: AI/ML ואלגוריתמים מתקדמים
 
-הפריטים הבאים אינם נדרשים להפעלת v1 ולכן אינם חוסמי פיתוח. הם נשמרים כהצעות המשך/Decision Gates שייבחנו כאשר יהיו מספיק Data, Traffic, צורך עסקי, מדיניות פרטיות ותקציב.
+הפריטים הבאים, למעט העוזר של Nestly שנבנה ב-v1 בהיקף מצומצם (FR-AI-001), אינם נדרשים להפעלת v1 ולכן אינם חוסמי פיתוח. הם נשמרים כהצעות המשך/Decision Gates שייבחנו כאשר יהיו מספיק Data, Traffic, צורך עסקי, מדיניות פרטיות ותקציב.
 
 | תחום עתידי | מה האפשרות | מתי/מה צריך להחליט |
 |---|---|---|
-| AI/LLM Assistant | Chat/assistant להכוונה, סיכום או Q&A | לאחר הגדרת Use Cases, knowledge boundaries, medical safety, cost, privacy ו-fallback. אין להוסיף Chat AI רק כי הטכנולוגיה זמינה. |
+| AI/LLM Assistant | **נבנה (28.10.2026, דרישת המרצה):** "העוזר של Nestly" (FR-AI-001) — שיחת Q&A כללית בתחום תכנון הריון, הריון והורות, Gemini בשכבה החינמית, בלי אבחון ובלי ייעוץ רפואי, פס דחוף שאינו תלוי במודל (BR-093), בלי שמירת השיחה ובלי מידע מהחשבון (NFR-PRIV-008), ומגבלת שימוש (BR-092). **להמשך:** סיכום תוכן, תשובות שנשענות על מאגר ידע מאומת של Nestly (knowledge boundaries), הערכה שיטתית של איכות ובטיחות התשובות בעברית, ותקציב לשכבה בתשלום | מעבר מהשכבה החינמית (שבה Google עשויה להשתמש בהודעות לשיפור השירות) לשכבה בתשלום לפני השקה לקהל רחב; כל הרחבה מחייבת Use Case, בדיקת בטיחות רפואית ופרטיות. |
 | ML Learned Feed Ranking | החלפת/שילוב Scoring ידני במודל לומד | לאחר מספיק interaction data ו-baseline v1 מדיד; חייב Offline/Online evaluation ו-fallback ל-rule-based. |
 | Semantic Search / Embeddings | חיפוש משמעותי מעבר Exact/Prefix/Keyword | אם Search zero-result/CTR מצדיקים; דורש vector/index strategy, privacy ובדיקות Hebrew quality. |
 | Automatic Topic/Stage Classification | סיווג Posts/Articles/Products אוטומטי | אם manual/keyword metadata אינו מספיק; ML/LLM classifier עם confidence/fallback. |

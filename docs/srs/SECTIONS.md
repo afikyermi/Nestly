@@ -65,6 +65,10 @@
 - FR-ALG-010 — Group Highlights v1 וחשיפת קבוצות פעילות
 - FR-DATA-001 — Analytics Event Tracking v1
 
+## [05-functional/assistant.md](05-functional/assistant.md)
+
+- FR-AI-001 — העוזר של Nestly
+
 ## [05-functional/auth.md](05-functional/auth.md)
 
 - FR-AUTH-001 — מסך Welcome

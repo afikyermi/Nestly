@@ -51,6 +51,12 @@ export interface AppShellProps {
    * centred column and the gutter the action bar uses; below that its places are in the menu.
    */
   shortcuts?: ReactNode;
+  /**
+   * A floating button at the bottom inline-start corner (bottom right in Hebrew): the Nestly assistant (Afik 28.10.2026). Below 1024 it floats just
+   * above `main`'s bottom edge, so it never covers the bottom bar or the action bar ("חזרה למעלה" sits at the other corner), and `main` gains room
+   * at its end so the last content scrolls clear of it. From 1024 it is fixed 24 px from the corner, in the gutter beside the column.
+   */
+  floatingAction?: ReactNode;
   /** Below 1024 `main` scrolls inside the frame: when this changes (the route's path, not its hash) `main` goes back to the top. */
   scrollResetKey?: string | undefined;
   /** Placement only. */
@@ -77,6 +83,7 @@ export function AppShell({
   topBarActions,
   topBarAvatar,
   shortcuts,
+  floatingAction,
   scrollResetKey,
   className,
 }: AppShellProps) {
@@ -165,12 +172,20 @@ export function AppShell({
           id={mainId}
           ref={mainRef}
           tabIndex={-1}
-          className="min-h-0 min-w-0 flex-1 scroll-py-4 overflow-y-auto px-4 py-5 print:overflow-visible lg:mx-auto lg:max-w-2xl lg:overflow-visible lg:px-0 lg:pt-0"
+          className={cn(
+            'min-h-0 min-w-0 flex-1 scroll-py-4 overflow-y-auto px-4 py-5 print:overflow-visible lg:mx-auto lg:max-w-2xl lg:overflow-visible lg:px-0 lg:pt-0',
+            floatingAction !== undefined && 'max-lg:pb-24',
+          )}
         >
           <ShellActionBarContext value={actionBar}>
             <ShellEndColumnContext value={endColumn}>{children}</ShellEndColumnContext>
           </ShellActionBarContext>
         </main>
+        {floatingAction === undefined ? null : (
+          <div className="relative h-0 print:hidden lg:contents">
+            <div className="absolute start-4 bottom-3 z-sticky lg:fixed lg:start-6 lg:bottom-6">{floatingAction}</div>
+          </div>
+        )}
         {shortcuts === undefined ? null : <div ref={setEndColumn} className="sticky top-21 hidden w-72 shrink-0 flex-col gap-4 self-start @7xl:flex" />}
         <div ref={setActionBar} className="flex justify-end px-4 py-2 empty:hidden lg:fixed lg:end-6 lg:bottom-6 lg:z-sticky lg:p-0" />
       </div>

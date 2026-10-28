@@ -134,28 +134,39 @@ interface SheetPanelProps {
 // dark backdrop that blurs the page by 4 px; a focus trap, the page scroll locked and the rest of the page inert (Radix Dialog). Escape and a press outside close it (onOpenChange(false));
 // Back is the screen's (useBackCloses), since only the screen owns the history. Controlled: the element focused when it opened is remembered
 // and given focus back when it closes, unless `finalFocus` names another.
-export function SheetPanel({ open, onOpenChange, children, described = true, onOpened, finalFocus }: SheetPanelProps) {
+/**
+ * The focus of a controlled panel: as it opens, the element focused before is remembered and `onOpened` (when given) moves focus in instead of
+ * Radix's first focusable; as it closes, focus goes to `finalFocus` or back to that element. Shared by SheetPanel and ChatWindowPanel.
+ */
+function usePanelFocus(onOpened: ((panel: HTMLElement) => void) | undefined, finalFocus: (() => HTMLElement | null) | undefined) {
   const opener = useRef<HTMLElement | null>(null);
   const panel = useRef<HTMLDivElement>(null);
+  return {
+    ref: panel,
+    onOpenAutoFocus: (event: Event) => {
+      // Runs before Radix moves focus in, so the active element is still the opener.
+      opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      if (onOpened === undefined || panel.current === null) return;
+      event.preventDefault();
+      onOpened(panel.current);
+    },
+    onCloseAutoFocus: (event: Event) => {
+      event.preventDefault();
+      (finalFocus?.() ?? opener.current)?.focus();
+    },
+  };
+}
+
+export function SheetPanel({ open, onOpenChange, children, described = true, onOpened, finalFocus }: SheetPanelProps) {
+  const focus = usePanelFocus(onOpened, finalFocus);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/45 backdrop-blur-xs" />
         <DialogPrimitive.Content
-          ref={panel}
+          {...focus}
           aria-modal="true"
           {...(described ? {} : { 'aria-describedby': undefined })}
-          onOpenAutoFocus={(event) => {
-            // Runs before Radix moves focus in, so the active element is still the opener.
-            opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-            if (onOpened === undefined || panel.current === null) return;
-            event.preventDefault();
-            onOpened(panel.current);
-          }}
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            (finalFocus?.() ?? opener.current)?.focus();
-          }}
           className={cn(
             'fixed inset-x-0 bottom-0 z-dialog flex max-h-dvh flex-col gap-4 overflow-y-auto rounded-t-xl bg-card px-4 pt-2 pb-6',
             'text-card-foreground shadow-sheet',
@@ -177,4 +188,47 @@ export function SheetTitle({ children }: { children: ReactNode }) {
 
 export function SheetDescription({ children }: { children: ReactNode }) {
   return <DialogPrimitive.Description className="text-body text-muted-foreground">{children}</DialogPrimitive.Description>;
+}
+
+interface ChatWindowPanelProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** The window body: a ChatWindowTitle (the dialog's name) and a ChatWindowDescription. */
+  children: ReactNode;
+  /** Called as the window opens, with the window: the caller moves focus in. */
+  onOpened?: ((panel: HTMLElement) => void) | undefined;
+  /** Where focus goes when the window closes. Unset, or returning null: the element focused when it opened. */
+  finalFocus?: (() => HTMLElement | null) | undefined;
+}
+
+// A conversation window over the screen (the Nestly assistant, Afik 28.10.2026): below 1024 px it fills the screen; from 1024 px a window of
+// 24rem at the bottom inline-start corner (bottom right in Hebrew), over a light backdrop, so the page stays in view. role="dialog", aria-modal,
+// a focus trap, Escape and a press outside close it (Radix Dialog); Back is the caller's (useBackCloses). Controlled, like SheetPanel.
+export function ChatWindowPanel({ open, onOpenChange, children, onOpened, finalFocus }: ChatWindowPanelProps) {
+  const focus = usePanelFocus(onOpened, finalFocus);
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-dialog bg-foreground/45 lg:bg-foreground/15" />
+        <DialogPrimitive.Content
+          {...focus}
+          aria-modal="true"
+          className={cn(
+            'fixed inset-0 z-dialog flex h-dvh flex-col bg-card text-card-foreground',
+            'lg:inset-auto lg:start-6 lg:top-24 lg:bottom-6 lg:mt-auto lg:h-auto lg:max-h-160 lg:w-96 lg:rounded-xl lg:border lg:border-border lg:shadow-sheet',
+          )}
+        >
+          {children}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+
+export function ChatWindowTitle({ children, className }: { children: ReactNode; className?: string }) {
+  return <DialogPrimitive.Title className={cn('text-h3', className)}>{children}</DialogPrimitive.Title>;
+}
+
+export function ChatWindowDescription({ children, className }: { children: ReactNode; className?: string }) {
+  return <DialogPrimitive.Description className={cn('text-small text-muted-foreground', className)}>{children}</DialogPrimitive.Description>;
 }

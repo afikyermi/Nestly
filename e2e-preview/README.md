@@ -17,6 +17,9 @@ screen size run at 375x812 too (see "Screen sizes").
 - One sign-in per serial group: a later test that does not check the sign-in itself continues with the session its group's sign-up
   kept (`support/session.ts`: `keepSession` at the end of a test, `resumeSession(page, key, path)` at the start of the next).
 - Test users are deleted after each run by `preview-e2e-cleanup` (workflow_run, main's code; DR-E1). Flows never clean up.
+- **A branch before its merge** (Afik 28.10.2026): dispatch `preview-e2e` with input `branch` (and `flows` / `project` as usual). The branch's
+  tree is deployed through `ready/preview-check`; the flows and every step that holds a secret are main's code, so a branch's changed
+  flows are not used until they are merged. A branch that is `main` or under `ready/` is refused.
 - Run: `npx playwright test -c e2e-preview/playwright.config.ts` with `PREVIEW_E2E_BASE_URL`,
   `VERCEL_AUTOMATION_BYPASS_SECRET`, `GITHUB_RUN_ID` and `GITHUB_RUN_ATTEMPT` set.
 
