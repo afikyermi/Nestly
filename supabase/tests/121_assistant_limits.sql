@@ -42,7 +42,7 @@ select is(
     where c.relname = 'assistant_message_counts' and c.relnamespace = 'nestly'::regnamespace),
   'user_id:true:false, sent_at:false:true', '[BR-092] INSERT names the account only; UPDATE changes the instants only');
 select results_eq(
-  $$ select pol.polname::text || '.' || pol.polcmd || '.' || pg_catalog.array_to_string(array(select pg_catalog.pg_get_userbyid(u) from unnest(pol.polroles) u), ',')
+  $$ select pol.polname::text || '.' || pol.polcmd::text || '.' || pg_catalog.array_to_string(array(select pg_catalog.pg_get_userbyid(u) from unnest(pol.polroles) u), ',')
        from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid
       where c.relname = 'assistant_message_counts' and c.relnamespace = 'nestly'::regnamespace order by pol.polname $$,
   $$ values ('assistant_message_counts_insert_own.a.authenticated'), ('assistant_message_counts_select_own.r.authenticated'),
