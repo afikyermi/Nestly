@@ -93,7 +93,7 @@ const SORT_OPTIONS = MARKETPLACE_SORTS.map((value) => ({ value, label: SORT_LABE
 // outline on the subtle brand surface.
 function chipStyles(selected: boolean): string {
   return cn(
-    'inline-flex min-h-11 shrink-0 items-center rounded-full border px-4 text-small transition-colors duration-fast ease-standard',
+    'relative inline-flex min-h-11 shrink-0 items-center rounded-full border px-4 text-small transition-colors duration-fast ease-standard',
     selected
       ? 'border-primary bg-brand-subtle font-bold text-badge-foreground ring-1 ring-primary ring-inset'
       : 'border-input bg-card text-foreground hover:bg-muted',

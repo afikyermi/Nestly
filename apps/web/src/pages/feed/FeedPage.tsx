@@ -8,7 +8,7 @@ import { RecentChatsCard } from '@/features/chat/RecentChatsCard';
 import { FeedScreen } from '@/features/posts/FeedScreen';
 import { StoriesTray } from '@/features/stories/StoriesTray';
 import { FEED_TITLE } from '@/features/posts/posts-texts';
-import { useAccountKind } from '@/hooks/use-account-kind';
+import { usePostingProfile } from '@/hooks/use-posting-right';
 import { useJourneyContexts } from '@/hooks/use-journey-contexts';
 import { useStaffAccess } from '@/hooks/use-staff-access';
 import { documentTitle } from '@/lib/document-title';
@@ -20,7 +20,8 @@ export function FeedPage() {
   const endColumn = useContext(ShellEndColumnContext);
   const navigate = useNavigate();
   const staff = useStaffAccess().kind === 'staff';
-  const regular = useAccountKind() === 'regular';
+  // A Regular account, as the feed's journey row reads it (the own-profile answer the feed already asks; one request in flight is shared).
+  const regular = usePostingProfile().right === 'allowed';
   const journeys = useJourneyContexts(regular && !staff);
   return (
     <>
