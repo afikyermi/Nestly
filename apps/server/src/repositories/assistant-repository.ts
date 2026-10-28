@@ -13,8 +13,9 @@ export async function lockAssistantCount(tx: IdentityTx): Promise<{ instants: Da
     await tx.execute(sql`
       insert into nestly.assistant_message_counts as c (user_id) values ((select auth.uid()))
       on conflict (user_id) do update set sent_at = c.sent_at
-      returning array(select to_char(t at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') from unnest(c.sent_at) t) as times,
-                to_char(now() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as now`),
+      returning (select coalesce(json_agg(to_char(t at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') order by t), '[]'::json)
+                   from unnest(c.sent_at) t) as times,
+                to_char(now() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as now`),
   );
   if (row === undefined) throw new Error('the assistant count returned no row');
   return { instants: row.times.map((time) => new Date(time)), now: new Date(row.now) };
@@ -22,6 +23,9 @@ export async function lockAssistantCount(tx: IdentityTx): Promise<{ instants: Da
 
 /** Replaces the caller's counted instants (the last 24 hours, pruned by the caller). */
 export async function writeAssistantCount(tx: IdentityTx, instants: readonly Date[]): Promise<void> {
-  const values = instants.map((instant) => instant.toISOString());
-  await tx.execute(sql`update nestly.assistant_message_counts set sent_at = ${sql.param(values)}::timestamptz[] where user_id = (select auth.uid())`);
+  const values = JSON.stringify(instants.map((instant) => instant.toISOString()));
+  await tx.execute(sql`
+    update nestly.assistant_message_counts
+       set sent_at = array(select t::timestamptz from json_array_elements_text(${values}::json) t)
+     where user_id = (select auth.uid())`);
 }

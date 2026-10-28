@@ -71,8 +71,8 @@ export const ASSISTANT_URGENT_PHRASES: readonly string[] = [
 ];
 
 // Cantillation and vowel points only: the maqaf (U+05BE) and the punctuation marks (U+05C0, U+05C3, U+05C6) join or end words, so they become spaces.
-const NIQQUD = /[֑-ׇֽֿׁׂׅׄ]/g;
-const HEBREW_PUNCTUATION = /[־׀׃׆]/g;
+const NIQQUD = /[\u0591-\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7]/g;
+const HEBREW_PUNCTUATION = /[\u05BE\u05C0\u05C3\u05C6]/g;
 
 function normalize(text: string): string {
   return text.replace(NIQQUD, '').replace(HEBREW_PUNCTUATION, ' ').replace(/\s+/g, ' ').trim();
