@@ -5,6 +5,7 @@ import {
   Send,
   Settings,
   ArrowUp,
+  ArrowDown,
   Check,
   ChevronDown,
   ChevronRight,
@@ -131,6 +132,8 @@ export const ShareInFeedIcon = icon(Repeat2);
 export const ShareLinkIcon = icon(Share2);
 // F3.2b c20: "חזרה למעלה" where only its icon fits (1024-1279 px, beside the column).
 export const ArrowUpIcon = icon(ArrowUp);
+// The Admin dashboards (Afik 28.10.2026): a number up or down against the week before, always with its sign.
+export const ArrowDownIcon = icon(ArrowDown);
 // Directional icons point the reading direction's way: mirrored under rtl.
 // Back points to the end side (right in Hebrew), forward to the start side (left).
 export const ArrowBackIcon = icon(ArrowLeft, true);

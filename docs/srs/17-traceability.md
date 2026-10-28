@@ -48,7 +48,7 @@
 | PG-040 | ~~מסך סטטוס האימות המקצועי / אימות מקצועי~~ — **בוטל** (OP-005 נסגר, 18.10.2026) | FR-PROREG-003 (בוטל) | — | — |
 | PG-041/042 | קידום מקצועי / מסך הקידום המקצועי / מסך תוצאות הקידום / מסך חיובים וקידומים | FR-SERV-010 / FR-PRO-002 / FR-ALG-007 | UC-34/42 | Promotion, ProfessionalPromotionMetric, PromotionPerformanceEvent, AnalyticsAggregate |
 | PG-043 | מסך יצירת קבוצה / ניהול הקבוצות | FR-GRP-004 | UC-32 | Group, Membership, GroupRoleAssignment |
-| PG-044 | מסך מוצרים ממומנים / ניהול מוצרים ממומנים · מודעות Marketplace לצוות (הסתרה והחזרה, MARKETPLACE_MODERATE) | FR-ADMIN-009 / FR-MKT-001/003/005 / FR-MOD-003 | UC-35 | SponsoredProduct, MarketplaceListing, MediaAsset, Report, AuditLogEntry |
+| PG-044 | מסך מוצרים ממומנים / ניהול מוצרים ממומנים · מודעות החנות לצוות (הסתרה והחזרה, MARKETPLACE_MODERATE) | FR-ADMIN-009 / FR-MKT-001/003/005 / FR-MOD-003 | UC-35 | SponsoredProduct, MarketplaceListing, MediaAsset, Report, AuditLogEntry |
 | PG-045 | מסך מוזמני הבטא / גישה לבטא | FR-ADMIN-011 | — | BetaInvite, AuditLogEntry |
 | PG-046 | מסך ניהול מדריכים / ניהול מדריכים | FR-ADMIN-012 / FR-HOME-004 | — | Article, AuditLogEntry |
 | PG-047 | מסך מוקדי רפואה | FR-MENU-001/002 | — | — |
@@ -140,7 +140,7 @@
 | FR-MOD-002 | Built | I4, I14 (השלמה ב'), I9 §22 | היסטוריית האכיפה של תוכן שנמחק; השעיה וחסימה של חשבון שמתוזמן למחיקה (BR-085) |
 | FR-MOD-003 | Built | I4, I14 (השלמה ב') | דיווח מוצדק מוחק; הסתרה אחרי 10 דיווחים זהים |
 | FR-ADMIN-001 | Built | I8 | פנייה לתמיכה עם נושא ומלל, מהתפריט וממסך השיחות; הפניות שלי |
-| FR-ADMIN-002 | Built | I8 | תיבת הפניות לצוות: צפייה, תשובה בשם "Support", סטטוס והערה פנימית לפי ההרשאות |
+| FR-ADMIN-002 | Built | I8, עיצוב מחדש 28.10 | תיבת הפניות לצוות ("פניות תמיכה"): צפייה, תשובה בשם "Support" (במסך הצוות "תגובה בשם צוות התמיכה"), סטטוס והערה פנימית לפי ההרשאות |
 | FR-ADMIN-003 | Built | I14 | פניות התמיכה במסך הנתונים: מספר, לפי נושא, שנענו וזמן תשובה |
 | FR-ADMIN-004 | Built | I14 | הזמנת Moderator בקישור, הקצאה וביטול של הרשאות, השבתה; Admin בלבד, עם Audit |
 | FR-ADMIN-005 | Built | I4 | יומן Audit לצפייה בלבד, עם סינון; כולל אירועי שחזור הסיסמה |

@@ -19,7 +19,7 @@ export const ATTENTION_LABELS = {
   pastTargetReports: 'פריטים שעברו את זמן היעד',
   escalatedReports: 'הועברו אליך מהצוות',
   queuedImages: 'תמונות לבדיקה',
-  openSupport: 'פניות Support פתוחות',
+  openSupport: 'פניות תמיכה פתוחות',
   openInvitations: 'הזמנות צוות פתוחות',
   draftGuides: 'מדריכים שממתינים לאישור',
 } as const;
@@ -31,13 +31,18 @@ export const METRIC_LABELS = {
   comments: 'תגובות',
   reports: 'דיווחים',
   enforcements: 'צעדי אכיפה',
-  support: 'פניות Support',
+  support: 'פניות תמיכה',
 } as const;
+/** The change in percent, rounded; null when there was nothing the week before. */
+export const metricPercent = (current: number, previous: number): number | null => (previous === 0 ? null : Math.round(((current - previous) / previous) * 100));
+/** The change as a sentence: a screen reader hears it, and it is the chip's text when there is no percent to show. */
 export const METRIC_CHANGE = (current: number, previous: number) => {
-  if (previous === 0) return current === 0 ? 'ללא שינוי' : 'חדש השבוע';
-  const percent = Math.round(((current - previous) / previous) * 100);
+  const percent = metricPercent(current, previous);
+  if (percent === null) return current === 0 ? 'ללא שינוי' : 'חדש השבוע';
   return percent === 0 ? 'ללא שינוי' : percent > 0 ? `עלייה של ${percent}%` : `ירידה של ${-percent}%`;
 };
+/** The chip's short form, with its sign (never colour alone): "+12%", "−8%". */
+export const METRIC_SIGNED = (percent: number) => `${percent > 0 ? '+' : '−'}${Math.abs(percent)}%`;
 export const METRIC_PREVIOUS = (previous: number) => `בשבוע הקודם: ${previous}`;
 export const TEAM_SNAPSHOT_TITLE = 'מצב הצוות';
 export const TEAM_SNAPSHOT_EMPTY = 'עדיין אין מודרטורים בצוות';
@@ -54,7 +59,7 @@ export const MY_WORK_COUNTERS = {
   pastTargetReports: 'עברו את זמן היעד',
   escalatedReports: 'הועברו למנהל',
   queuedImages: 'תמונות לבדיקה',
-  openSupport: 'פניות Support פתוחות',
+  openSupport: 'פניות תמיכה פתוחות',
 } as const;
 export const MY_WORK_NO_KEYS = 'עדיין לא הוקצו לך הרשאות. המנהל יכול להקצות אותן';
 export const OLDEST_TITLE = 'הוותיק ביותר שממתין';

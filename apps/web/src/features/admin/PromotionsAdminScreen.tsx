@@ -163,7 +163,8 @@ function StaffPromotionCard({ item, onStopped }: { item: AdminPromotionItem; onS
           <FormField label={ADMIN_STOP_REASON} htmlFor={`${id}-reason`} {...(problem === '' ? {} : { error: problem })}>
             {(control) => <TextArea {...control} rows={2} dir="auto" value={reason} onChange={(event) => setReason(event.target.value)} />}
           </FormField>
-          <Button variant="primary" className="self-start" pending={busy} disabled={busy} onClick={() => void stop()}>
+          {/* Afik 28.10.2026: stopping is hard to undo, so it is the neutral button, never the plum primary */}
+          <Button variant="soft" className="self-start" pending={busy} disabled={busy} onClick={() => void stop()}>
             {ADMIN_STOP}
           </Button>
         </div>
