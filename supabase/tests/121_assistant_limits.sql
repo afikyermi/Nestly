@@ -41,12 +41,13 @@ select is(
      from pg_catalog.pg_class c join pg_catalog.pg_attribute a on a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
     where c.relname = 'assistant_message_counts' and c.relnamespace = 'nestly'::regnamespace),
   'user_id:true:false, sent_at:false:true', '[BR-092] INSERT names the account only; UPDATE changes the instants only');
-select results_eq(
-  $$ select pol.polname::text || '.' || pol.polcmd::text || '.' || pg_catalog.array_to_string(array(select pg_catalog.pg_get_userbyid(u) from unnest(pol.polroles) u), ',')
-       from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid
-      where c.relname = 'assistant_message_counts' and c.relnamespace = 'nestly'::regnamespace order by pol.polname $$,
-  $$ values ('assistant_message_counts_insert_own.a.authenticated'), ('assistant_message_counts_select_own.r.authenticated'),
-            ('assistant_message_counts_update_own.w.authenticated') $$,
+select is(
+  (select string_agg(x, ', ' order by x)
+     from (select (pol.polname::text || '.' || pol.polcmd::text || '.'
+                   || pg_catalog.array_to_string(array(select pg_catalog.pg_get_userbyid(u)::text from unnest(pol.polroles) u), ',')) collate "C" as x
+             from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid
+            where c.relname = 'assistant_message_counts' and c.relnamespace = 'nestly'::regnamespace) p),
+  'assistant_message_counts_insert_own.a.authenticated, assistant_message_counts_select_own.r.authenticated, assistant_message_counts_update_own.w.authenticated',
   '[BR-092] exactly three policies, all TO authenticated');
 select is(
   (select string_agg(a.attname, ', ' order by a.attnum) from pg_catalog.pg_attribute a
