@@ -18,6 +18,7 @@ import {
 import { sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { IdentityTx } from '../db/identity-transaction.js';
+import { camelColumns } from './plan-cached.js';
 
 const isoMs = sql.raw(`'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`);
 const iso = (column: string) => sql.raw(`to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`);
@@ -227,7 +228,8 @@ const configColumns = sql`version, daily_cap as "dailyCap", directory_units_per_
 
 /** The newest promotion settings version (§11.2, FR-ALG-007, BR-059); v1's values when none is readable. */
 export async function readPromotionConfig(tx: IdentityTx): Promise<PromotionConfig> {
-  const [row] = z.array(configRow).parse(await tx.execute(sql`select ${configColumns} from nestly.promotion_settings order by version desc limit 1`));
+  // the statement as the plan-cached invoker function nestly.read_promotion_config (migration 20261027400000)
+  const [row] = z.array(configRow).parse(await tx.execute(sql`select ${camelColumns('version', 'daily_cap', 'directory_units_per_page', 'feed_gap_min', 'feed_gap_max', 'feed_low_posts', 'feed_high_posts')} from nestly.read_promotion_config()`));
   return row ?? DEFAULT_PROMOTION_CONFIG;
 }
 
@@ -270,7 +272,8 @@ export async function insertPromotionSettings(tx: IdentityTx, write: Omit<Promot
 export async function readRecentPostCount(tx: IdentityTx): Promise<number> {
   const [row] = z
     .array(z.object({ n: count }))
-    .parse(await tx.execute(sql`select count(*) as n from nestly.posts p where p.created_at > now() - interval '48 hours' and p.group_id is null`));
+    // the statement as the plan-cached invoker function nestly.read_recent_post_count (migration 20261027400000)
+    .parse(await tx.execute(sql`select n from nestly.read_recent_post_count()`));
   return row?.n ?? 0;
 }
 
@@ -285,11 +288,10 @@ export async function staffStopPromotion(tx: IdentityTx, id: string, reason: str
   return rows.length;
 }
 
-/** Directory/feed sample size for rotation (FR-ALG-007). Marketplace candidates are uncapped (§11.3). */
-const CANDIDATE_LIMIT = 500;
-
 const candidateRow = z.object({ promotionId: z.guid(), targetId: z.guid() });
 export type PromotedCandidate = z.infer<typeof candidateRow>;
+
+const CANDIDATE_COLUMNS = camelColumns('promotion_id', 'target_id');
 
 /**
  * The running promotions of a kind another account may be shown, with their target (the profile's owner, the post, the listing). Eligibility
@@ -297,23 +299,15 @@ export type PromotedCandidate = z.infer<typeof candidateRow>;
  * the target's state is checked here again. Never the caller's own.
  */
 export async function readPromotedCandidates(tx: IdentityTx, kind: PromotionTargetKind): Promise<PromotedCandidate[]> {
-  const target = {
-    profile: sql`p.owner_id`,
-    post: sql`p.post_id`,
-    listing: sql`p.listing_id`,
+  // One plan-cached invoker function per kind (migration 20261027400000), each the statement of its kind: the target column, its
+  // eligibility test, and `order by random()` with `limit 500` for a profile or a post (the Directory/feed
+  // sample size for rotation, FR-ALG-007), none for a listing (uncapped, §11.3).
+  const statement = {
+    profile: sql`select ${CANDIDATE_COLUMNS} from nestly.read_promoted_profile_candidates()`,
+    post: sql`select ${CANDIDATE_COLUMNS} from nestly.read_promoted_post_candidates()`,
+    listing: sql`select ${CANDIDATE_COLUMNS} from nestly.read_promoted_listing_candidates()`,
   }[kind];
-  const eligible = {
-    profile: sql`exists (select 1 from nestly.professional_profiles pr where pr.user_id = p.owner_id)`,
-    post: sql`exists (select 1 from nestly.posts po where po.id = p.post_id and po.status = 'active' and po.audience = 'everyone' and po.group_id is null and not po.is_share)`,
-    listing: sql`exists (select 1 from nestly.marketplace_listings l where l.id = p.listing_id and l.status = 'active' and not l.is_hidden and l.expires_at > now())`,
-  }[kind];
-  return z.array(candidateRow).parse(
-    await tx.execute(sql`
-      select p.id as "promotionId", ${target} as "targetId" from nestly.promotions p
-      where p.target_kind = ${kind} and p.status = 'active' and p.starts_at <= now() and p.ends_at > now()
-        and p.owner_id <> (select auth.uid()) and ${eligible}
-      order by random() ${kind === 'listing' ? sql`` : sql`limit ${CANDIDATE_LIMIT}`}`),
-  );
+  return z.array(candidateRow).parse(await tx.execute(statement));
 }
 
 /**
@@ -323,10 +317,8 @@ export async function readPromotedCandidates(tx: IdentityTx, kind: PromotionTarg
 export async function readMatchingPosts(tx: IdentityTx, ids: readonly string[], patterns: readonly string[]): Promise<Map<string, number>> {
   if (ids.length === 0 || patterns.length === 0) return new Map();
   const rows = z.array(z.object({ id: z.guid(), byTopic: z.boolean() })).parse(
-    await tx.execute(sql`
-      select p.id, (p.body ~* any (${sql.param([...patterns])}::text[])) is true as "byTopic" from nestly.posts p
-      where p.id = any (${sql.param([...ids])}::uuid[])
-        and (p.body ~* any (${sql.param([...patterns])}::text[])) is true`),
+    // the statement as the plan-cached invoker function nestly.read_matching_posts (migration 20261027400000)
+    await tx.execute(sql`select ${camelColumns('id', 'by_topic')} from nestly.read_matching_posts(${sql.param([...ids])}::uuid[], ${sql.param([...patterns])}::text[])`),
   );
   return new Map(rows.map((row) => [row.id, row.byTopic ? 2 : 1]));
 }
@@ -335,9 +327,8 @@ export async function readMatchingPosts(tx: IdentityTx, ids: readonly string[], 
 export async function readTodayImpressions(tx: IdentityTx, ids: readonly string[]): Promise<Map<string, number>> {
   if (ids.length === 0) return new Map();
   const rows = z.array(z.object({ id: z.guid(), times: count })).parse(
-    await tx.execute(sql`
-      select e.promotion_id as id, e.times from nestly.promotion_events e
-      where e.kind = 'impression' and e.occurred_on = ${today} and e.promotion_id = any (${sql.param([...ids])}::uuid[])`),
+    // the statement (the day: Israel's, as `today`) as the plan-cached invoker function nestly.read_today_impressions (migration 20261027400000)
+    await tx.execute(sql`select id, times from nestly.read_today_impressions(${sql.param([...ids])}::uuid[])`),
   );
   return new Map(rows.map((row) => [row.id, row.times]));
 }
@@ -407,9 +398,8 @@ export async function insertExposureBatch(tx: IdentityTx, batch: ExposureBatch):
 export async function readProfessionalAuthors(tx: IdentityTx, postIds: readonly string[]): Promise<{ id: string; posts: number }[]> {
   if (postIds.length === 0) return [];
   return z.array(z.object({ id: z.guid(), posts: z.coerce.number().int().positive() })).parse(
-    await tx.execute(sql`
-      select p.author_id as id, count(*)::integer as posts from nestly.posts p join nestly.professional_profiles pr on pr.user_id = p.author_id
-      where p.id = any (${sql.param([...postIds])}::uuid[]) and p.author_id <> (select auth.uid()) group by p.author_id`),
+    // the statement as the plan-cached invoker function nestly.read_professional_authors (migration 20261027400000)
+    await tx.execute(sql`select id, posts from nestly.read_professional_authors(${sql.param([...postIds])}::uuid[])`),
   );
 }
 

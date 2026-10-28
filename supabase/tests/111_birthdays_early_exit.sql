@@ -40,6 +40,8 @@ $f$;
 create function pg_temp.born(p_years int, p_days int) returns date language sql as $f$
   select (((now() at time zone 'Asia/Jerusalem')::date - p_days) - make_interval(years => p_years))::date
 $f$;
+-- AC-192: the check runs once per Israel day; as if a new day began (every caller's check cleared, as postgres)
+create function pg_temp.new_day() returns text language sql as $f$ select tests.fx_dl_exec('delete from nestly.birthday_checks') $f$;
 create function pg_temp.reset() returns void language plpgsql as $f$
 declare w text;
 begin
@@ -90,6 +92,7 @@ select tests.fx_fr_add(pg_temp.id('a'), pg_temp.id('b'), 'accepted');
 select tests.set_status(pg_temp.id('b'), 'suspended');
 select is(pg_temp.deliver('a'), '0/0', '[h3 platform r15] a Friend who is suspended counts as no Friend: 0, no scope row');
 select tests.set_status(pg_temp.id('b'), 'active');
+select pg_temp.new_day();
 
 -- =====================================================================================================================
 -- 3. With a Friend: delivered exactly as before (FR-NOTIF-003, BR-037, AC-046; file 102 keeps the full rules)
@@ -97,7 +100,8 @@ select tests.set_status(pg_temp.id('b'), 'active');
 select is(pg_temp.deliver('a'), '1/1', '[h3 AC-046 FR-NOTIF-003] with an accepted, active Friend (caller requester) the birthday is delivered, through its scope row');
 select is(tests.fx_pr_count('nestly.trend_scopes'), 0::bigint, '[h3 rule 17] and the scope row is deleted again');
 select is(tests.fx_nt_types(pg_temp.id('a')), 'child_birthday', '[h3] one child_birthday notification');
-select is(pg_temp.deliver('a'), '0/1', '[h3] a second opening adds nothing (and, with a Friend, still runs the full delivery)');
+select pg_temp.new_day();
+select is(pg_temp.deliver('a'), '0/1', '[h3] a second opening on a call that runs (a later day) adds nothing (and, with a Friend, still runs the full delivery)');
 
 select pg_temp.reset();
 select tests.fx_fr_add(pg_temp.id('b'), pg_temp.id('a'), 'accepted');
@@ -111,8 +115,10 @@ select is(pg_temp.deliver('a'), '0/1', '[h3 BR-037 NFR-PRIV-003] with a Friend w
 -- the caller's category still returns before anything else
 select is(pg_temp.dml('b', $q$ update nestly.regular_profiles set is_child_birthday_shared = true $q$), 'OK:1', '[h3] (setup) back on');
 select tests.fx_nt_pref(pg_temp.id('a'), 'birthdays', false);
+select pg_temp.new_day();
 select is(pg_temp.deliver('a'), '0/0', '[h3 FR-NOTIF-002] the caller''s birthdays category off: 0, no scope row');
 select tests.fx_nt_pref(pg_temp.id('a'), 'birthdays', true);
+select pg_temp.new_day();
 select is(pg_temp.deliver('a'), '1/1', '[h3] (control) on again, it comes');
 
 select * from finish();

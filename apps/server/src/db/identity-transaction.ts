@@ -70,6 +70,17 @@ const UNSET_SETTINGS = [
 const unsetSettings = sql.raw(UNSET_SETTINGS.map((name) => `, pg_catalog.set_config('${name}', '', true)`).join(''));
 
 /**
+ * The longest one statement of a product transaction may run (27.10, load test). app_server logs in with no limit, and `set local role`
+ * does not apply the `authenticated` role's own setting, so a statement whose request had already timed out at the Function (30 s)
+ * kept running for minutes: under load those statements held the database's CPU and every later request waited behind them. Past
+ * this limit the statement is cancelled (the request fails), and the database's time goes to requests still waiting for an answer.
+ * 10 s, not less: a burst on one account's rate-limit row queues on its lock, and the wait counts (CI, profile-view c20: 120 at once).
+ */
+export const STATEMENT_TIMEOUT_MS = 10_000;
+
+const statementTimeout = sql.raw(`, pg_catalog.set_config('statement_timeout', '${STATEMENT_TIMEOUT_MS}', true)`);
+
+/**
  * SET LOCAL ROLE authenticated, then the claims, the empty settings and the guard in one statement (the subquery runs first:
  * OFFSET 0; set_config is volatile, so its unused columns are still computed).
  */
@@ -77,7 +88,7 @@ async function enter(tx: IdentityTx, identity: Identity): Promise<SessionGuard> 
   await tx.execute(sql`set local role authenticated`);
   const result = await tx.execute(
     sql`select nestly.session_guard() as guard
-        from (select pg_catalog.set_config('request.jwt.claims', ${databaseClaims(identity)}, true)${unsetSettings} offset 0) as claims`,
+        from (select pg_catalog.set_config('request.jwt.claims', ${databaseClaims(identity)}, true)${unsetSettings}${statementTimeout} offset 0) as claims`,
   );
   const [row] = guardRows.parse(result);
   if (row === undefined) throw new Error('the session guard returned no row');

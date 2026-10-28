@@ -12,6 +12,8 @@
 #                  locked (ALTER TABLE) for the few seconds of the transaction. A statement that moves no row stops it (rollback).
 #   walk           preview only, read only: every persona signs in and reads the screens it opens first (status, time, item count).
 #   stories        the Stories only - on the demo day itself (a Story expires after 24 hours, FR-FEED-008).
+#   load           read only: the personas sign in, then load_users users read their screens at once (tools/demo-seed/load.ts); the
+#                  report (share within 2 s, percentiles, slowest paths) is the job summary. Production: at most 500 users, 60 s.
 #
 # Secrets and variables (Afik creates them; this file never prints one):
 #   Preview  - environment `preview-e2e` (main only): DEMO_ACCOUNTS (secret), SUPABASE_PUBLISHABLE_KEY (variable, nestly-preview);
@@ -32,10 +34,10 @@ on:
         default: preview
         options: [preview, production]
       step:
-        description: plan (dry run) · seed · shift-dry-run · shift · walk (preview) · stories
+        description: plan (dry run) · seed · shift-dry-run · shift · walk (preview) · stories · load
         type: choice
         default: plan
-        options: [plan, seed, shift-dry-run, shift, walk, stories]
+        options: [plan, seed, shift-dry-run, shift, walk, stories, load]
       base_url:
         description: "preview only: the deployment URL (https://nestly-<hash>-afikyermis-projects.vercel.app)"
         type: string
@@ -44,6 +46,18 @@ on:
         description: "seed: create the demo accounts that do not exist yet (tick it for the first seed only)"
         type: boolean
         default: false
+      load_users:
+        description: "load: concurrent users"
+        type: string
+        default: "500"
+      load_duration_s:
+        description: "load: seconds of full load, after a 20 s ramp (production: at most 60)"
+        type: string
+        default: "60"
+      load_think_ms:
+        description: "load: mean pause between one user's requests, in ms"
+        type: string
+        default: "1000"
       allow_empty:
         description: "shift: comma-separated statement labels whose 0 rows may not stop the apply (content the product refused)"
         type: string
@@ -112,6 +126,17 @@ jobs:
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node tools/demo-seed/cli.ts walk preview
+      - name: Load test
+        if: inputs.step == 'load'
+        env:
+          DEMO_BASE_URL: ${{ inputs.base_url }}
+          DEMO_ACCOUNTS: ${{ secrets.DEMO_ACCOUNTS }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          LOAD_USERS: ${{ inputs.load_users }}
+          LOAD_DURATION_S: ${{ inputs.load_duration_s }}
+          LOAD_THINK_MS: ${{ inputs.load_think_ms }}
+        run: node tools/demo-seed/cli.ts load preview
       - name: Time shift
         if: inputs.step == 'shift-dry-run' || inputs.step == 'shift'
         env:
@@ -146,6 +171,16 @@ jobs:
           DEMO_ACCOUNTS: ${{ secrets.DEMO_ACCOUNTS }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
         run: node tools/demo-seed/cli.ts run "$STEP" production
+      - name: Load test
+        if: inputs.step == 'load'
+        env:
+          DEMO_BASE_URL: ${{ inputs.base_url }}
+          DEMO_ACCOUNTS: ${{ secrets.DEMO_ACCOUNTS }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          LOAD_USERS: ${{ inputs.load_users }}
+          LOAD_DURATION_S: ${{ inputs.load_duration_s }}
+          LOAD_THINK_MS: ${{ inputs.load_think_ms }}
+        run: node tools/demo-seed/cli.ts load production
       - name: Time shift
         if: inputs.step == 'shift-dry-run' || inputs.step == 'shift'
         env:
