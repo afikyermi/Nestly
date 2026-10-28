@@ -204,7 +204,7 @@ function NewAnnouncement({ onCreated }: { onCreated: (item: Announcement) => voi
 
   return (
     <section aria-labelledby="announcement-new" className="flex flex-col gap-3">
-      <h3 id="announcement-new" className="text-h4">
+      <h3 id="announcement-new" className="text-h3">
         {ANNOUNCEMENT_NEW_HEADING}
       </h3>
       <FormField label={ANNOUNCEMENT_TITLE_LABEL} htmlFor="announcement-new-title" {...(problems.title !== undefined ? { error: problems.title } : {})}>

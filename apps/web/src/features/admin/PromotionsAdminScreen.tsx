@@ -80,7 +80,7 @@ export function PromotionsAdminScreen() {
     <div className="flex flex-col gap-6">
       <p>{ADMIN_PROMOTIONS_INTRO}</p>
       <section className="rounded-lg bg-card p-4 shadow-card">
-        <h3 className="text-label">{ADMIN_TOTALS}</h3>
+        <h3 className="text-h3">{ADMIN_TOTALS}</h3>
         <p className="mt-1">{totalsText(data.totals)}</p>
         {data.totals.impressions !== null && data.totals.clicks !== null ? (
           <p className="mt-1 text-small text-muted-foreground">{countsText(data.totals.impressions, data.totals.clicks)}</p>

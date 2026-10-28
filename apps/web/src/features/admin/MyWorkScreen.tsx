@@ -90,11 +90,11 @@ export function MyWorkScreen() {
       {counters.length === 0 ? null : (
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
           {counters.map((key) => (
-            <div key={key} className="flex flex-col gap-1 rounded-lg bg-muted p-3">
+            <div key={key} className="flex flex-col gap-1 rounded-lg p-3 shadow-card">
               <dt className="text-small text-muted-foreground">{MY_WORK_COUNTERS[key]}</dt>
               <dd className="text-h3">{work.counters[key]}</dd>
               <dd>
-                <Link to={COUNTER_PATHS[key]} className="text-small">
+                <Link to={COUNTER_PATHS[key]} className="text-small text-primary-strong underline underline-offset-4">
                   {OPEN_LABEL}
                   <span className="sr-only"> {MY_WORK_COUNTERS[key]}</span>
                 </Link>
@@ -114,7 +114,7 @@ export function MyWorkScreen() {
             <p>
               {TARGET_KIND_LABELS[work.oldest.targetKind]} · {WAITING((Date.now() - Date.parse(work.oldest.waitingSince)) / 3_600_000)} · {TIME_TARGET(work.oldest.timeTargetHours)}
               {work.oldest.pastTarget ? <strong className="ms-1 text-destructive">· {PAST_TARGET}</strong> : null}{' '}
-              <Link to={reportPath(work.oldest)}>{OPEN_LABEL}</Link>
+              <Link to={reportPath(work.oldest)} className="text-primary-strong underline underline-offset-4">{OPEN_LABEL}</Link>
             </p>
           )}
           {work.next === null ? null : (

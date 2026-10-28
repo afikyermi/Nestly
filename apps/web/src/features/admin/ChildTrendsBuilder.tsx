@@ -67,7 +67,7 @@ export function ChildTrendsBuilder({ headingLevel = 3 }: { headingLevel?: 2 | 3 
   const max = Math.max(1, ...shown.map((cell) => cell.value ?? 0));
   return (
     <section aria-labelledby="child-trends-title" className="flex flex-col gap-4">
-      <Heading id="child-trends-title" className={headingLevel === 2 ? 'text-h3' : 'text-label'}>
+      <Heading id="child-trends-title" className="text-h3">
         {CHILD_TRENDS_TITLE}
       </Heading>
       <p className="text-small text-muted-foreground">{CHILD_TRENDS_LEAD}</p>

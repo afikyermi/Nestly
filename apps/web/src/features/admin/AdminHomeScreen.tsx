@@ -106,25 +106,25 @@ export function AdminHomeScreen() {
           {ATTENTION_TITLE}
         </h3>
         {attention.length === 0 && !spike.isSpike && overview.accountDeletions.pending === 0 ? <p>{NOTHING_NEEDS_ATTENTION}</p> : null}
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col divide-y divide-divider rounded-lg shadow-card">
           {spike.isSpike ? (
-            <li className="rounded-md bg-muted p-3">
-              <Link to={PATHS.adminReports}>{REPORT_SPIKE_TEXT(spike.lastDay, spike.dailyAverage)}</Link>
+            <li className="p-3">
+              <Link to={PATHS.adminReports} className="text-primary-strong underline underline-offset-4">{REPORT_SPIKE_TEXT(spike.lastDay, spike.dailyAverage)}</Link>
             </li>
           ) : null}
           {overview.accountDeletions.pending > 0 ? (
-            <li className="flex items-center justify-between gap-3 rounded-md bg-muted p-3">
+            <li className="flex items-center justify-between gap-3 p-3">
               <span>
                 {PENDING_DELETIONS_LABEL}: <strong>{overview.accountDeletions.pending}</strong>
               </span>
             </li>
           ) : null}
           {attention.map((key) => (
-            <li key={key} className="flex items-center justify-between gap-3 rounded-md bg-muted p-3">
+            <li key={key} className="flex items-center justify-between gap-3 p-3">
               <span>
                 {ATTENTION_LABELS[key]}: <strong>{overview.attention[key]}</strong>
               </span>
-              <Link to={ATTENTION_PATHS[key]} className="text-label">
+              <Link to={ATTENTION_PATHS[key]} className="text-label text-primary-strong underline underline-offset-4">
                 {OPEN_LABEL}
                 <span className="sr-only"> {ATTENTION_LABELS[key]}</span>
               </Link>
@@ -138,7 +138,7 @@ export function AdminHomeScreen() {
         </h3>
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-3">
           {overview.metrics.map((metric) => (
-            <div key={metric.key} className="rounded-lg bg-muted p-3">
+            <div key={metric.key} className="rounded-lg p-3 shadow-card">
               <dt className="text-small text-muted-foreground">{METRIC_LABELS[metric.key]}</dt>
               <dd className="text-h3">{metric.current}</dd>
               <dd className="text-small">
@@ -157,7 +157,7 @@ export function AdminHomeScreen() {
         ) : (
           <ul className="flex flex-col gap-2">
             {overview.team.map((member) => (
-              <li key={member.userId} className="rounded-md border border-border p-3 text-small">
+              <li key={member.userId} className="rounded-lg p-3 text-small shadow-card">
                 <p className="text-label">{member.label ?? TEAM_SNAPSHOT_UNNAMED}</p>
                 <p>
                   {TEAM_KEYS_COUNT(member.keyCount)} · {TEAM_LAST_ACTION(member.lastActionAt === null ? null : formatAdminTime(member.lastActionAt))} ·{' '}
@@ -170,7 +170,7 @@ export function AdminHomeScreen() {
       </section>
       <ChildTrendsBuilder />
       <div>
-        <Link to={`${PATHS.adminAudit}?sensitive=true`}>{SENSITIVE_LINK}</Link>
+        <Link to={`${PATHS.adminAudit}?sensitive=true`} className="text-primary-strong underline underline-offset-4">{SENSITIVE_LINK}</Link>
       </div>
     </div>
   );

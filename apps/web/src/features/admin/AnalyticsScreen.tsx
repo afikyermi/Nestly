@@ -95,7 +95,7 @@ function Stats({ items }: { items: ReadonlyArray<{ label: string; value: number 
   return (
     <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {items.map(({ label, value }) => (
-        <div key={label} className="rounded-lg bg-muted p-3">
+        <div key={label} className="rounded-lg p-3 shadow-card">
           <dt className="text-small text-muted-foreground">{label}</dt>
           <dd className="text-h3">{value === null ? ANALYTICS_NONE : number.format(value)}</dd>
         </div>
@@ -106,15 +106,17 @@ function Stats({ items }: { items: ReadonlyArray<{ label: string; value: number 
 
 function Chart({ title, points }: { title: string; points: ReadonlyArray<{ day: string; count: number }> }) {
   return (
-    <BarChart
-      title={title}
-      points={points.map((point) => ({ label: shortDay(point.day), value: point.count }))}
-      unit=""
-      emptyText={`${title}: ${ANALYTICS_EMPTY}`}
-      tableLabel={`${title} · ${ANALYTICS_TABLE}`}
-      valueHeader={ANALYTICS_COUNT}
-      dayHeader={ANALYTICS_DAY}
-    />
+    <div className="w-full max-w-lg rounded-lg p-4 shadow-card">
+      <BarChart
+        title={title}
+        points={points.map((point) => ({ label: shortDay(point.day), value: point.count }))}
+        unit=""
+        emptyText={`${title}: ${ANALYTICS_EMPTY}`}
+        tableLabel={`${title} · ${ANALYTICS_TABLE}`}
+        valueHeader={ANALYTICS_COUNT}
+        dayHeader={ANALYTICS_DAY}
+      />
+    </div>
   );
 }
 
@@ -183,7 +185,7 @@ function Loaded({ data }: { data: AnalyticsView }) {
   return (
     <div className="flex flex-col gap-8">
       <section aria-labelledby="analytics-accounts" className="flex flex-col gap-4">
-        <h3 id="analytics-accounts" className="text-h4">
+        <h3 id="analytics-accounts" className="text-h3">
           {ANALYTICS_ACCOUNTS}
         </h3>
         <Stats
@@ -201,7 +203,7 @@ function Loaded({ data }: { data: AnalyticsView }) {
         <Chart title={ANALYTICS_REGISTRATIONS} points={accounts.registrations.map((row) => ({ day: row.day, count: row.regular + row.professional }))} />
       </section>
       <section aria-labelledby="analytics-feed" className="flex flex-col gap-4">
-        <h3 id="analytics-feed" className="text-h4">
+        <h3 id="analytics-feed" className="text-h3">
           {ANALYTICS_FEED}
         </h3>
         <Chart title={ANALYTICS_POSTS} points={content.posts} />
@@ -211,7 +213,7 @@ function Loaded({ data }: { data: AnalyticsView }) {
         <Stats items={content.postsPerAuthor.map((row) => ({ label: row.bucket, value: row.accounts }))} />
       </section>
       <section aria-labelledby="analytics-friends" className="flex flex-col gap-4">
-        <h3 id="analytics-friends" className="text-h4">
+        <h3 id="analytics-friends" className="text-h3">
           {ANALYTICS_FRIENDS}
         </h3>
         <Stats
@@ -222,7 +224,7 @@ function Loaded({ data }: { data: AnalyticsView }) {
         />
       </section>
       <section aria-labelledby="analytics-moderation" className="flex flex-col gap-4">
-        <h3 id="analytics-moderation" className="text-h4">
+        <h3 id="analytics-moderation" className="text-h3">
           {ANALYTICS_MODERATION}
         </h3>
         <Stats
@@ -245,7 +247,7 @@ function Loaded({ data }: { data: AnalyticsView }) {
         )}
       </section>
       <section aria-labelledby="analytics-support" className="flex flex-col gap-4">
-        <h3 id="analytics-support" className="text-h4">
+        <h3 id="analytics-support" className="text-h3">
           {ANALYTICS_SUPPORT}
         </h3>
         <Stats
@@ -268,7 +270,7 @@ function Loaded({ data }: { data: AnalyticsView }) {
       <Areas data={data} />
       <UsageAndPromotions data={data} />
       <section aria-labelledby="analytics-waiting" className="flex flex-col gap-2">
-        <h3 id="analytics-waiting" className="text-h4">
+        <h3 id="analytics-waiting" className="text-h3">
           {ANALYTICS_WAITING_HEADING}
         </h3>
         <p className="text-muted-foreground">{ANALYTICS_WAITING}</p>
@@ -282,7 +284,7 @@ function Areas({ data }: { data: AnalyticsView }) {
   return (
     <>
       <section aria-labelledby="analytics-groups" className="flex flex-col gap-4">
-        <h3 id="analytics-groups" className="text-h4">
+        <h3 id="analytics-groups" className="text-h3">
           {ANALYTICS_GROUPS}
         </h3>
         <Stats
@@ -299,7 +301,7 @@ function Areas({ data }: { data: AnalyticsView }) {
         <p className="text-small text-muted-foreground">{ANALYTICS_GROUPS_NOTE}</p>
       </section>
       <section aria-labelledby="analytics-pros" className="flex flex-col gap-4">
-        <h3 id="analytics-pros" className="text-h4">
+        <h3 id="analytics-pros" className="text-h3">
           {ANALYTICS_PROS}
         </h3>
         <Stats
@@ -318,7 +320,7 @@ function Areas({ data }: { data: AnalyticsView }) {
         )}
       </section>
       <section aria-labelledby="analytics-market" className="flex flex-col gap-4">
-        <h3 id="analytics-market" className="text-h4">
+        <h3 id="analytics-market" className="text-h3">
           {ANALYTICS_MARKET}
         </h3>
         <Stats
@@ -348,7 +350,7 @@ function UsageAndPromotions({ data }: { data: AnalyticsView }) {
   return (
     <>
       <section aria-labelledby="analytics-usage" className="flex flex-col gap-4">
-        <h3 id="analytics-usage" className="text-h4">
+        <h3 id="analytics-usage" className="text-h3">
           {ANALYTICS_USAGE}
         </h3>
         <Chart title={ANALYTICS_USAGE_LOGINS} points={usage.dailyLogins} />
@@ -358,7 +360,7 @@ function UsageAndPromotions({ data }: { data: AnalyticsView }) {
       </section>
       {promotions === undefined ? null : (
         <section aria-labelledby="analytics-promotions" className="flex flex-col gap-4">
-          <h3 id="analytics-promotions" className="text-h4">
+          <h3 id="analytics-promotions" className="text-h3">
             {ANALYTICS_PROMOTIONS}
           </h3>
           <Stats

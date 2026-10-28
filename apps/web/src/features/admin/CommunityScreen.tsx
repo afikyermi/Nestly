@@ -74,7 +74,7 @@ export function CommunityScreen() {
   return (
     <div className="flex flex-col gap-8">
       <section aria-labelledby="community-reasons" className="flex flex-col gap-3">
-        <h3 id="community-reasons" className="text-h4">
+        <h3 id="community-reasons" className="text-h3">
           {REASONS_HEADING}
         </h3>
         <p className="text-small text-muted-foreground">{REASONS_HINT}</p>
@@ -179,7 +179,7 @@ function AddReason({ nextOrder, onAdded }: { nextOrder: number; onAdded: () => v
 
   return (
     <section aria-labelledby="community-add" className="flex flex-col gap-3">
-      <h3 id="community-add" className="text-h4">
+      <h3 id="community-add" className="text-h3">
         {REASON_ADD_HEADING}
       </h3>
       <div className="grid gap-3 sm:grid-cols-2">
