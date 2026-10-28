@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   Bell,
   Search,
+  Send,
   Settings,
   ArrowUp,
   Check,
@@ -134,6 +135,8 @@ export const ArrowUpIcon = icon(ArrowUp);
 // Back points to the end side (right in Hebrew), forward to the start side (left).
 export const ArrowBackIcon = icon(ArrowLeft, true);
 export const ChevronForwardIcon = icon(ChevronRight, true);
+// The paper plane points forward (to the end edge), so it mirrors in RTL.
+export const SendIcon = icon(Send, true);
 
 // The filled nest: "selected" in the bottom navigation and "liked" on the like. The waves are cut out of the bowl, so they show
 // whatever surface is behind it. The mask id is per instance.

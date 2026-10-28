@@ -12,6 +12,13 @@ import { TopBar } from '../shared/top-bar';
  */
 export const ShellActionBarContext = createContext<HTMLElement | null>(null);
 
+/**
+ * The end column of a wide desktop (from 1280, 72rem: redesign 27.10.2026, NFR-USE-001): an element a screen may portal side cards into ("המסע
+ * שלי", "שיחות אחרונות"). Hidden below 1280, where it holds nothing visible; empty, it still balances the shortcuts column so the content
+ * stays centred. Null outside a shell.
+ */
+export const ShellEndColumnContext = createContext<HTMLElement | null>(null);
+
 export interface AppShellProps {
   /** The page, rendered inside `main`. */
   children: ReactNode;
@@ -37,6 +44,8 @@ export interface AppShellProps {
   /** The global search, handed to the TopBar (an icon below 1024, a field beside the logo from 1024). */
   topBarSearch?: ReactNode;
   topBarActions?: ReactNode;
+  /** Handed to the TopBar: the account's avatar at its very end, from 1024. */
+  topBarAvatar?: ReactNode;
   /**
    * The shortcuts column at the inline-start edge (redesign 27.10.2026, NFR-USE-001), shown from 1152 (72rem), where it fits beside the
    * centred column and the gutter the action bar uses; below that its places are in the menu.
@@ -66,6 +75,7 @@ export function AppShell({
   onNavigate,
   topBarSearch,
   topBarActions,
+  topBarAvatar,
   shortcuts,
   scrollResetKey,
   className,
@@ -77,6 +87,7 @@ export function AppShell({
     onMenuOpenChange?.(next);
   };
   const [actionBar, setActionBar] = useState<HTMLDivElement | null>(null);
+  const [endColumn, setEndColumn] = useState<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   // Set by closeMenu, read when the drawer closes: Escape, the close control and the backdrop keep
@@ -138,6 +149,7 @@ export function AppShell({
         }}
         search={topBarSearch}
         actions={topBarActions}
+        avatar={topBarAvatar}
       />
       <div className="flex min-h-0 flex-1 flex-col lg:min-h-fit lg:flex-row lg:gap-6 lg:px-6 lg:pt-5">
         <BottomNavigation
@@ -155,9 +167,11 @@ export function AppShell({
           tabIndex={-1}
           className="min-h-0 min-w-0 flex-1 scroll-py-4 overflow-y-auto px-4 py-5 print:overflow-visible lg:mx-auto lg:max-w-2xl lg:overflow-visible lg:px-0 lg:pt-0"
         >
-          <ShellActionBarContext value={actionBar}>{children}</ShellActionBarContext>
+          <ShellActionBarContext value={actionBar}>
+            <ShellEndColumnContext value={endColumn}>{children}</ShellEndColumnContext>
+          </ShellActionBarContext>
         </main>
-        {shortcuts === undefined ? null : <div aria-hidden="true" className="hidden w-72 shrink-0 @7xl:block" />}
+        {shortcuts === undefined ? null : <div ref={setEndColumn} className="sticky top-21 hidden w-72 shrink-0 flex-col gap-4 self-start @7xl:flex" />}
         <div ref={setActionBar} className="flex justify-end px-4 py-2 empty:hidden lg:fixed lg:end-6 lg:bottom-6 lg:z-sticky lg:p-0" />
       </div>
       <SideDrawer

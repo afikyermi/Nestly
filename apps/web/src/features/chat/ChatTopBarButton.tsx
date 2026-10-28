@@ -115,7 +115,7 @@ export function ChatTopBarButton({ current }: { current: string }) {
   );
 }
 
-function RecentList({ overview, onPick }: { overview: ChatOverview; onPick: () => void }) {
+export function RecentList({ overview, onPick }: { overview: ChatOverview; onPick?: () => void }) {
   const items = [
     ...overview.conversations.map((c) => ({
       key: c.id,

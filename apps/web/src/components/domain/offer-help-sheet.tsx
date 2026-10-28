@@ -11,6 +11,8 @@ import { CANCEL, OFFER_ANONYMOUS_NOTE, OFFER_HELP, OFFERED, OFFER_SEND, OFFER_SE
 export interface OfferHelpSheetProps {
   /** The post carries no name (AC-147): one more line says the identity stays hidden until an accept. */
   isAnonymous: boolean;
+  /** The post's own words, quoted in two lines at most above the field (redesign 27.10.2026); empty or unset: no quote. */
+  excerpt?: string;
   text: string;
   /** The text's problem (empty, too long), shown on the field. */
   error: string | null;
@@ -28,7 +30,7 @@ export interface OfferHelpSheetProps {
 // The Offer Help window (FR-SERV-005, §13.2) on the shared sheet: what an offer is (a first message the author accepts or declines; only an
 // accept opens a conversation), the first message, send and cancel. Display only: what sending does comes in as props. Focus starts in the text.
 export function OfferHelpSheet(props: OfferHelpSheetProps) {
-  const { isAnonymous, text, error, sending, failure, onTextChange, onSend, onCancel, finalFocus } = props;
+  const { isAnonymous, excerpt = '', text, error, sending, failure, onTextChange, onSend, onCancel, finalFocus } = props;
   const ids = useId();
   return (
     <SheetPanel
@@ -40,6 +42,11 @@ export function OfferHelpSheet(props: OfferHelpSheetProps) {
       finalFocus={finalFocus}
     >
       <SheetTitle>{OFFER_HELP}</SheetTitle>
+      {excerpt.trim() === '' ? null : (
+        <p dir="auto" className="m-0 line-clamp-2 rounded-md border-s-2 border-primary bg-muted px-3 py-2 text-small whitespace-pre-wrap text-muted-foreground">
+          {excerpt}
+        </p>
+      )}
       <SheetDescription>{isAnonymous ? `${OFFER_SHEET_INTRO} ${OFFER_ANONYMOUS_NOTE}` : OFFER_SHEET_INTRO}</SheetDescription>
       <form
         noValidate

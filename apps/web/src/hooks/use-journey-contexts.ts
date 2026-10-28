@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import type { HomeResponse, StageContext } from '@nestly/shared';
+import type { ApiResult } from '@/services/api/trackers';
 import { fetchHome } from '@/services/api/trackers';
 import { useAuthedCall } from './use-authed-call';
 
 /** A home answer is reused for this long (the feed's journey row after a visit to the home, and back): one request, not one per screen. */
-const FRESH_MS = 2 * 60_000;
+const FRESH_MS = 5 * 60_000;
 
 let cached: { at: number; home: HomeResponse } | null = null;
+// The request in flight: the feed's journey row and the end column's card share it.
+let inFlight: Promise<ApiResult<HomeResponse>> | null = null;
 
 /** Keep a home answer the home screen fetched itself, so the journey row does not ask again. */
 export function rememberHome(home: HomeResponse): void {
@@ -29,7 +32,10 @@ export function useJourneyContexts(enabled: boolean): readonly StageContext[] | 
     asked.current = true;
     // Not cancelled on unmount: a late answer only fills the cache (setting state on an unmounted component is a no-op).
     void (async () => {
-      const result = await call(fetchHome);
+      inFlight ??= call(fetchHome).finally(() => {
+        inFlight = null;
+      });
+      const result = await inFlight;
       if (result.kind !== 'ok') return;
       rememberHome(result.value);
       setContexts(result.value.contexts);

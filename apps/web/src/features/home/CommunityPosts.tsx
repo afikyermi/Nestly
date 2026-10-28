@@ -6,7 +6,10 @@ import { Avatar } from '@/components/ui/avatar';
 import { useSessionAccount } from '@/hooks/use-session-account';
 import { STAGE_LABELS } from '@/lib/child-fields';
 import { postPath } from '@/lib/post-link';
-import { fetchFeedPage } from '@/services/api/feed';
+import { recentFeedFirstPage } from '@/services/api/feed';
+
+/** A first page the feed received this recently is used as it is (no request). */
+const REUSE_MS = 5 * 60_000;
 
 const TITLE = 'מהקהילה, בשלבים שלכם';
 const TO_FEED = 'לפיד';
@@ -19,7 +22,7 @@ const commentsText = (count: number): string => (count === 1 ? 'תגובה אח�
 
 /**
  * Up to two posts of the viewer's own feed whose stage tag matches one of its journeys (FR-HOME-001, AC-208; redesign 27.10.2026). The feed's
- * first page is the source, in its own order: only posts the viewer may already see there, nothing promoted, no ranking of its own. Asked
+ * first page is the source (the one the feed received in the last five minutes, else one request), in its own order: only posts the viewer may already see there, nothing promoted, no ranking of its own. Asked
  * after the home has shown; nothing is drawn while it loads, when it fails, or when no post matches.
  */
 export function CommunityPosts({ contexts }: { contexts: readonly StageContext[] }) {
@@ -34,7 +37,7 @@ export function CommunityPosts({ contexts }: { contexts: readonly StageContext[]
     void (async () => {
       const token = account === null ? null : await account.getAccessToken().catch(() => null);
       if (token === null || cancelled) return;
-      const outcome = await fetchFeedPage(token, null);
+      const outcome = await recentFeedFirstPage(token, REUSE_MS);
       if (cancelled || outcome.kind !== 'page') return;
       const matching = outcome.page.items.filter(
         (unit): unit is Extract<FeedUnit, { kind: 'post' }> =>

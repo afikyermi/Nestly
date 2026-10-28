@@ -13,6 +13,8 @@ export interface TopBarProps {
   search?: ReactNode;
   /** Caller nodes before the Hamburger, at the inline-end edge (chat, bell). Empty by default. */
   actions?: ReactNode;
+  /** From 1024 only, after the Hamburger at the very end: the account's avatar, a link to its profile. Empty by default. */
+  avatar?: ReactNode;
   /** Placement only. */
   className?: string;
 }
@@ -20,7 +22,7 @@ export interface TopBarProps {
 // The plum bar (redesign 27.10.2026): 48 high below 1024, 64 from 1024. The logo sits at the inline-start (right in RTL); the search, the
 // caller's actions and the Hamburger at the inline-end, the Hamburger last. From 1024 the search moves beside the logo and the primary
 // destinations sit in the middle of the bar (BottomNavigation places itself there). The DOM order is the visual order on both.
-export function TopBar({ onMenuClick, menuLabel, menuButtonRef, search, actions, className }: TopBarProps) {
+export function TopBar({ onMenuClick, menuLabel, menuButtonRef, search, actions, avatar, className }: TopBarProps) {
   return (
     <header className={cn('flex h-12 items-center gap-0.5 bg-brand-bar ps-2 pe-1 text-primary-foreground lg:h-16 lg:gap-2 lg:px-4', className)}>
       <Logo tone="onBrand" />
@@ -37,6 +39,7 @@ export function TopBar({ onMenuClick, menuLabel, menuButtonRef, search, actions,
       >
         <MenuIcon />
       </Button>
+      {avatar}
     </header>
   );
 }

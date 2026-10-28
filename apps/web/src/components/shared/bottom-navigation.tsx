@@ -11,6 +11,8 @@ export interface BottomNavigationItem {
   currentIcon?: ReactNode;
   /** At most one item is current: when several are set, only the first is marked. */
   current?: boolean;
+  /** From 1024 the item is not in the row: the top bar shows it another way (the profile as the avatar, redesign 27.10.2026). */
+  desktopHidden?: boolean;
   /**
    * A quiet count drawn on the icon (design-system: `badge`, no red, no pulse), e.g. unread conversations. The item renders it itself and it
    * carries its own screen-reader text after the label ("שיחות, 3 עם הודעות חדשות"); nothing: no badge.
@@ -50,7 +52,7 @@ export function BottomNavigation({ items, label, onNavigate, className }: Bottom
         {items.map((item) => {
           const current = item.key === currentKey;
           return (
-            <li key={item.key} className="min-w-0 flex-1 lg:flex-none">
+            <li key={item.key} className={cn('min-w-0 flex-1 lg:flex-none', item.desktopHidden === true && 'lg:hidden')}>
               <a
                 href={item.href}
                 aria-current={current ? 'page' : undefined}

@@ -9,6 +9,10 @@ import { SearchBox } from '@/features/search/SearchBox';
 import { BagIcon, HomeIcon, MessageIcon, NestFilledIcon, NestIcon, SparkIcon, UserIcon } from '@/components/ui/icons';
 import { MARKETPLACE_NAV_LABEL } from '@/lib/marketplace-texts';
 import { AccountKindProvider, useAccountKindQuery } from '@/hooks/use-account-kind';
+import { usePostingProfile } from '@/hooks/use-posting-right';
+import { isPlainClick } from '@/lib/is-plain-click';
+import { Avatar } from '@/components/ui/avatar';
+import { cn } from '@/lib/cn';
 import {
   BILLING_TITLE,
   CHATS_NAV_LABEL,
@@ -39,7 +43,8 @@ import { normalizePath, PATHS } from './paths';
 
 // The destinations of a community account (AC-005, §7.1, in the sketch's order): home, the Marketplace (I12, "חנות", FR-MKT-001), feed, the
 // Professionals' directory (I11, FR-SERV-001) and the profile. The profile tab shows the generic person icon until profile photos exist (I5, Q7). A
-// Professional's (§11.20, Afik 21.10.2026; AC-148): home (its dashboard), feed, its conversations with the unread badge, and its
+// Professional's (§11.20, Afik 21.10.2026; AC-148): home (its dashboard), feed, its conversations with the unread badge (below 1024 only: from
+// 1024 the top bar's Chat Center button is beside the row, redesign 27.10.2026), and its
 // Professional profile (no "חנות" in the bar: I12-B puts it in its menu, view and contact only; "בקשות עזרה" is reached from its home and its menu).
 // A staff account (I14 completion, Afik 21.10.2026): home (the admin area), the Marketplace, the feed and the directory, for review; no personal
 // profile (a work-only account).
@@ -48,10 +53,35 @@ const navItems = (professional: boolean, staff = false) => [
   ...(professional ? [] : [{ key: 'marketplace', label: MARKETPLACE_NAV_LABEL, href: PATHS.marketplace, icon: <BagIcon />, currentIcon: <BagIcon className="fill-current" /> }]),
   { key: 'feed', label: 'פיד', href: PATHS.feed, icon: <NestIcon />, currentIcon: <NestFilledIcon /> },
   professional
-    ? { key: 'chats', label: CHATS_NAV_LABEL, href: PATHS.chat, icon: <MessageIcon />, currentIcon: <MessageIcon className="fill-current" />, badge: <ChatsNavBadge /> }
+    ? { key: 'chats', label: CHATS_NAV_LABEL, href: PATHS.chat, icon: <MessageIcon />, currentIcon: <MessageIcon className="fill-current" />, badge: <ChatsNavBadge />, desktopHidden: true }
     : { key: 'services', label: DIRECTORY_NAV_LABEL, href: PATHS.services, icon: <SparkIcon />, currentIcon: <SparkIcon className="fill-current" /> },
-  ...(staff ? [] : [{ key: 'profile', label: 'פרופיל', href: professional ? PATHS.proProfile : PATHS.profile, icon: <UserIcon />, currentIcon: <UserIcon className="fill-current" /> }]),
+  // From 1024 the profile is the avatar at the end of the top bar (redesign 27.10.2026), not an icon in the row.
+  ...(staff ? [] : [{ key: 'profile', label: 'פרופיל', href: professional ? PATHS.proProfile : PATHS.profile, icon: <UserIcon />, currentIcon: <UserIcon className="fill-current" />, desktopHidden: true }]),
 ];
+
+/**
+ * The account's avatar at the end of the top bar from 1024 (redesign 27.10.2026, §7.3): a link to its profile, named like the navigation's
+ * "פרופיל". The initials come from the own-profile answer the feed and the composer already ask for (one request in flight is shared); a
+ * Professional, with no parent profile, gets the person icon. Staff have no profile and no avatar.
+ */
+function TopBarAvatar({ href, current, onNavigate }: { href: string; current: boolean; onNavigate: (href: string) => void }) {
+  const { fullName } = usePostingProfile();
+  return (
+    <a
+      href={href}
+      aria-label="פרופיל"
+      aria-current={current ? 'page' : undefined}
+      onClick={(event) => {
+        if (!isPlainClick(event)) return;
+        event.preventDefault();
+        onNavigate(href);
+      }}
+      className={cn('ms-1 hidden size-11 shrink-0 place-items-center rounded-full no-underline hover:bg-primary-strong lg:grid', current && 'bg-primary-strong')}
+    >
+      <Avatar name={fullName ?? ''} decorative size="s" className="ring-2 ring-primary-foreground" />
+    </a>
+  );
+}
 
 /** The top bar's search (AC-033): a Regular or Professional account only. An Admin or Moderator account has none. */
 function TopBarSearch() {
@@ -116,6 +146,11 @@ export function ProtectedLayout() {
     <NotificationsProvider>
     <AppShell
       topBarSearch={<TopBarSearch />}
+      topBarAvatar={
+        staff.kind === 'staff' ? null : (
+          <TopBarAvatar href={professional ? PATHS.proProfile : PATHS.profile} current={current === (professional ? PATHS.proProfile : PATHS.profile)} onNavigate={go} />
+        )
+      }
       shortcuts={<DesktopShortcuts kind={staff.kind === 'staff' ? 'staff' : professional ? 'professional' : 'regular'} current={current} onNavigate={go} />}
       topBarActions={<TopBarActions chat={staff.kind === 'none' ? <ChatTopBarButton current={current} /> : null} />}
       navItems={navItems(professional, staff.kind === 'staff').map((item) => ({

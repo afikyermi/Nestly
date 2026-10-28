@@ -8,7 +8,7 @@
 |---|---|
 | סטטוס | מאושר; עודכן 27.10.2026 |
 | Actor | Regular User / Professional User / Admin / Moderator |
-| תיאור | לאחר התחברות יוצג Top Bar גלובלי ורב-שימושי, בצבע המותג. ב-Regular/Professional, מתחת ל-1024px, הסרגל דק ויוצגו בו מימין לשמאל: הלוגו, ובצד השמאלי Global Search כאייקון, Chat, Notification Bell ו-Hamburger Menu בקצה. מ-1024px יוצגו מימין הלוגו ושדה Global Search, במרכז יעדי הניווט כאייקונים, והיעד הנבחר מסומן, ומשמאל Chat, Notification Bell ו-Hamburger Menu (§7.1, §7.3; החלטת אפיק מ-27.10.2026). ב-Admin/Moderator יוצג Top Bar ניהולי ללא Social Chat או Global Search צרכני. |
+| תיאור | לאחר התחברות יוצג Top Bar גלובלי ורב-שימושי, בצבע המותג. ב-Regular/Professional, מתחת ל-1024px, הסרגל דק ויוצגו בו מימין לשמאל: הלוגו, ובצד השמאלי Global Search כאייקון, Chat, Notification Bell ו-Hamburger Menu בקצה. מ-1024px יוצגו מימין הלוגו ושדה Global Search, במרכז יעדי הניווט כאייקונים, והיעד הנבחר מסומן, ומשמאל Chat, Notification Bell, Hamburger Menu והאווטאר של החשבון בקצה, שמוביל לפרופיל; בדסקטופ הפרופיל הוא האווטאר ואינו מופיע שוב בין היעדים במרכז, וב-Professional "שיחות" אינו מופיע שוב בין היעדים, כי כפתור ה-Chat נמצא באותו סרגל (§7.1, §7.3; החלטות אפיק מ-27.10.2026 ומ-28.10.2026). ב-Admin/Moderator יוצג Top Bar ניהולי ללא Social Chat או Global Search צרכני. |
 | תנאים מוקדמים | משתמש מחובר. |
 | קלט / Trigger | טעינת מסך בתוך מעטפת האפליקציה. |
 | תהליך מערכת | המערכת מזהה Role/Permissions, טוענת counters ומציגה רק פעולות המותרות לחשבון. Admin/Moderator אינם משתמשים ב-Top Bar כדי להשתתף בקהילה. |

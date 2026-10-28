@@ -48,6 +48,7 @@ import { PIN_LABEL, REMOVE_FROM_GROUP_LABEL, UNPIN_LABEL } from '@/lib/group-pos
 import { useStaffAccess } from '@/hooks/use-staff-access';
 import { STAFF_REVIEW_NOTE } from '@/lib/staff-review-texts';
 import { OFFER_CONTROL_SELECTOR, OfferHelpSheet } from '@/components/domain/offer-help-sheet';
+import { Toast } from '@/components/domain/toast';
 import { useOfferHelp } from '@/hooks/use-offer-help';
 
 /**
@@ -231,7 +232,7 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
 
   const offerHelpFor = (unit: FeedUnit) =>
     unit.kind === 'post' && unit.offerHelp !== undefined
-      ? { sent: unit.offerHelp === 'sent' || offer.isSent(unit.id), onOffer: () => offer.start(unit.id, unit.isAnonymous) }
+      ? { sent: unit.offerHelp === 'sent' || offer.isSent(unit.id), onOffer: () => offer.start(unit.id, unit.isAnonymous, unit.body) }
       : undefined;
 
   // ux-polish-a c1: a card asks for its comments once, when it first comes near (a hidden card's placeholder has no comment area).
@@ -404,6 +405,7 @@ export function FeedScreen({ stories }: { stories?: ReactNode } = {}) {
           }
         />
       ) : null}
+      <Toast text={offer.toast} />
       {/* F3.2b c20: in the shell's action bar (never over a card's controls), only after a long scroll. */}
       {far && actionBar !== null
         ? createPortal(
