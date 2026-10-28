@@ -225,6 +225,8 @@ function createClient(url: string): { client: CleanupClient & BacklogClient; clo
           ['people_search_counts', tx`delete from nestly.people_search_counts where user_id = ${id}`],
           // AC-192: the instant of the user's last child-birthday check (cascades with the user; deleted here like the other per-user rows).
           ['birthday_checks', tx`delete from nestly.birthday_checks where user_id = ${id}`],
+          // The assistant's message limits: the instants of recent sends (cascades with the user; deleted here like the other per-user rows).
+          ['assistant_message_counts', tx`delete from nestly.assistant_message_counts where user_id = ${id}`],
           // Afik DR-L (17.10.2026): a test user's Security events may be deleted here only; the FK stays RESTRICT for every other path.
           // security_limits is configuration with no user: never touched (deleting it would fail every later profile_view closed).
           ['user_enforcements', tx`delete from nestly.user_enforcements where user_id = ${id} or actor_id = ${id}`],

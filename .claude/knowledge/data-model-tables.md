@@ -18,6 +18,7 @@ does not instruct loading every link. Column sections and rule matrices are both
 | profile_view consumers | Cross-user profile read plus the affected input/output table sections above |
 | staff_roles, moderator_permissions, audit_log, report_reasons, user_enforcements | Safety and admin core |
 | user_blocks | Blocking a user (I4); Friendships and regular names; Notifications and People Search |
+| assistant_message_counts | The assistant's message limits |
 | chat_requests, conversations, messages, chat_blocks, chat_reads, support_requests, support_messages, reported_message_views | Chat and Support (I8); Friendships and regular names; Blocking a user; Safety and admin core (reports, audit) |
 | moderator_invitations, system_announcements, the analytics reads | Moderators team (I14); Safety and admin core (staff roles, keys, audit) |
 | report_escalations, report_openings, group_staff_views, child_tracker_trends, the staff review reads | Staff work (I14 completion); Safety and admin core (reports, audit); Groups (Private Group views); Trackers (I6) |
@@ -508,6 +509,21 @@ FR-SEARCH-001, FR-ALG-008, BR-035/038/061/063, VAL-037, AC-040/041/042/074/078; 
 Rows: id and full name of other active Regular accounts, ranked exact name, name prefix, a word prefix, anywhere; then name and id; at most 50 per call, offset up to 200.
 Posts are searched by the server through the caller's own RLS (`posts_select_viewer`), so hides, audience, Friends-only and later blocks and Private Groups apply with no search code.
 **Cleanup order:** the three notification tables after `journey_contexts`, `search_intents`, `people_search_counts` and `birthday_checks` after `profile_open_counts`.
+
+## The assistant's message limits
+
+**`nestly.assistant_message_counts`** (BR-092, NFR-PRIV-008; migration `20261028100000_assistant_limits.sql`, Afik 28.10.2026: 20 messages an hour, 60 a day per account)
+
+| Column | Type · null · default | Meaning |
+|---|---|---|
+| `user_id` | uuid PK · `auth.uid()` → users ON DELETE CASCADE | the account |
+| `sent_at` | timestamptz[] · not null · `'{}'` · CHECK cardinality ≤ 1000 | the instants of the account's accepted assistant messages in the last 24 hours; the server prunes older ones at each write |
+
+RLS + FORCE. TO authenticated: `assistant_message_counts_select_own`, `_insert_own`, `_update_own` — own row (`auth.uid()`), active Regular or Professional only;
+INSERT granted on `user_id`, UPDATE on `sent_at`; no DELETE (cascade with the account, also through the I9 purge). The thresholds are server configuration
+(`ASSISTANT_HOURLY_LIMIT`, `ASSISTANT_DAILY_LIMIT`), not rows: the server takes the row lock (`insert … on conflict do update`), counts both windows and
+appends now() in one identity transaction. Nothing of the conversation is stored anywhere (no text, no answer, no topic). pgTAP file 121.
+**Cleanup order:** after `birthday_checks`.
 
 ## Blocking a user (I4)
 
