@@ -32,6 +32,7 @@ import { StaffAccessProvider, useStaffAccessQuery } from '@/hooks/use-staff-acce
 import { ADMIN_MENU_LABEL, STAFF_GROUPS_MENU_LABEL } from '@/features/admin/admin-texts';
 import { ChatTopBarButton } from '@/features/chat/ChatTopBarButton';
 import { ChatsNavBadge } from '@/features/chat/ChatsNavBadge';
+import { AssistantLauncher } from '@/features/assistant/AssistantLauncher';
 import { NEW_SUPPORT_LABEL } from '@/lib/chat-texts';
 import { shareLinkSheetProps, useShareLink } from '@/hooks/use-share-link';
 import { SHARE_SITE_LABEL } from '@/lib/share-link-texts';
@@ -152,6 +153,8 @@ export function ProtectedLayout() {
           <TopBarAvatar href={professional ? PATHS.proProfile : PATHS.profile} current={current === (professional ? PATHS.proProfile : PATHS.profile)} onNavigate={go} />
         )
       }
+      // The Nestly assistant (Afik 28.10.2026, FR-AI-001): a Regular or Professional account only; never staff (and never before the account is known).
+      floatingAction={staff.kind === 'none' && (kind === 'regular' || kind === 'professional') ? <AssistantLauncher /> : undefined}
       shortcuts={<DesktopShortcuts kind={staff.kind === 'staff' ? 'staff' : professional ? 'professional' : 'regular'} current={current} onNavigate={go} />}
       topBarActions={<TopBarActions chat={staff.kind === 'none' ? <ChatTopBarButton current={current} /> : null} />}
       navItems={navItems(professional, staff.kind === 'staff').map((item) => ({

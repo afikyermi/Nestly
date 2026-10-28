@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.54 · 28.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.55 · 28.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -19,7 +19,7 @@
 | 2 | [02-system-overview.md](02-system-overview.md) | תיאור כללי של המערכת |
 | 3 | [03-roles-permissions.md](03-roles-permissions.md) | סוגי משתמשים והרשאות |
 | 4 | [04-architecture.md](04-architecture.md) | ארכיטקטורת Pages, Features ו-Components |
-| 5 | [05-functional/](05-functional/) | דרישות פונקציונליות — 97 FR ב-16 קבצי תחום (ראה למטה) |
+| 5 | [05-functional/](05-functional/) | דרישות פונקציונליות — 98 FR ב-17 קבצי תחום (ראה למטה) |
 | 6 | [06-non-functional.md](06-non-functional.md) | דרישות לא-פונקציונליות |
 | 7 | [07-screens-navigation.md](07-screens-navigation.md) | מסכי מערכת וניווט |
 | 8 | [08-business-rules.md](08-business-rules.md) | חוקים עסקיים (Business Rules) |
@@ -58,8 +58,9 @@
 | [moderation.md](05-functional/moderation.md) | Moderation — דיווחים ואכיפה | FR-MOD | 3 |
 | [admin.md](05-functional/admin.md) | Admin — ניהול מערכת | FR-ADMIN | 15 |
 | [algorithms-data.md](05-functional/algorithms-data.md) | Algorithms & Data — אלגוריתמים ואנליטיקה | FR-ALG · FR-DATA | 11 |
+| [assistant.md](05-functional/assistant.md) | Assistant — העוזר של Nestly | FR-AI | 1 |
 
-## דרישות פונקציונליות — 97
+## דרישות פונקציונליות — 98
 
 | ID | שם | קובץ |
 |---|---|---|
@@ -160,8 +161,9 @@
 | FR-ALG-009 | Diversity, Exploration והסתרת פוסט | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-ALG-010 | Group Highlights v1 וחשיפת קבוצות פעילות | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
+| FR-AI-001 | העוזר של Nestly | [assistant.md](05-functional/assistant.md) |
 
-## קריטריוני קבלה — 203
+## קריטריוני קבלה — 208
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -370,17 +372,22 @@
 | AC-208 | מהקהילה, בשלבים שלכם בבית | [15-acceptance.md](15-acceptance.md) |
 | AC-209 | שורת המסע בראש הפיד בטלפון | [15-acceptance.md](15-acceptance.md) |
 | AC-210 | פעולות פוסט כאייקונים בטלפון | [15-acceptance.md](15-acceptance.md) |
+| AC-211 | בועת העוזר והחלון | [15-acceptance.md](15-acceptance.md) |
+| AC-212 | תשובת העוזר ומה נשלח | [15-acceptance.md](15-acceptance.md) |
+| AC-213 | פס דחוף בעוזר | [15-acceptance.md](15-acceptance.md) |
+| AC-214 | העוזר לא זמין | [15-acceptance.md](15-acceptance.md) |
+| AC-215 | מגבלת ההודעות לעוזר | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 
 | סוג | נושא | טווח | כמות | קובץ |
 |---|---|---|---|---|
-| BR | חוקים עסקיים | BR-001 … BR-091 | 88 | [08-business-rules.md](08-business-rules.md) |
-| VAL | ולידציות | VAL-001 … VAL-052 | 52 | [09-validations.md](09-validations.md) |
-| ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-054 | 49 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
-| NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-010 | 37 | [06-non-functional.md](06-non-functional.md) |
+| BR | חוקים עסקיים | BR-001 … BR-094 | 91 | [08-business-rules.md](08-business-rules.md) |
+| VAL | ולידציות | VAL-001 … VAL-053 | 53 | [09-validations.md](09-validations.md) |
+| ERR | שגיאות ותרחישי קצה | ERR-001 … ERR-056 | 51 | [10-errors-edge-cases.md](10-errors-edge-cases.md) |
+| NFR | דרישות לא-פונקציונליות | NFR-SEC-001 … NFR-SEC-010 | 38 | [06-non-functional.md](06-non-functional.md) |
 | UC | Use Cases | UC-01 … UC-42 | 42 | [14-use-cases.md](14-use-cases.md) |
-| PG | מסכים | PG-001 … PG-061 | 61 | [07-screens-navigation.md](07-screens-navigation.md) |
-| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-082 | 80 | [appendix-b-open-points.md](appendix-b-open-points.md) |
+| PG | מסכים | PG-001 … PG-062 | 62 | [07-screens-navigation.md](07-screens-navigation.md) |
+| OP | נקודות פתוחות ומעקב החלטות | OP-001 … OP-083 | 81 | [appendix-b-open-points.md](appendix-b-open-points.md) |
 | ALG | קטלוג האלגוריתמים | ALG-01 … ALG-09 | 9 | [18-algorithms-spec.md](18-algorithms-spec.md) |
 | P-ALG | עקרונות האלגוריתמים | P-ALG-01 … P-ALG-08 | 8 | [18-algorithms-spec.md](18-algorithms-spec.md) |

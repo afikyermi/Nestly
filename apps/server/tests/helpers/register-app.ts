@@ -3,6 +3,8 @@ import { vi } from 'vitest';
 import type { Database } from '../../src/db/client.js';
 import { setEnv, type App, type EnvValues } from './identity-fixtures.js';
 import type { MediaDependencies } from '../../src/services/media-service.js';
+import type { AssistantModel } from '../../src/assistant/assistant-model.js';
+import type { AssistantLimits } from '../../src/assistant/assistant-limits.js';
 
 // Shared by the route tests for POST /api/register (I1 F1.4 part b, spec criteria 2, 3, 8, 10, 11, 13, 15). Written from
 // interface.md "part b, route": buildApp({ config?, database?, logStream?, clock? }). Nothing here reads the implementation.
@@ -40,6 +42,9 @@ export interface RegisterSeams {
   media?: Partial<MediaDependencies>;
   /** The Server-Timing header (off in a test unless asked). */
   serverTiming?: boolean;
+  /** The assistant's model and limits: a fake, so no test ever calls Google. */
+  assistant?: AssistantModel;
+  assistantLimits?: AssistantLimits;
 }
 
 export async function buildRegisterApp(env: EnvValues, seams: RegisterSeams = {}): Promise<App> {
@@ -52,6 +57,8 @@ export async function buildRegisterApp(env: EnvValues, seams: RegisterSeams = {}
     ...(seams.logStream ? { logStream: seams.logStream } : {}),
     ...(seams.media ? { media: seams.media } : {}),
     ...(seams.serverTiming === undefined ? {} : { serverTiming: seams.serverTiming }),
+    ...(seams.assistant ? { assistant: seams.assistant } : {}),
+    ...(seams.assistantLimits ? { assistantLimits: seams.assistantLimits } : {}),
   });
 }
 

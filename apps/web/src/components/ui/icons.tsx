@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  MessageCircleHeart,
   Bell,
   Search,
   Send,
@@ -125,6 +126,8 @@ export const MoreIcon = icon(Ellipsis);
 export const PhoneIcon = icon(Phone);
 // I8: the Chat Center in the Top Bar (FR-CHAT-001).
 export const MessageIcon = icon(MessageCircle);
+/** The Nestly assistant's bubble (Afik 28.10.2026): a speech bubble holding a heart, apart from the Chat Center's plain bubble. */
+export const AssistantIcon = icon(MessageCircleHeart);
 // A post's "תגובות" action (the same speech bubble as the Chat Center).
 export const CommentIcon = icon(MessageCircle);
 // F3.5, F3.6: share into one's feed (a repost), and send a link out of the app.
