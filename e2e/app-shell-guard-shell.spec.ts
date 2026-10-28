@@ -63,7 +63,8 @@ test.describe('AppShell: TopBar', () => {
         const b = await header.boundingBox();
         if (h === null || l === null || b === null) throw new Error('missing box');
         expect(l.x + l.width, 'Logo at the right (inline-start) edge').toBeGreaterThan(b.x + b.width - 40);
-        expect(h.x, 'Hamburger at the left (inline-end) edge').toBeLessThan(b.x + 40);
+        // below 1024 the Hamburger is last; from 1024 only the account's avatar (44) follows it
+        expect(h.x, 'Hamburger at the left (inline-end) edge').toBeLessThan(b.x + (vp.width >= 1024 ? 100 : 40));
         // AC-033: the search (a field from 768 px, an icon link to the results screen below it) and the bell.
         if (vp.width >= 768) await expect(header.getByRole('searchbox', { name: 'חיפוש אנשים ופוסטים' })).toBeVisible();
         else await expect(header.getByRole('link', { name: 'חיפוש', exact: true })).toBeVisible();
@@ -75,7 +76,9 @@ test.describe('AppShell: TopBar', () => {
               .filter((el) => el instanceof HTMLElement && el.offsetParent !== null && !el.classList.contains('sr-only'))
               .map((el) => el.getAttribute('aria-label') ?? (el.textContent ?? '').trim()),
           );
-        const known = (c: string): boolean => c === MENU_BUTTON || c === 'Nestly' || c === 'חיפוש' || c === '' || c.startsWith('התראות') || c.startsWith('הודעות');
+        // From 1024 the account's avatar, named "פרופיל", ends the bar (redesign 27.10.2026, §7.3).
+        const known = (c: string): boolean =>
+          c === MENU_BUTTON || c === 'Nestly' || c === 'חיפוש' || c === '' || c.startsWith('התראות') || c.startsWith('הודעות') || (vp.width >= 1024 && c === 'פרופיל');
         expect(controls.filter((c) => !known(c))).toEqual([]);
         // I8 (FR-CHAT-001): the Chat Center's button, "הודעות" with the unread count when there is one.
         await expect(header.getByRole('button', { name: /^הודעות/ })).toBeVisible();

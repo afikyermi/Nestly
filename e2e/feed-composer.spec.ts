@@ -283,7 +283,7 @@ test.describe('feed-composer c5 [FR-FEED-002] the composition survives leaving t
       await expectKeptAnonymous(page);
       expect(await storageText(page)).not.toMatch(/anonym|שאלה רגישה/i);
 
-      await nav(page).getByRole('link', { name: 'פרופיל', exact: true }).click();
+      await page.getByRole('link', { name: 'פרופיל', exact: true }).click();
       await expect.poll(() => pathOf(page)).toBe('/profile');
       await nav(page).getByRole('link', { name: 'פיד', exact: true }).click();
       await expect.poll(() => pathOf(page)).toBe('/feed');
@@ -447,7 +447,7 @@ test.describe('feed-composer c9 [FR-FEED-002 FR-FEED-004] the new post is first,
   test('[c9] going to /feed again by the nav link starts a new snapshot: only the server\'s order', async ({ page }) => {
     const net = await feedAt(page, () => pageOf(range(1, 12), null), 12);
     await publishOne(page);
-    await nav(page).getByRole('link', { name: 'פרופיל', exact: true }).click();
+    await page.getByRole('link', { name: 'פרופיל', exact: true }).click();
     await expect.poll(() => pathOf(page)).toBe('/profile');
     await nav(page).getByRole('link', { name: 'פיד', exact: true }).click();
     await expect.poll(() => pathOf(page)).toBe('/feed');
@@ -622,7 +622,7 @@ test.describe('feed-composer c3 [FR-FEED-002] sending carried into the always-op
     expect(net.creates).toEqual([]);
   });
   async function leaveAndReturn(page: Page) {
-    await nav(page).getByRole('link', { name: 'פרופיל', exact: true }).click();
+    await page.getByRole('link', { name: 'פרופיל', exact: true }).click();
     await expect.poll(() => pathOf(page)).toBe('/profile');
     await nav(page).getByRole('link', { name: 'פיד', exact: true }).click();
     await expect.poll(() => pathOf(page)).toBe('/feed');

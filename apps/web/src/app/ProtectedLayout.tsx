@@ -61,7 +61,7 @@ const navItems = (professional: boolean, staff = false) => [
 
 /**
  * The account's avatar at the end of the top bar from 1024 (redesign 27.10.2026, §7.3): a link to its profile, named like the navigation's
- * "פרופיל". The initials come from the own-profile answer the feed and the composer already ask for (one request in flight is shared); a
+ * "פרופיל" (hidden text). The initials come from the own-profile answer the feed and the composer already ask for (one request in flight is shared); a
  * Professional, with no parent profile, gets the person icon. Staff have no profile and no avatar.
  */
 function TopBarAvatar({ href, current, onNavigate }: { href: string; current: boolean; onNavigate: (href: string) => void }) {
@@ -69,7 +69,6 @@ function TopBarAvatar({ href, current, onNavigate }: { href: string; current: bo
   return (
     <a
       href={href}
-      aria-label="פרופיל"
       aria-current={current ? 'page' : undefined}
       onClick={(event) => {
         if (!isPlainClick(event)) return;
@@ -78,6 +77,8 @@ function TopBarAvatar({ href, current, onNavigate }: { href: string; current: bo
       }}
       className={cn('ms-1 hidden size-11 shrink-0 place-items-center rounded-full no-underline hover:bg-primary-strong lg:grid', current && 'bg-primary-strong')}
     >
+      {/* The name is text (not aria-label), so it never contradicts the initials a sighted user sees (WCAG 2.5.3) */}
+      <span className="sr-only">פרופיל</span>
       <Avatar name={fullName ?? ''} decorative size="s" className="ring-2 ring-primary-foreground" />
     </a>
   );
