@@ -295,7 +295,7 @@ test.describe('[I14] the Moderators team', () => {
   });
 
   test('[I14 FR-ADMIN-010 AC-071 BR-058 AC-206] "נתונים": numbers per period, no names', async ({ page }) => {
-    const net = await openAdmin(page, 'נתונים');
+    await openAdmin(page, 'נתונים');
     await expect.poll(() => pathOf(page)).toBe('/admin/analytics');
     await expect(page.getByRole('heading', { level: 3, name: 'חשבונות' })).toBeVisible();
     await expect(page.getByRole('img', { name: 'פוסטים ליום' })).toBeVisible();
@@ -310,8 +310,10 @@ test.describe('[I14] the Moderators team', () => {
     for (const name of ['שימוש', 'קידום']) await expect(page.getByRole('heading', { level: 3, name, exact: true })).toBeVisible();
     await expect(page.getByRole('img', { name: 'חשבונות שנכנסו' })).toBeVisible();
     await expect(page.getByText('קידומי מודעה פעילים', { exact: true })).toBeVisible();
+    // the home asks for its charts too, so the period is checked on the request itself
+    const asked = page.waitForRequest((request) => request.url().includes('/api/admin/analytics') && new URL(request.url()).searchParams.get('days') === '7');
     await page.getByLabel('תקופה').selectOption('7');
-    await expect.poll(() => net.sent.filter((s) => s.path === '/api/admin/analytics').length).toBeGreaterThanOrEqual(2);
+    await asked;
   });
 });
 

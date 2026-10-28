@@ -38,6 +38,29 @@ export const POST_SPAM = ID(2);
 export const USER_RINA = ID(3);
 export const CHILD_REPORT = ID(9);
 
+/** GET /api/admin/analytics: day by day up to NOW — registrations 2 a day (1 + 1), logins 20 + day, posts 5 a day, reports 1 every third day. */
+function analyticsAnswer(days: number) {
+  const series = (count: (i: number) => number) =>
+    Array.from({ length: days }, (_, i) => ({ day: new Date(NOW.getTime() - (days - 1 - i) * 86_400_000).toISOString().slice(0, 10), count: count(i) }));
+  const none = series(() => 0);
+  return {
+    days,
+    accounts: {
+      byType: { regular: 120, professional: 8, moderator: 2, admin: 1 },
+      byStatus: { active: 128, suspended: 2, banned: 1, deletionScheduled: 0 },
+      registrations: series(() => 1).map((d) => ({ day: d.day, regular: 1, professional: 1 })),
+    },
+    content: { posts: series(() => 5), comments: none, likes: none, postsPerAuthor: [] },
+    friendships: { requested: 0, accepted: 0 },
+    moderation: { reports: series((i) => (i % 3 === 0 ? 1 : 0)), byReason: [], open: 0, actionTaken: 0, dismissed: 0, medianHoursToClose: null, enforcements: { warning: 0, suspension: 0, ban: 0 } },
+    support: { requests: none, byTopic: [], byStatus: { open: 0, inProgress: 0, closed: 0 }, answered: 0, medianHoursToFirstReply: null },
+    groups: { active: { public: 0, private: 0 }, created: 0, publicMembers: 0, publicJoins: 0, publicPosts: 0, publicComments: 0 },
+    professionals: { active: 0, byField: [], follows: 0, chatStarts: 0, reviews: 0 },
+    marketplace: { active: 0, byCategory: [], created: 0, sold: 0, chats: 0, soldByDay: none },
+    usage: { dailyLogins: series((i) => 20 + i), profileViews: none, postViews: none },
+  };
+}
+
 export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<Net> {
   const net: Net = {
     staff: true,
@@ -165,6 +188,8 @@ export async function setupAdmin(page: Page, start: Partial<Net> = {}): Promise<
         ],
       });
     }
+    // the Admin home's charts (AC-216): the data screen's numbers for the period asked; admin-team.spec.ts stubs the full screen itself
+    if (path === '/api/admin/analytics') return json(route, 200, analyticsAnswer(Number(url.searchParams.get('days') ?? 30)));
     if (path === '/api/admin/reports') return json(route, 200, { items: net.queue });
     if (path.startsWith('/api/admin/reports/')) {
       const [, , , , kind, id] = path.split('/');

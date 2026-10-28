@@ -44,6 +44,12 @@ export const METRIC_CHANGE = (current: number, previous: number) => {
 /** The chip's short form, with its sign (never colour alone): "+12%", "−8%". */
 export const METRIC_SIGNED = (percent: number) => `${percent > 0 ? '+' : '−'}${Math.abs(percent)}%`;
 export const METRIC_PREVIOUS = (previous: number) => `בשבוע הקודם: ${previous}`;
+/** The Admin's home: the community's last 30 days as daily charts (FR-ADMIN-014, AC-216). */
+export const HOME_CHARTS_DAYS = 30;
+export const HOME_CHARTS_TITLE = `הקהילה ב-${HOME_CHARTS_DAYS} הימים האחרונים`;
+export const HOME_CHARTS_LOADING = 'טוענים את הגרפים';
+export const HOME_CHARTS_FAILED = 'לא הצלחנו לטעון את הגרפים. אפשר לנסות שוב';
+export const HOME_CHARTS_ALL_DATA = 'לכל הנתונים';
 export const TEAM_SNAPSHOT_TITLE = 'מצב הצוות';
 export const TEAM_SNAPSHOT_EMPTY = 'עדיין אין מודרטורים בצוות';
 export const TEAM_SNAPSHOT_UNNAMED = 'מודרטור';

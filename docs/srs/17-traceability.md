@@ -12,7 +12,7 @@
 | PG-055 | עמוד פוסט / תגובות ולייקים לפוסט / שיתוף פוסט / חלון שיתוף קישור / פעולת דיווח | FR-FEED-002/003/005/006/007 / FR-MOD-001 / FR-AUTH-004 | UC-04/26 | Post (כולל שיתופים), Comment, Reaction, Report |
 | PG-056 | מסך ההצטרפות לצוות | FR-ADMIN-004 | UC-15 | User, ModeratorInvitation, AuditLogEntry |
 | PG-057 | מסך בקשות העזרה / הצעת עזרה (מלוח הבקרה ומהתפריט של Professional) | FR-SERV-005 / FR-SERV-008 / FR-PRO-001 | UC-25 | Post, ProfessionalProfile (התחום), ProfessionalOutreachRequest; AC-148, AC-169, AC-171 |
-| PG-058 | מסך בית הצוות / בית הניהול / העבודה שלי / מגמות נתוני ילדים | FR-ADMIN-014 / FR-ADMIN-015 / FR-ADMIN-005 / FR-MOD-003 / BR-084 | UC-15/27 | Report, ReportEscalation, ReportOpening, TrackerEvent (מגמות בלבד), AuditLogEntry, AccountDeletionEvent (מספרים בלבד); AC-152–AC-158, AC-184 |
+| PG-058 | מסך בית הצוות / בית הניהול / העבודה שלי / מגמות נתוני ילדים | FR-ADMIN-014 / FR-ADMIN-015 / FR-ADMIN-005 / FR-MOD-003 / BR-084 | UC-15/27 | Report, ReportEscalation, ReportOpening, TrackerEvent (מגמות בלבד), AuditLogEntry, AccountDeletionEvent (מספרים בלבד); AC-152–AC-158, AC-184, AC-216 |
 | PG-041/042 | מסך הקידום המקצועי / מסך חיובים וקידומים (I13: קידום, תוצאות, תשלומים מדומים) | FR-PRO-002 / FR-SERV-010 | UC-42 | Promotion, PromotionPerformanceEvent |
 | PG-059 | מסך הקידומים בניהול (I13) | FR-SERV-010 / FR-MKT-004 / FR-ALG-007 / BR-083 | UC-42 | Promotion, AuditLogEntry, AlgorithmConfiguration |
 | PG-009 | מעקב בעמוד הבית | FR-HOME-001..004, FR-ALG-002, FR-ALG-004 | UC-05/06 | JourneyContext, Child, TrackerEvent, CycleEntry, Article |
@@ -153,7 +153,7 @@
 | FR-ADMIN-011 | Removed | — | נדחה (13.10.2026): ההרשמה פתוחה לכולם |
 | FR-ADMIN-012 | Built | I6, I14 (השלמה ב') | פרסום בלי תאריך בדיקת מקורות |
 | FR-ADMIN-013 | Removed | — | בוטל (20.10.2026): אין נעילת שחזור קבועה |
-| FR-ADMIN-014 | Built | I14 (השלמה א', ב'), I9 | "דורש תשומת לב" בלי הזמנות שעומדות לפוג; מדריכים בטיוטה בלבד; מונה מחיקות חשבון ופס אדום למחיקה שעברה את מועדה |
+| FR-ADMIN-014 | Built | I14 (השלמה א', ב'), I9, מסכי הניהול (28.10) | "דורש תשומת לב" בלי הזמנות שעומדות לפוג; מדריכים בטיוטה בלבד; מונה מחיקות חשבון ופס אדום למחיקה שעברה את מועדה; גרפים יומיים של 30 הימים האחרונים בבית הניהול (AC-216) |
 | FR-ADMIN-015 | Built | I14 (השלמה א', ב') | תקופה קלנדרית, מספרים מעוגלים |
 | FR-ALG-001 | Partial | I7 | נושאי החיפוש נשמרים 30 יום ודועכים, ומשפיעים על הפיד, המדריך וה-Marketplace. פרופיל עניין מאותות נוספים — אחרי ההשקה (I15) |
 | FR-ALG-002 | Partial | I3, I7 | דירוג לפי עדכניות, Friend, איכות, שלב ונושאי חיפוש, גיוון ותצורה עם גרסה. רכיב Group/Follow בציון ופרופיל עניין — אחרי ההשקה (I15) |
