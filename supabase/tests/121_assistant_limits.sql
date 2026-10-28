@@ -8,7 +8,7 @@ begin;
 
 select * from no_plan();
 
-select is(session_user::text, 'app_server'::text, '[assistant c0] session_user is app_server (this file must not run under another login)');
+select is(session_user::text, 'app_server'::text, '[F15.1-a c0] session_user is app_server (this file must not run under another login)');
 
 select tests.fx_fr_build();
 
@@ -31,10 +31,16 @@ select is(
      from pg_catalog.pg_class c where c.relname = 'assistant_message_counts' and c.relnamespace = 'nestly'::regnamespace),
   'true/true/app_owner', '[BR-092 rule 8] nestly.assistant_message_counts exists, owned by app_owner, with RLS enabled and forced');
 select is(
-  (select string_agg(r || ':' || pr || ':' || has_table_privilege(r, 'nestly.assistant_message_counts', pr)::text, ', ' order by r, pr)
-     from unnest(array['anon', 'authenticated']) r, unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE']) pr),
-  'anon:DELETE:false, anon:INSERT:false, anon:SELECT:false, anon:UPDATE:false, authenticated:DELETE:false, authenticated:INSERT:true, authenticated:SELECT:true, authenticated:UPDATE:true',
+  (select string_agg(r || ':' || pr || ':' || has_any_column_privilege(r, c.oid, pr)::text || ':' || has_table_privilege(r, c.oid, 'DELETE')::text, ', ' order by r, pr)
+     from pg_catalog.pg_class c, unnest(array['anon', 'authenticated']) r, unnest(array['SELECT', 'INSERT', 'UPDATE']) pr
+    where c.relname = 'assistant_message_counts' and c.relnamespace = 'nestly'::regnamespace),
+  'anon:INSERT:false:false, anon:SELECT:false:false, anon:UPDATE:false:false, authenticated:INSERT:true:false, authenticated:SELECT:true:false, authenticated:UPDATE:true:false',
   '[BR-092 rule 1] anon holds nothing; authenticated selects, inserts and updates (its own row, below) and never deletes');
+select is(
+  (select string_agg(a.attname || ':' || has_column_privilege('authenticated', c.oid, a.attname, 'INSERT')::text || ':' || has_column_privilege('authenticated', c.oid, a.attname, 'UPDATE')::text, ', ' order by a.attnum)
+     from pg_catalog.pg_class c join pg_catalog.pg_attribute a on a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
+    where c.relname = 'assistant_message_counts' and c.relnamespace = 'nestly'::regnamespace),
+  'user_id:true:false, sent_at:false:true', '[BR-092] INSERT names the account only; UPDATE changes the instants only');
 select results_eq(
   $$ select pol.polname::text || '.' || pol.polcmd || '.' || pg_catalog.array_to_string(array(select pg_catalog.pg_get_userbyid(u) from unnest(pol.polroles) u), ',')
        from pg_catalog.pg_policy pol join pg_catalog.pg_class c on c.oid = pol.polrelid
@@ -44,7 +50,8 @@ select results_eq(
   '[BR-092] exactly three policies, all TO authenticated');
 select is(
   (select string_agg(a.attname, ', ' order by a.attnum) from pg_catalog.pg_attribute a
-    where a.attrelid = 'nestly.assistant_message_counts'::regclass and a.attnum > 0 and not a.attisdropped),
+    where a.attrelid = (select c.oid from pg_catalog.pg_class c where c.relname = 'assistant_message_counts' and c.relnamespace = 'nestly'::regnamespace)
+      and a.attnum > 0 and not a.attisdropped),
   'user_id, sent_at', '[NFR-PRIV-008] the row holds the account and the instants only: no text, no answer, no topic');
 
 -- 2. The owner counts its own messages: a Regular and a Professional account
