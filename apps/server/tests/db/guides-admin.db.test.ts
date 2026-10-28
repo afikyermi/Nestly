@@ -5,7 +5,7 @@ import { ACCOUNT_A, ACCOUNT_B, AUDIENCE, COLD_START_MS, ISSUER, newKey, restoreE
 import { CLOCK_NOW, buildRegisterApp, captureLog, jsonOf } from '../helpers/register-app.js';
 
 // I6, the Admin's guide routes against the real database (CI `db` job, as app_server, after the pgTAP files): D = the Admin of
-// supabase/tests/setup/60_, M = its Moderator (no key), A = a Regular, B = a Regular in "planning". The seed guides are drafts; a test
+// supabase/tests/setup/60_, M = its Moderator (no key), A = a Regular, B = a Regular in "planning". The seed guides are drafts (other guides may be published by a later migration); a test
 // edits or publishes the planning guide and puts it back to a draft with no source date (the Audit Log keeps the entries: it is append-only).
 
 const T = { timeout: COLD_START_MS };
@@ -46,6 +46,11 @@ function prop(value: unknown, name: string): unknown {
 }
 const audit = async (action: string): Promise<number> => {
   const [row] = await side`select tests.fx_sf_audit(${action})::int as n`;
+  return Number(row?.n);
+};
+// Every guide of that status (all when none), unfiltered: the seed drafts and any guide a migration published.
+const sgCount = async (status: string | null = null): Promise<number> => {
+  const [row] = await side`select tests.fx_sg_count(${status})::int as n`;
   return Number(row?.n);
 };
 const fields = (title: string, over: Record<string, unknown> = {}) => ({
@@ -99,7 +104,11 @@ describe('[F6.1-a c8 FR-ADMIN-012 BR-070] /api/guides/manage', () => {
       expect((await call(app, 'PUT', `/api/guides/manage/${planningId}`, header, fields('x', { status: 'published', sourceCheckedOn: '2026-06-01' }))).statusCode).toBe(403);
     }
     const list = jsonOf((await call(app, 'GET', '/api/guides/manage', await bearerFor(admin))).body);
-    expect(JSON.stringify(list.guides)).not.toContain('"published"');
+    const guides: unknown[] = Array.isArray(list.guides) ? list.guides : [];
+    const planning = guides.find((g) => prop(g, 'id') === planningId);
+    expect(prop(planning, 'status')).toBe('draft');
+    expect(prop(planning, 'title')).toBe(PLANNING_TITLE);
+    expect(guides.filter((g) => prop(g, 'status') === 'published').length).toBe(await sgCount('published'));
   });
 
   it('the Admin reads every guide (drafts too) and edits one; the edit is audited; a bad body is 400 with a reason', T, async () => {
@@ -107,8 +116,8 @@ describe('[F6.1-a c8 FR-ADMIN-012 BR-070] /api/guides/manage', () => {
     const header = await bearerFor(admin);
     const list = jsonOf((await call(app, 'GET', '/api/guides/manage', header)).body);
     const guides: unknown[] = Array.isArray(list.guides) ? list.guides : [];
-    expect(guides.length).toBeGreaterThanOrEqual(9);
-    expect(guides.every((g) => prop(g, 'status') === 'draft')).toBe(true);
+    expect(guides.length).toBe(await sgCount());
+    expect(guides.filter((g) => prop(g, 'status') === 'draft').length).toBeGreaterThanOrEqual(9);
     const before = await audit('guide_edited');
     const edit = await call(app, 'PUT', `/api/guides/manage/${planningId}`, header, fields('כותרת אחרת'));
     expect(edit.statusCode, edit.body).toBe(200);
