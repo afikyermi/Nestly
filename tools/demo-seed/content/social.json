@@ -56,7 +56,7 @@
       "description": "שיטות, שגרות, נסיגות שינה והרבה תמיכה. כל משפחה מוצאת את הדרך שלה.",
       "rules": "1. אין שיטה אחת נכונה — לא שופטים.\n2. בעלי מקצוע מוזמנים לענות, בלי פרסום.\n3. שומרים על פרטיות הילדים.",
       "privacy": "public",
-      "members": [{ "user": "dana", "ageHours": 980 }, { "user": "avi", "ageHours": 540 }, { "user": "yossi", "ageHours": 560 }, { "user": "michal", "ageHours": 290 }, { "user": "liat", "ageHours": 1200, "role": "moderator" }]
+      "members": [{ "user": "dana", "ageHours": 980 }, { "user": "avi", "ageHours": 540 }, { "user": "yossi", "ageHours": 560 }, { "user": "michal", "ageHours": 290 }, { "user": "guest", "ageHours": 900 }, { "user": "liat", "ageHours": 1200, "role": "moderator" }]
     },
     {
       "key": "breastfeeding", "owner": "orit", "ageHours": 1250,
@@ -64,7 +64,7 @@
       "description": "קבוצה סגורה לאמהות מניקות ולמי שמתכננת להניק. כאן אפשר לשאול הכול, גם על כאב, שאיבה וגמילה.",
       "rules": "1. כל דרך האכלה ראויה — הקבוצה תומכת, לא שופטת.\n2. מה שנכתב בקבוצה לא יוצא ממנה.\n3. יועצת ההנקה של הקבוצה עונה כשאפשר, אבל במקרה של חום או כאב חזק פונים לרופא.",
       "privacy": "private",
-      "members": [{ "user": "dana", "ageHours": 790 }, { "user": "inbal", "ageHours": 1200, "role": "admin" }, { "user": "maya", "ageHours": 400 }]
+      "members": [{ "user": "dana", "ageHours": 790 }, { "user": "inbal", "ageHours": 1200, "role": "admin" }, { "user": "maya", "ageHours": 400 }, { "user": "guest", "ageHours": 520 }]
     },
     {
       "key": "money", "owner": "yossi", "ageHours": 780,
@@ -72,7 +72,7 @@
       "description": "חופשת לידה, דמי לידה, חיסכון לכל ילד, צהרונים ומה כל זה עולה. משתפים טיפים ומספרים אמיתיים.",
       "rules": "1. בלי המלצות על מוצרי השקעה ספציפיים.\n2. בלי שיווק שותפים.\n3. מספרים אישיים — רק אם נוח לכם.",
       "privacy": "public",
-      "members": [{ "user": "avi", "ageHours": 560 }, { "user": "hila", "ageHours": 600 }, { "user": "orit", "ageHours": 700 }, { "user": "alon", "ageHours": 740, "role": "admin" }]
+      "members": [{ "user": "avi", "ageHours": 560 }, { "user": "hila", "ageHours": 600 }, { "user": "orit", "ageHours": 700 }, { "user": "alon", "ageHours": 740, "role": "admin" }, { "user": "guest", "ageHours": 700 }]
     },
     {
       "key": "planning", "owner": "shira", "ageHours": 520,

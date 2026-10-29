@@ -16,7 +16,7 @@ import { Api, Auth } from './demo-seed/http.ts';
 import { illustrationPng, knownMotif } from './demo-seed/illustration.ts';
 import { firstListLength, SCREENS, walk } from './demo-seed/walk.ts';
 import { percentile, reportLines, runLoad, summarize, timingOf } from './demo-seed/load.ts';
-import { buildPlan, describeStep } from './demo-seed/plan.ts';
+import { buildPlan, describeStep, focusPlan, personasOf } from './demo-seed/plan.ts';
 import { createContext, dryRun, runPlan } from './demo-seed/runner.ts';
 import { buildShift, SHIFT_COLUMNS, touchedTables } from './demo-seed/shift.ts';
 import { runShift } from './demo-seed/shift-run.ts';
@@ -146,6 +146,43 @@ test('the plan: accounts first, then every step after what it needs', () => {
   assert.deepEqual([...new Set(stories.map((s) => s.kind))], ['account', 'story']);
   assert.equal(stories.filter((s) => s.kind === 'story').length, content.stories.length);
   for (const s of steps) assert.ok(actionHandlers[s.kind] !== undefined || s.kind === 'account', `a handler for ${s.kind}`);
+});
+
+test('the focused plan (DEMO_ONLY): a persona added after the first seed gets every step that touches it and nothing else', () => {
+  const all = buildPlan(content, 'seed');
+  const focused = focusPlan(all, content, ['guest']);
+  const firstContent = focused.findIndex((s) => s.kind !== 'account');
+  assert.ok(focused.slice(firstContent).every((s) => s.kind !== 'account'), 'accounts first');
+  let last = -1;
+  for (const s of focused.slice(firstContent)) {
+    assert.ok(personasOf(s, content).includes('guest'), describeStep(s));
+    const at = all.indexOf(s);
+    assert.ok(at > last, 'the full plan order is kept');
+    last = at;
+  }
+  const missed = all.filter((s) => s.kind !== 'account' && personasOf(s, content).includes('guest') && !focused.includes(s));
+  assert.deepEqual(missed, []);
+  const signedIn = new Set(focused.filter((s) => s.kind === 'account').map((s) => s.actor));
+  for (const s of focused) for (const k of personasOf(s, content)) assert.ok(signedIn.has(k), `account step for ${k}`);
+  // Nothing of the first seed is written again: the only posts, Groups and listings created are the guest's own or in the guest's Group.
+  const guestGroups = new Set(content.groups.filter((g) => g.owner === 'guest').map((g) => g.key));
+  for (const s of focused) {
+    if (s.kind === 'post') {
+      const p = content.posts.find((x) => x.key === s.post);
+      assert.ok(p.author === 'guest' || guestGroups.has(p.group), s.post);
+    }
+    if (s.kind === 'group' || s.kind === 'listing' || s.kind === 'article' || s.kind === 'promotion') assert.equal(s.actor, 'guest');
+  }
+  // What the new persona needs is all there: its account, its posts with others' comments and likes, both friendship directions, the
+  // accepted help offer with its review, and the comments it writes on posts of the first seed.
+  const has = (pred) => focused.some(pred);
+  assert.ok(has((s) => s.kind === 'account' && s.actor === 'guest'));
+  assert.ok(has((s) => s.kind === 'friend-accept' && s.actor === 'guest') && has((s) => s.kind === 'friend-accept' && s.requester === 'guest'));
+  assert.ok(has((s) => s.kind === 'comment' && s.actor !== 'guest' && content.posts.find((p) => p.key === s.post).author === 'guest'));
+  assert.ok(has((s) => s.kind === 'comment' && s.actor === 'guest' && content.posts.find((p) => p.key === s.post).author !== 'guest'));
+  assert.ok(has((s) => s.kind === 'offer-accept' && s.actor === 'guest') && has((s) => s.kind === 'review' && s.actor === 'guest'));
+  assert.ok(focused.length < all.length / 2);
+  assert.deepEqual(focusPlan(buildPlan(content, 'stories'), content, ['guest']).map((s) => s.kind), ['account', 'story']);
 });
 
 test('the dry run prints the plan with keys only (no text) and needs no network', () => {

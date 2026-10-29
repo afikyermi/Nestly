@@ -9,6 +9,7 @@ import { PATHS } from '@/app/paths';
 import { fetchAdminOverview } from '@/services/api/staff-work';
 import { formatAdminTime } from './admin-format';
 import { FORBIDDEN_TEXT, LOAD_FAILED_TEXT, LOADING_TEXT, RETRY_LABEL } from './admin-texts';
+import { AdminHomeCharts } from './AdminHomeCharts';
 import { ChildTrendsBuilder } from './ChildTrendsBuilder';
 import { DeltaChip, KpiCard } from './KpiCard';
 import {
@@ -64,6 +65,7 @@ const ATTENTION_PATHS: Record<AttentionKey, string> = {
 // the Admin's policies.
 // A dashboard (Afik 28.10.2026): the week's numbers first, as cards with a change chip; what needs attention and the team side by side
 // from lg; the trends builder in its card. The focus order is unchanged (the attention links, the trends' controls, the Audit Log link).
+// Charts (Afik 28.10.2026, AC-216): after the week's numbers, the community's last 30 days as daily charts, loaded on their own (AdminHomeCharts).
 export function AdminHomeScreen() {
   const call = useAdminCall();
   const [view, setView] = useState<View>({ kind: 'loading' });
@@ -133,6 +135,7 @@ export function AdminHomeScreen() {
           ))}
         </dl>
       </section>
+      <AdminHomeCharts />
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <section aria-labelledby="attention-title" className="flex flex-col gap-2">
           <h3 id="attention-title" className="text-h3">

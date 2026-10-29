@@ -226,17 +226,29 @@ select is(tests.fx_ce_count(), 0::bigint, '[I6] and it is gone');
 -- =====================================================================================================================
 -- status_guides (AC-095, BR-070)
 -- =====================================================================================================================
-select is(tests.fx_sg_count(), 9::bigint, '[I6 BR-070] nine guide texts exist');
-select is(tests.fx_sg_count('draft'), 9::bigint, '[I6 BR-070] all of them are drafts awaiting approval');
-select is(tests.n_as(pg_temp.id('a'), 'nestly.status_guides'), '0', '[I6 AC-095] a user reads no draft');
-select is(tests.n_as(pg_temp.id('p'), 'nestly.status_guides'), '0', '[I6 AC-095] a Professional reads no draft');
+-- The nine seed texts stay drafts; guides Afik approved are published by their own migration, so the reads below are counted
+-- against the published rows at the start of the file (zz_sg), and the seed guide is named by id.
+create temp table zz_sg as select tests.fx_sg_count() as total, tests.fx_sg_count('published') as pub;
+create function pg_temp.sg_where_id(p_kind text, p_from int default null) returns text language sql as $f$
+  select format('nestly.status_guides where id = %L', tests.fx_sg_id(p_kind, p_from))
+$f$;
+select is(tests.fx_sg_count('draft'), 9::bigint, '[I6 BR-070] the nine seed guide texts are drafts awaiting approval');
+select is(tests.fx_sg_count('hidden'), 0::bigint, '[I6 BR-070] every other guide is a published (approved) one');
+select ok((select pub from zz_sg) >= 14, '[BR-070 FR-HOME-004] the 14 guides Afik approved on 28.10.2026 are published (migration 20261028200000)');
+select is(tests.n_as(pg_temp.id('a'), $$nestly.status_guides where source_checked_on is null or published_at is null$$), '0',
+  '[BR-070 FR-ADMIN-012] each published guide carries its source check date and its publication time');
+select is(tests.n_as(pg_temp.id('a'), $$nestly.status_guides where status <> 'published'$$), '0', '[I6 AC-095] a user reads no draft');
+select is(tests.n_as(pg_temp.id('p'), $$nestly.status_guides where status <> 'published'$$), '0', '[I6 AC-095] a Professional reads no draft');
+select is(tests.n_as(pg_temp.id('a'), 'nestly.status_guides'), (select pub::text from zz_sg), '[I6 AC-095] a user reads exactly the published guides');
+select is(tests.n_as(pg_temp.id('a'), pg_temp.sg_where_id('planning')), '0', '[I6 AC-095] and not the seed planning draft');
 select ok(tests.fx_sg_id('planning') is not null, '[I6] the planning guide exists');
 select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set status = 'published' where id = %L $q$, tests.fx_sg_id('planning'))), 'OK:1',
   '[I6 BR-070 FR-ADMIN-012] a guide is published without a source check date (Afik 21.10.2026; migration 20261023700000)');
 select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set status = 'published', published_at = now(), source_checked_on = date '2026-10-20' where id = %L $q$, tests.fx_sg_id('planning'))), 'OK:1',
   '[I6 AC-095] a guide with a source date is published');
-select is(tests.n_as(pg_temp.id('a'), 'nestly.status_guides'), '1', '[I6 AC-095] and a user reads that one guide');
-select is(tests.n_as(pg_temp.id('b'), 'nestly.status_guides'), '1', '[I6 AC-095] every user reads it');
+select is(tests.n_as(pg_temp.id('a'), pg_temp.sg_where_id('planning')), '1', '[I6 AC-095] and a user reads that guide');
+select is(tests.n_as(pg_temp.id('a'), 'nestly.status_guides'), (select (pub + 1)::text from zz_sg), '[I6 AC-095] one more than before');
+select is(tests.n_as(pg_temp.id('b'), pg_temp.sg_where_id('planning')), '1', '[I6 AC-095] every user reads it');
 select tests.set_status(pg_temp.id('b'), 'suspended');
 select is(tests.n_as(pg_temp.id('b'), 'nestly.status_guides'), '0', '[I6 rule 15] a suspended account reads none');
 select tests.set_status(pg_temp.id('b'), 'active');
@@ -244,11 +256,12 @@ select is(tests.as_role('anon', '', 'select count(*)::text from nestly.status_gu
 select is(pg_temp.dml('a', $$ update nestly.status_guides set title = 'x' $$), 'OK:0', '[I6 AC-095] a user edits no guide (0 rows)');
 select is(pg_temp.dml('a', $$ insert into nestly.status_guides (stage_kind, title, body, source) values ('planning', 'x', 'y', 'z') $$), 'ERR:42501', '[I6 AC-095] a user cannot add a guide (42501)');
 select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set status = 'hidden' where id = %L $q$, tests.fx_sg_id('planning'))), 'OK:1', '[I6 AC-095] a guide is hidden');
-select is(tests.n_as(pg_temp.id('a'), 'nestly.status_guides'), '0', '[I6 AC-095] and no user reads it');
+select is(tests.n_as(pg_temp.id('a'), pg_temp.sg_where_id('planning')), '0', '[I6 AC-095] and no user reads it');
+select is(tests.n_as(pg_temp.id('a'), 'nestly.status_guides'), (select pub::text from zz_sg), '[I6 AC-095] the other published guides stay');
 select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set range_from = 5 where id = %L $q$, tests.fx_sg_id('planning'))), 'ERR:23514', '[I6] a planning guide has no range (23514)');
 select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set range_to = 20 where id = %L $q$, tests.fx_sg_id('pregnancy', 14))), 'OK:1', '[I6] a pregnancy range inside 1..42 passes');
 select is(tests.fx_sg_exec(format($q$ update nestly.status_guides set range_to = 43 where id = %L $q$, tests.fx_sg_id('pregnancy', 14))), 'ERR:23514', '[I6] a pregnancy range past week 42 is refused');
-select is(tests.fx_sg_count(), 9::bigint, '[I6] no guide was added or removed by the refusals');
+select is(tests.fx_sg_count(), (select total from zz_sg), '[I6] no guide was added or removed by the refusals');
 
 select * from finish();
 rollback;

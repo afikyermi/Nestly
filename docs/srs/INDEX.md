@@ -2,7 +2,7 @@
 
 # SRS — אינדקס
 
-**מקור האמת של מוצר Nestly.** SRS v2.55 · 28.10.2026.
+**מקור האמת של מוצר Nestly.** SRS v2.56 · 28.10.2026.
 
 ה-SRS מתוחזק ב-markdown ומפוצל לפי סעיפים. גרסאות ה-Word הקודמות נמצאות ב-[`archive/`](archive/) כהיסטוריה בלבד.
 
@@ -163,7 +163,7 @@
 | FR-DATA-001 | Analytics Event Tracking v1 | [algorithms-data.md](05-functional/algorithms-data.md) |
 | FR-AI-001 | העוזר של Nestly | [assistant.md](05-functional/assistant.md) |
 
-## קריטריוני קבלה — 208
+## קריטריוני קבלה — 209
 
 > השמות קוצרו לצורך ניווט בלבד. הנוסח המחייב נמצא ב-[15-acceptance.md](15-acceptance.md).
 
@@ -377,6 +377,7 @@
 | AC-213 | פס דחוף בעוזר | [15-acceptance.md](15-acceptance.md) |
 | AC-214 | העוזר לא זמין | [15-acceptance.md](15-acceptance.md) |
 | AC-215 | מגבלת ההודעות לעוזר | [15-acceptance.md](15-acceptance.md) |
+| AC-216 | גרפים בבית הניהול | [15-acceptance.md](15-acceptance.md) |
 
 ## מזהים נוספים
 

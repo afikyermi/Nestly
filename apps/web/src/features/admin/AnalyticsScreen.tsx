@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ANALYTICS_PERIODS as PERIODS, LISTING_CATEGORY_LABELS, PROFESSIONAL_FIELD_LABELS, type AnalyticsPeriod, type AnalyticsView } from '@nestly/shared';
-import { BarChart } from '@/components/shared/bar-chart';
 import { FormField } from '@/components/shared/form-field';
 import { InlineAlert } from '@/components/shared/inline-alert';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminCall } from '@/hooks/use-admin-call';
 import { TOPIC_LABELS } from '@/lib/chat-texts';
 import { fetchAnalytics } from '@/services/api/team';
+import { Card, ChartCard as Chart, adminNumber as number, seriesTotal as total, type Series } from './ChartCard';
 import { DeltaChip, KpiCard } from './KpiCard';
 import { FORBIDDEN_TEXT, LOAD_FAILED_TEXT, LOADING_TEXT, RETRY_LABEL } from './admin-texts';
 import {
@@ -16,8 +16,6 @@ import {
   ANALYTICS_ACTION_TAKEN,
   ANALYTICS_BY_REASON,
   ANALYTICS_COMMENTS,
-  ANALYTICS_COUNT,
-  ANALYTICS_DAY,
   ANALYTICS_DISMISSED,
   ANALYTICS_EMPTY,
   ANALYTICS_ENFORCEMENTS,
@@ -66,7 +64,6 @@ import {
   ANALYTICS_SUPPORT_MEDIAN,
   ANALYTICS_SUPPORT_REQUESTS,
   ANALYTICS_SUPPORT_STATUSES,
-  ANALYTICS_TABLE,
   ANALYTICS_TYPES,
   ANALYTICS_WAITING,
   ANALYTICS_WAITING_HEADING,
@@ -84,7 +81,6 @@ import {
   ANALYTICS_PROMOTIONS_IMPRESSIONS,
   ANALYTICS_PROMOTIONS_CLICKS,
   ANALYTICS_BY_TYPE,
-  ANALYTICS_CHART_TOTAL,
   ANALYTICS_GROUP_LABELS,
   ANALYTICS_OF_ACCOUNTS,
   ANALYTICS_SUMMARY,
@@ -93,13 +89,8 @@ import {
 } from './team-texts';
 
 type View = { kind: 'loading' } | { kind: 'failed'; message: string } | { kind: 'loaded'; data: AnalyticsView };
-type Series = ReadonlyArray<{ day: string; count: number }>;
 
-const number = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 1 });
-/** "2026-10-21" as "21.10". */
-const shortDay = (day: string): string => `${day.slice(8, 10)}.${day.slice(5, 7)}`;
 const isPeriod = (value: number): value is AnalyticsPeriod => PERIODS.some((period) => period === value);
-const total = (points: Series): number => points.reduce((sum, point) => sum + point.count, 0);
 /** The last 7 days against the 7 before them. The series run day by day up to today, so this needs a period of 14 days or more. */
 function lastWeek(points: Series): { current: number; previous: number } | null {
   if (points.length < 14) return null;
@@ -120,33 +111,6 @@ function Stats({ items }: { items: ReadonlyArray<{ label: string; value: number 
 /** The cards of a section: one column on a phone, two from lg; the cards of a row share its height. */
 function CardGrid({ children }: { children: ReactNode }) {
   return <div className="grid gap-4 lg:grid-cols-2">{children}</div>;
-}
-
-function Card({ children }: { children: ReactNode }) {
-  return <div className="flex min-w-0 flex-col gap-3 rounded-lg bg-card p-4 shadow-card">{children}</div>;
-}
-
-/** A chart in its card: the title, the period's total and daily average in one line, and the plum bars. */
-function Chart({ title, points }: { title: string; points: Series }) {
-  const sum = total(points);
-  return (
-    <Card>
-      <div className="flex flex-col">
-        <h4 className="text-label">{title}</h4>
-        <p className="text-caption text-muted-foreground tabular-nums">{ANALYTICS_CHART_TOTAL(number.format(sum), number.format(points.length === 0 ? 0 : sum / points.length))}</p>
-      </div>
-      <BarChart
-        variant="dashboard"
-        title={title}
-        points={points.map((point) => ({ label: shortDay(point.day), value: point.count }))}
-        unit=""
-        emptyText={`${title}: ${ANALYTICS_EMPTY}`}
-        tableLabel={`${title} · ${ANALYTICS_TABLE}`}
-        valueHeader={ANALYTICS_COUNT}
-        dayHeader={ANALYTICS_DAY}
-      />
-    </Card>
-  );
 }
 
 /** A split (by reason, by topic, by field…) as ranked rows: the label, the number, and a plum bar against the largest row. */

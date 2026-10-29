@@ -467,7 +467,7 @@ No SECURITY DEFINER, no function; `tests.approved_security_definer()` unchanged.
 | Constraints | `tracker_events_fields_check`: the fields each kind needs and no others; end not before start for breastfeeding and sleep (AC-023) | unique (user_id, start_date) | published needs `published_at` (`status_guides_published_at_check`; the source date optional since 20261023700000, FR-ADMIN-012, Afik 21.10.2026); planning has no range |
 | Relations | user_id -> regular_profiles (cascade); child_id -> children (cascade: a removed child takes its events) | user_id -> regular_profiles (cascade) | none |
 | Indexes | (user_id, kind, occurred_at desc): the page's history and period; (child_id): the cascade | (user_id, start_date desc): history and latest | partial (stage_kind, range_from) where published: the home lookup |
-| Retention | hard delete by the owner | hard delete by the owner | the nine seed rows are drafts awaiting approval; `hidden` keeps the row |
+| Retention | hard delete by the owner | hard delete by the owner | the nine seed rows are drafts awaiting approval; 14 approved guides are published by `20261028200000_publish_status_guides.sql` (Afik 28.10.2026, BR-070); `hidden` keeps the row |
 
 Preview cleanup: the user's tracker_events and cycle_entries are deleted before `children`; `status_guides` is content and is never written by the cleanup.
 

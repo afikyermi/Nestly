@@ -3,21 +3,22 @@
     {
       "key": "michal-sleep-question", "author": "michal", "ageHours": 118, "audience": "everyone", "stageTag": "pregnant",
       "body": "שבוע 34 ואני כבר חושבת על הלילות שאחרי 🙈\nמי שכבר עברה את זה — איך מתחילים להרגיל תינוק לשינה? שמעתי על כל כך הרבה שיטות שאני לא יודעת מאיפה להתחיל. האם באמת צריך 'שגרת שינה' כבר מהחודש הראשון, או שזה סתם לחץ?",
-      "likes": ["tamar", "yael", "dana", "roni", "avi", "maya", "liat", "orit"],
+      "likes": ["tamar", "yael", "dana", "roni", "avi", "maya", "liat", "orit", "guest"],
       "comments": [
         { "key": "c-ms-1", "author": "roni", "ageHours": 116, "body": "בחודש הראשון לא הייתה לנו שום שגרה, ובסדר גמור. מה שעזר לי זה להבדיל בין יום ללילה: ביום אור ורעש רגיל, בלילה חושך ושקט." },
         { "key": "c-ms-2", "author": "liat", "ageHours": 114, "body": "שאלה מצוינת, ודווקא עכשיו זה הזמן הכי טוב לחשוב על זה. בחודשים הראשונים אין צורך בשיטה — רק להכיר את סימני העייפות של התינוק ולתת לו להירדם בלי לחץ. כתבתי על זה מאמר בעמוד שלי, ואשמח לעזור גם באופן אישי." },
         { "key": "c-ms-3", "author": "michal", "ageHours": 113, "body": "תודה ליאת! אקרא את המאמר 🙏", "replyTo": "c-ms-2" },
         { "key": "c-ms-4", "author": "dana", "ageHours": 100, "body": "אני בחודש השלישי ועדיין לומדת. טיפ אחד: לא להעיר תינוק ישן כדי להחליף חיתול אם הוא לא מלוכלך 😅" },
         { "key": "c-ms-5", "author": "avi", "ageHours": 96, "body": "ממליץ על חיתול עוטף בשבועות הראשונים, אצלנו זה עשה פלאים.", "likes": ["michal", "dana"] },
-        { "key": "c-ms-6", "author": "tamar", "ageHours": 90, "body": "שומרת את הפוסט הזה לעצמי, אני עוד מעט שם 😊" }
+        { "key": "c-ms-6", "author": "tamar", "ageHours": 90, "body": "שומרת את הפוסט הזה לעצמי, אני עוד מעט שם 😊" },
+        { "key": "c-ms-7", "author": "guest", "ageHours": 88, "body": "מהניסיון עם אלה: בחודש הראשון לא צריך שיטה, רק להבדיל בין יום ללילה כמו שרוני כתבה. ולישון כשהתינוק ישן — באמת, גם אם הכביסה מחכה 🙂", "likes": ["michal", "roni"] }
       ],
       "shares": [{ "by": "tamar", "ageHours": 89, "audience": "friends", "text": "שווה לקרוא את התגובות כאן" }]
     },
     {
       "key": "dana-three-months", "author": "dana", "ageHours": 610, "audience": "everyone", "stageTag": "has_child",
       "body": "אורי בת חודש היום ❤️\nאף אחד לא הכין אותי לכמה אהבה וכמה עייפות אפשר להרגיש באותו רגע. תודה לכל מי שעזרה לי כאן בשבועות האחרונים.",
-      "likes": ["roni", "orit", "avi", "hila", "michal", "tamar", "maya", "yossi", "inbal"],
+      "likes": ["roni", "orit", "avi", "hila", "michal", "tamar", "maya", "yossi", "inbal", "guest"],
       "comments": [
         { "key": "c-d3-1", "author": "orit", "ageHours": 605, "body": "מזל טוב! השבועות הראשונים הכי קשים, זה רק משתפר." },
         { "key": "c-d3-2", "author": "roni", "ageHours": 600, "body": "מתוקה! איך את מרגישה?" },
@@ -77,7 +78,7 @@
     {
       "key": "liat-tip-overtired", "author": "liat", "ageHours": 330, "audience": "everyone",
       "body": "טיפ שינה לשבוע: תינוק עייף מדי נרדם קשה יותר, לא קל יותר. כשמחכים ש'יתעייף מספיק' לרוב מקבלים בכי ולא שינה.\nסימנים מוקדמים לעייפות: מבט מזוגג, שפשוף עיניים, משיכה באוזן, ירידה בעניין במשחק. זה הרגע להתחיל להרגיע.",
-      "likes": ["roni", "dana", "avi", "michal", "orit", "yossi", "maya"],
+      "likes": ["roni", "dana", "avi", "michal", "orit", "yossi", "maya", "guest"],
       "comments": [
         { "key": "c-lt-1", "author": "roni", "ageHours": 320, "body": "כל כך נכון. אצלנו פספוס של רבע שעה = שעה של בכי." },
         { "key": "c-lt-2", "author": "avi", "ageHours": 310, "body": "המשיכה באוזן! חשבתי שזה משהו אחר לגמרי 😂" }
